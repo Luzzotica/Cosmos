@@ -1,0 +1,68 @@
+[gd_scene load_steps=11 format=3 uid="uid://bvxk8wn2hqtgc"]
+
+[ext_resource type="Script" path="res://scripts/structures/solar_panel.gd" id="1_solar"]
+[ext_resource type="Script" path="res://scripts/components/team_component.gd" id="2_team"]
+[ext_resource type="Script" path="res://scripts/components/health_component.gd" id="3_health"]
+[ext_resource type="Script" path="res://scripts/components/construction_component.gd" id="4_construct"]
+[ext_resource type="Script" path="res://scripts/components/power_node.gd" id="5_power_node"]
+[ext_resource type="Script" path="res://scripts/components/power_source.gd" id="6_power_source"]
+[ext_resource type="Script" path="res://scripts/components/power_generator.gd" id="7_power_gen"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_base"]
+size = Vector3(2, 0.5, 2)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_base"]
+albedo_color = Color(0.9, 0.7, 0.2, 1)
+emission_enabled = true
+emission = Color(0.5, 0.4, 0.0, 1)
+emission_energy_multiplier = 0.5
+
+[sub_resource type="BoxMesh" id="BoxMesh_panel"]
+size = Vector3(1.8, 0.1, 1.4)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_panel"]
+albedo_color = Color(0.0, 0.9, 1.0, 1)
+metallic = 0.7
+roughness = 0.2
+emission_enabled = true
+emission = Color(0.0, 0.6, 0.8, 1)
+emission_energy_multiplier = 1.5
+
+[node name="SolarPanel" type="Node3D"]
+script = ExtResource("1_solar")
+
+[node name="Base" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
+mesh = SubResource("BoxMesh_base")
+surface_material_override/0 = SubResource("StandardMaterial3D_base")
+
+[node name="Panel" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
+mesh = SubResource("BoxMesh_panel")
+surface_material_override/0 = SubResource("StandardMaterial3D_panel")
+
+[node name="TeamComponent" type="Node3D" parent="."]
+script = ExtResource("2_team")
+team = 0
+
+[node name="HealthComponent" type="Node3D" parent="."]
+script = ExtResource("3_health")
+max_health = 75.0
+health = 75.0
+
+[node name="ConstructionComponent" type="Node3D" parent="."]
+script = ExtResource("4_construct")
+construction_time = 1.0
+
+[node name="PowerNode" type="Node3D" parent="."]
+script = ExtResource("5_power_node")
+max_connections = 20
+is_enabled = false
+
+[node name="PowerSource" type="Node3D" parent="PowerNode"]
+script = ExtResource("6_power_source")
+max_storage = 100.0
+
+[node name="PowerGenerator" type="Node3D" parent="PowerNode/PowerSource"]
+script = ExtResource("7_power_gen")
+power_output = 10.0

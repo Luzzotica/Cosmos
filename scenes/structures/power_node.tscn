@@ -1,0 +1,46 @@
+[gd_scene load_steps=7 format=3 uid="uid://cwp2r8nxg4yqr"]
+
+[ext_resource type="Script" path="res://scripts/structures/power_node_structure.gd" id="1_power_node"]
+[ext_resource type="Script" path="res://scripts/components/team_component.gd" id="2_team"]
+[ext_resource type="Script" path="res://scripts/components/health_component.gd" id="3_health"]
+[ext_resource type="Script" path="res://scripts/components/construction_component.gd" id="4_construct"]
+[ext_resource type="Script" path="res://scripts/components/power_node.gd" id="5_power_node"]
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_node"]
+top_radius = 0.5
+bottom_radius = 0.7
+height = 1.0
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_node"]
+albedo_color = Color(0.2, 0.6, 1.0, 1)
+metallic = 0.8
+roughness = 0.2
+emission_enabled = true
+emission = Color(0.0, 0.5, 1.0, 1)
+emission_energy_multiplier = 2.0
+
+[node name="PowerNode" type="Node3D"]
+script = ExtResource("1_power_node")
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+mesh = SubResource("CylinderMesh_node")
+surface_material_override/0 = SubResource("StandardMaterial3D_node")
+
+[node name="TeamComponent" type="Node3D" parent="."]
+script = ExtResource("2_team")
+team = 0
+
+[node name="HealthComponent" type="Node3D" parent="."]
+script = ExtResource("3_health")
+max_health = 50.0
+health = 50.0
+
+[node name="ConstructionComponent" type="Node3D" parent="."]
+script = ExtResource("4_construct")
+construction_time = 1.0
+
+[node name="PowerNodeComp" type="Node3D" parent="."]
+script = ExtResource("5_power_node")
+max_connections = 6
+is_enabled = false

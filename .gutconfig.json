@@ -1,0 +1,12 @@
+{
+    "dirs": ["res://scripts/tests/"],
+    "should_exit": true,
+    "should_exit_on_success": false,
+    "log_level": 1,
+    "include_subdirs": true,
+    "prefix": "test_",
+    "suffix": ".gd",
+    "double_strategy": "partial",
+    "font_name": "CourierPrime",
+    "font_size": 16
+}

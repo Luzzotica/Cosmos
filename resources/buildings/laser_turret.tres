@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="BuildingData" load_steps=3 format=3 uid="uid://dqr6k8m3npwxy"]
+
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_building_data"]
+[ext_resource type="PackedScene" uid="uid://b0n8xrwg3ht1y" path="res://scenes/structures/laser_turret.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_building_data")
+id = "laser_turret"
+display_name = "Laser Turret"
+description = "Defensive structure that attacks nearby enemies."
+scene = ExtResource("2_scene")
+cost = 150
+construction_time = 1.0
+max_health = 100.0
+power_radius = 100.0
+max_connections = 1
+use_power_cost = 5.0
+power_buffer_capacity = 15.0
+action_range = 100.0
+damage = 10.0
+attack_speed = 1.0
+show_enemy_targeting = true

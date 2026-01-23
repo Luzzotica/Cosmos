@@ -1,0 +1,53 @@
+[gd_scene load_steps=9 format=3 uid="uid://dpnx7w2lqeqmx"]
+
+[ext_resource type="Script" path="res://scripts/structures/mining_station.gd" id="1_mining"]
+[ext_resource type="Script" path="res://scripts/components/team_component.gd" id="2_team"]
+[ext_resource type="Script" path="res://scripts/components/health_component.gd" id="3_health"]
+[ext_resource type="Script" path="res://scripts/components/construction_component.gd" id="4_construct"]
+[ext_resource type="Script" path="res://scripts/components/power_node.gd" id="5_power_node"]
+[ext_resource type="Script" path="res://scripts/components/power_user.gd" id="6_power_user"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_base"]
+size = Vector3(2.5, 1.5, 2.5)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_base"]
+albedo_color = Color(1.0, 0.6, 0.1, 1)
+metallic = 0.5
+roughness = 0.4
+emission_enabled = true
+emission = Color(0.8, 0.4, 0.0, 1)
+emission_energy_multiplier = 1.0
+
+[node name="MiningStation" type="Node3D"]
+script = ExtResource("1_mining")
+mining_radius = 12.5
+mining_interval = 3.0
+mine_amount = 5.0
+
+[node name="Base" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+mesh = SubResource("BoxMesh_base")
+surface_material_override/0 = SubResource("StandardMaterial3D_base")
+
+[node name="TeamComponent" type="Node3D" parent="."]
+script = ExtResource("2_team")
+team = 0
+
+[node name="HealthComponent" type="Node3D" parent="."]
+script = ExtResource("3_health")
+max_health = 100.0
+health = 100.0
+
+[node name="ConstructionComponent" type="Node3D" parent="."]
+script = ExtResource("4_construct")
+construction_time = 1.0
+
+[node name="PowerNode" type="Node3D" parent="."]
+script = ExtResource("5_power_node")
+max_connections = 1
+is_enabled = false
+
+[node name="PowerUser" type="Node3D" parent="PowerNode"]
+script = ExtResource("6_power_user")
+use_power_cost = 2.0
+power_buffer_capacity = 6.0

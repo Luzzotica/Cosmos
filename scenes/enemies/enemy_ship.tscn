@@ -1,0 +1,47 @@
+[gd_scene load_steps=7 format=3 uid="uid://cw8fyr3a6o1pd"]
+
+[ext_resource type="Script" path="res://scripts/enemies/enemy_ship.gd" id="1_enemy"]
+[ext_resource type="Script" path="res://scripts/components/team_component.gd" id="2_team"]
+[ext_resource type="Script" path="res://scripts/components/health_component.gd" id="3_health"]
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_body"]
+top_radius = 0.3
+bottom_radius = 0.8
+height = 1.5
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_body"]
+albedo_color = Color(0.8, 0.1, 0.1, 1)
+metallic = 0.7
+roughness = 0.3
+emission_enabled = true
+emission = Color(1.0, 0.0, 0.0, 1)
+emission_energy_multiplier = 1.5
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_collision"]
+radius = 0.6
+height = 1.5
+
+[node name="EnemyShip" type="CharacterBody3D"]
+script = ExtResource("1_enemy")
+speed = 10.0
+damage = 10.0
+
+[node name="Body" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0.75, 0)
+mesh = SubResource("CylinderMesh_body")
+surface_material_override/0 = SubResource("StandardMaterial3D_body")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+shape = SubResource("CapsuleShape3D_collision")
+
+[node name="TeamComponent" type="Node3D" parent="."]
+script = ExtResource("2_team")
+team = 1
+detection_range = 300.0
+attack_range = 200.0
+
+[node name="HealthComponent" type="Node3D" parent="."]
+script = ExtResource("3_health")
+max_health = 50.0
+health = 50.0

@@ -1,0 +1,27 @@
+{
+	"name": "Tutorial Map",
+	"size": [500, 500],
+	"initial_wave_delay": 45.0,
+	"wave_interval": 60.0,
+	"asteroids": [
+		{"position": [-80, 0, -50], "size": 3.5, "minerals": 40},
+		{"position": [-40, 0, -80], "size": 2.5, "minerals": 25},
+		{"position": [60, 0, -60], "size": 4.0, "minerals": 50},
+		{"position": [100, 0, -30], "size": 3.0, "minerals": 35},
+		{"position": [-100, 0, 40], "size": 3.5, "minerals": 40},
+		{"position": [-50, 0, 80], "size": 2.0, "minerals": 20},
+		{"position": [70, 0, 70], "size": 3.0, "minerals": 35},
+		{"position": [120, 0, 50], "size": 4.5, "minerals": 55}
+	],
+	"starting_structures": [
+		{"type": "solar_panel", "position": [0, 0, 0], "pre_built": true}
+	],
+	"waves": [
+		{"enemy_count": 3, "delay": 2.0, "health_mult": 1.0, "speed_mult": 1.0},
+		{"enemy_count": 5, "delay": 2.0, "health_mult": 1.1, "speed_mult": 1.0},
+		{"enemy_count": 7, "delay": 1.8, "health_mult": 1.2, "speed_mult": 1.05},
+		{"enemy_count": 10, "delay": 1.5, "health_mult": 1.4, "speed_mult": 1.1},
+		{"enemy_count": 12, "delay": 1.5, "health_mult": 1.6, "speed_mult": 1.15},
+		{"enemy_count": 15, "delay": 1.2, "health_mult": 1.8, "speed_mult": 1.2}
+	]
+}

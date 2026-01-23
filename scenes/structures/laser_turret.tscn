@@ -1,0 +1,71 @@
+[gd_scene load_steps=11 format=3 uid="uid://b0n8xrwg3ht1y"]
+
+[ext_resource type="Script" path="res://scripts/structures/laser_turret.gd" id="1_turret"]
+[ext_resource type="Script" path="res://scripts/components/team_component.gd" id="2_team"]
+[ext_resource type="Script" path="res://scripts/components/health_component.gd" id="3_health"]
+[ext_resource type="Script" path="res://scripts/components/construction_component.gd" id="4_construct"]
+[ext_resource type="Script" path="res://scripts/components/power_node.gd" id="5_power_node"]
+[ext_resource type="Script" path="res://scripts/components/power_user.gd" id="6_power_user"]
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_base"]
+top_radius = 1.0
+bottom_radius = 1.2
+height = 0.8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_base"]
+albedo_color = Color(1.0, 0.2, 0.3, 1)
+metallic = 0.6
+roughness = 0.3
+emission_enabled = true
+emission = Color(1.0, 0.1, 0.2, 1)
+emission_energy_multiplier = 1.5
+
+[sub_resource type="BoxMesh" id="BoxMesh_barrel"]
+size = Vector3(0.3, 0.3, 1.5)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_barrel"]
+albedo_color = Color(0.8, 0.8, 0.9, 1)
+metallic = 0.9
+roughness = 0.1
+emission_enabled = true
+emission = Color(0.5, 0.5, 0.6, 1)
+emission_energy_multiplier = 0.3
+
+[node name="LaserTurret" type="Node3D"]
+script = ExtResource("1_turret")
+attack_range = 100.0
+fire_rate = 1.0
+damage = 10.0
+
+[node name="TurretBase" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
+mesh = SubResource("CylinderMesh_base")
+surface_material_override/0 = SubResource("StandardMaterial3D_base")
+
+[node name="TurretBarrel" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0.5)
+mesh = SubResource("BoxMesh_barrel")
+surface_material_override/0 = SubResource("StandardMaterial3D_barrel")
+
+[node name="TeamComponent" type="Node3D" parent="."]
+script = ExtResource("2_team")
+team = 0
+
+[node name="HealthComponent" type="Node3D" parent="."]
+script = ExtResource("3_health")
+max_health = 100.0
+health = 100.0
+
+[node name="ConstructionComponent" type="Node3D" parent="."]
+script = ExtResource("4_construct")
+construction_time = 1.0
+
+[node name="PowerNode" type="Node3D" parent="."]
+script = ExtResource("5_power_node")
+max_connections = 1
+is_enabled = false
+
+[node name="PowerUser" type="Node3D" parent="PowerNode"]
+script = ExtResource("6_power_user")
+use_power_cost = 5.0
+power_buffer_capacity = 15.0
