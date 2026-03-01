@@ -1,8 +1,10 @@
-[gd_scene load_steps=7 format=3 uid="uid://cw8fyr3a6o1pd"]
+[gd_scene load_steps=10 format=3 uid="uid://cw8fyr3a6o1pd"]
 
 [ext_resource type="Script" path="res://scripts/enemies/enemy_ship.gd" id="1_enemy"]
 [ext_resource type="Script" path="res://scripts/components/team_component.gd" id="2_team"]
 [ext_resource type="Script" path="res://scripts/components/health_component.gd" id="3_health"]
+[ext_resource type="Script" path="res://scripts/components/selectable_component.gd" id="4_selectable"]
+[ext_resource type="Script" path="res://scripts/components/selection_visuals.gd" id="5_selection_visuals"]
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_body"]
 top_radius = 0.3
@@ -20,6 +22,9 @@ emission_energy_multiplier = 1.5
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_collision"]
 radius = 0.6
 height = 1.5
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_input"]
+radius = 1.2
 
 [node name="EnemyShip" type="CharacterBody3D"]
 script = ExtResource("1_enemy")
@@ -45,3 +50,18 @@ attack_range = 200.0
 script = ExtResource("3_health")
 max_health = 50.0
 health = 50.0
+
+[node name="Area3D" type="Area3D" parent="."]
+input_ray_pickable = true
+monitorable = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Area3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+shape = SubResource("SphereShape3D_input")
+
+[node name="SelectableComponent" type="Node" parent="."]
+script = ExtResource("4_selectable")
+selection_kind = "enemy"
+
+[node name="SelectionVisuals" type="Node3D" parent="."]
+script = ExtResource("5_selection_visuals")

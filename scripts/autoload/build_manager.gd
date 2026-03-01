@@ -34,29 +34,67 @@ const MINING_RANGE: float = 12.5  # Should match MiningStation default
 # Building data cache
 var _building_data: Dictionary = {}
 
+# Cooldown after placing to prevent auto-selection
+var _placement_cooldown: float = 0.0
+const PLACEMENT_COOLDOWN_DURATION: float = 0.2
+
 
 func _ready() -> void:
 	_load_building_data()
 	set_process_input(true)
+	set_process(true)
+
+
+func _process(delta: float) -> void:
+	if _placement_cooldown > 0:
+		_placement_cooldown -= delta
+
+
+var _last_mouse_world_position: Vector3 = Vector3.ZERO
+var _is_consuming_release: bool = false
 
 
 func _input(event: InputEvent) -> void:
-	if current_state == BuildState.IDLE:
-		return
-	
-	# Update preview position on mouse move
+	# Always track mouse position for hotkey placement
 	if event is InputEventMouseMotion:
 		var camera: Camera3D = get_viewport().get_camera_3d()
 		if camera and camera.has_method("get_mouse_world_position"):
-			var world_pos: Vector3 = camera.get_mouse_world_position()
-			update_placement_preview(world_pos)
+			_last_mouse_world_position = camera.get_mouse_world_position()
+			# Update preview if in build mode
+			if current_state != BuildState.IDLE:
+				update_placement_preview(_last_mouse_world_position)
+		return
 	
-	# Confirm placement on left click
+	# Debug: Log mouse clicks
+	if event is InputEventMouseButton:
+		var me: InputEventMouseButton = event as InputEventMouseButton
+		if me.button_index == MOUSE_BUTTON_LEFT:
+			print("[DEBUG] BuildManager saw LEFT click, pressed=", me.pressed, " state=", current_state, " consuming_release=", _is_consuming_release)
+			if not me.pressed and _is_consuming_release:
+				print("[DEBUG] BuildManager CONSUMING release event")
+				_is_consuming_release = false
+				get_viewport().set_input_as_handled()
+				return
+	
+	if current_state == BuildState.IDLE:
+		return
+	
+	# Escape to cancel placement
+	if event is InputEventKey:
+		var key_event: InputEventKey = event as InputEventKey
+		if key_event.pressed and key_event.keycode == KEY_ESCAPE:
+			cancel_placement()
+			get_viewport().set_input_as_handled()
+			return
+	
+	# Confirm placement on left click, cancel on right click
 	if event is InputEventMouseButton:
 		var mouse_event: InputEventMouseButton = event as InputEventMouseButton
 		if mouse_event.pressed:
 			if mouse_event.button_index == MOUSE_BUTTON_LEFT:
+				print("[DEBUG] BuildManager confirming placement")
 				confirm_placement()
+				_is_consuming_release = true
 				get_viewport().set_input_as_handled()
 			elif mouse_event.button_index == MOUSE_BUTTON_RIGHT:
 				cancel_placement()
@@ -104,10 +142,24 @@ func start_building(building_type: String, position: Vector3 = Vector3.ZERO) -> 
 	
 	_dragging_building_type = building_type
 	current_state = BuildState.DRAGGING
-	_drag_position = position
+	
+	# Use provided position, or last known mouse position, or try to get current mouse position
+	if position != Vector3.ZERO:
+		_drag_position = position
+	elif _last_mouse_world_position != Vector3.ZERO:
+		_drag_position = _last_mouse_world_position
+	else:
+		var camera: Camera3D = get_viewport().get_camera_3d()
+		if camera and camera.has_method("get_mouse_world_position"):
+			_drag_position = camera.get_mouse_world_position()
+		else:
+			_drag_position = Vector3.ZERO
 	
 	# Create placement preview
 	_create_placement_preview(building_type)
+	
+	# Immediately update preview to mouse position
+	update_placement_preview(_drag_position)
 	
 	build_started.emit(building_type)
 
@@ -159,6 +211,9 @@ func confirm_placement() -> void:
 	
 	# Place the building
 	_place_building(_dragging_building_type, _drag_position)
+	
+	# Start cooldown to prevent auto-selection
+	_placement_cooldown = PLACEMENT_COOLDOWN_DURATION
 	
 	build_completed.emit(_dragging_building_type, _drag_position)
 	_reset_build_state()
@@ -486,9 +541,9 @@ func _create_asteroid_highlight_at(asteroid_node: Node3D) -> MeshInstance3D:
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	highlight.material_override = material
 	
-	# Position at asteroid location on the ground plane
+	# Store position for after adding to tree
 	var pos: Vector3 = asteroid_node.global_position
-	highlight.global_position = Vector3(pos.x, 0.3, pos.z)
+	highlight.position = Vector3(pos.x, 0.3, pos.z)
 	
 	return highlight
 
@@ -546,7 +601,7 @@ func _place_building(building_type: String, position: Vector3) -> void:
 	
 	var building: Node3D = data.scene.instantiate() as Node3D
 	if building:
-		building.global_position = position
+		# Add to tree first, then set global_position
 		var main: Node = get_tree().root.get_node_or_null("Main")
 		if main:
 			var structures_parent: Node = main.get_node_or_null("Structures")
@@ -556,12 +611,29 @@ func _place_building(building_type: String, position: Vector3) -> void:
 				main.add_child(building)
 		else:
 			get_tree().root.add_child(building)
+		
+		# Now safe to set global_position
+		building.global_position = position
 
 
 ## Internal: Reset build state
 func _reset_build_state() -> void:
+	print("[DEBUG] Resetting build state from ", current_state, " to IDLE")
 	current_state = BuildState.IDLE
 	_dragging_building_type = ""
 	_drag_position = Vector3.ZERO
 	_is_placement_valid = false
 	_destroy_placement_preview()
+
+
+## Check if currently in build mode
+func is_building() -> bool:
+	return current_state != BuildState.IDLE
+
+## Check if selection (clicking) should be blocked
+func is_selection_blocked() -> bool:
+	return current_state != BuildState.IDLE or _placement_cooldown > 0
+
+## Check if hover should be blocked (only while actually building)
+func is_hover_blocked() -> bool:
+	return current_state != BuildState.IDLE

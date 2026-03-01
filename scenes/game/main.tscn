@@ -1,9 +1,10 @@
-[gd_scene load_steps=9 format=3 uid="uid://dkwt3h8ycvvqm"]
+[gd_scene load_steps=10 format=3 uid="uid://dkwt3h8ycvvqm"]
 
 [ext_resource type="Script" path="res://scripts/camera/rts_camera.gd" id="1_camera"]
 [ext_resource type="Script" path="res://scripts/game/main_game.gd" id="2_main"]
 [ext_resource type="PackedScene" uid="uid://c5yh8m2qxr4wv" path="res://scenes/ui/game_hud.tscn" id="3_hud"]
 [ext_resource type="PackedScene" uid="uid://bxg4k2m8qr5tn" path="res://scenes/ui/game_over_screen.tscn" id="4_gameover"]
+[ext_resource type="PackedScene" uid="uid://dpxs3m2yh8v4w" path="res://scenes/ui/selection_panel.tscn" id="5_selection"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_space"]
 sky_top_color = Color(0.02, 0.02, 0.05, 1)
@@ -68,3 +69,5 @@ surface_material_override/0 = SubResource("StandardMaterial3D_ground")
 [node name="GameHUD" parent="UI" instance=ExtResource("3_hud")]
 
 [node name="GameOverScreen" parent="UI" instance=ExtResource("4_gameover")]
+
+[node name="SelectionPanel" parent="UI" instance=ExtResource("5_selection")]

@@ -11,6 +11,10 @@ var _structure_count: int = 0
 
 
 func _ready() -> void:
+	# Enable physics object picking for 3D mouse input events
+	get_viewport().physics_object_picking = true
+	print("[DEBUG] Physics object picking enabled: ", get_viewport().physics_object_picking)
+	
 	# Load default map or wait for map to be specified
 	_setup_default_game()
 

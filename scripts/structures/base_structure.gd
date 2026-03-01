@@ -12,6 +12,7 @@ var construction_component: ConstructionComponent
 var power_node: PowerNode
 
 var is_destroyed: bool = false
+var selectable_component: Node
 
 # Build animation
 var _original_materials: Array[StandardMaterial3D] = []
@@ -20,11 +21,13 @@ var _build_progress_ring: MeshInstance3D = null
 const BUILD_START_SCALE: float = 0.3
 const BUILD_TRANSPARENCY: float = 0.5
 
-
 func _ready() -> void:
+	print("[DEBUG] BaseStructure _ready called for: ", name)
+	selectable_component = get_node_or_null("SelectableComponent")
 	_setup_components()
 	_connect_signals()
 	_setup_build_animation()
+	print("[DEBUG] BaseStructure initialization complete for: ", name, " - has Area3D: ", has_node("Area3D"))
 
 
 func _setup_components() -> void:
@@ -111,7 +114,7 @@ func _create_build_progress_ring() -> void:
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_build_progress_ring.material_override = material
 	
-	_build_progress_ring.rotation_degrees.x = 90  # Flat on plane
+	# Torus is already flat on XZ plane, no rotation needed
 	_build_progress_ring.position.y = 0.1
 	_build_progress_ring.visible = false
 	add_child(_build_progress_ring)
@@ -119,6 +122,8 @@ func _create_build_progress_ring() -> void:
 
 func _process(delta: float) -> void:
 	_update_build_animation(delta)
+	if selectable_component and selectable_component.is_selected():
+		selectable_component.notify_details_changed()
 
 
 func _update_build_animation(_delta: float) -> void:
@@ -158,6 +163,8 @@ func _on_construction_completed() -> void:
 	scale = Vector3.ONE
 	if _build_progress_ring:
 		_build_progress_ring.visible = false
+	if selectable_component:
+		selectable_component.notify_details_changed()
 
 
 func _restore_materials() -> void:
@@ -201,3 +208,88 @@ func set_starter_panel(is_starter: bool) -> void:
 			power_node.is_enabled = true
 		# Immediately finalize the build animation (restore materials, full scale)
 		_on_construction_completed()
+
+
+## Handle mouse input for selection
+func _on_input_event(_camera: Node, _event: InputEvent, _position: Vector3, _normal: Vector3, _shape_idx: int) -> void:
+	pass
+
+
+## Called when mouse enters the structure
+func _on_mouse_entered() -> void:
+	pass
+
+
+## Called when mouse exits the structure
+func _on_mouse_exited() -> void:
+	pass
+
+
+## Called when selection changes
+func _on_selection_changed(_entity: Node3D, _entity_type: String) -> void:
+	pass
+
+
+## Called when selection is cleared
+func _on_selection_cleared() -> void:
+	pass
+
+
+## Update visual feedback based on selection/hover state
+func _update_visual_feedback() -> void:
+	pass
+
+
+## Called when this entity is deselected
+func on_deselected() -> void:
+	pass
+
+
+func get_selection_name() -> String:
+	if building_type != "":
+		return building_type.replace("_", " ").capitalize()
+	return name.replace("_", " ").capitalize()
+
+
+func get_selection_details() -> Dictionary:
+	var details: Dictionary = {
+		"name": get_selection_name(),
+		"category": "structure",
+		"faction": get_team(),
+		"building_type": building_type,
+		"is_built": is_built(),
+		"stats": []
+	}
+
+	if health_component:
+		details["health_current"] = health_component.health
+		details["health_max"] = health_component.max_health
+
+	if construction_component and not construction_component.is_built:
+		details["build_progress"] = construction_component.get_progress() * 100.0
+
+	if power_node:
+		details["is_powered"] = power_node.is_enabled
+		details["connection_count"] = power_node.connected_nodes.size()
+
+	var stats: Array[Dictionary] = []
+	stats.append({"label": "Type", "value": building_type.replace("_", " ").capitalize()})
+	stats.append({"label": "Status", "value": "Operational" if details.is_built else "Building %.0f%%" % details.get("build_progress", 0.0)})
+	if details.has("is_powered"):
+		stats.append({"label": "Power", "value": "Connected" if details.is_powered else "Disconnected"})
+	if details.has("connection_count"):
+		stats.append({"label": "Connections", "value": str(details.connection_count)})
+
+	if get("attack_range") != null:
+		stats.append({"label": "Range", "value": "%.0f" % float(get("attack_range"))})
+	if get("fire_rate") != null:
+		stats.append({"label": "Fire Rate", "value": "%.1f/s" % float(get("fire_rate"))})
+	if get("damage") != null:
+		stats.append({"label": "Damage", "value": "%.0f" % float(get("damage"))})
+	if get("mining_radius") != null:
+		stats.append({"label": "Mining Radius", "value": "%.1f" % float(get("mining_radius"))})
+	if get("mine_amount") != null:
+		stats.append({"label": "Mine Amount", "value": "%.0f" % float(get("mine_amount"))})
+
+	details["stats"] = stats
+	return details

@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://b0n8xrwg3ht1y"]
+[gd_scene load_steps=14 format=3 uid="uid://b0n8xrwg3ht1y"]
 
 [ext_resource type="Script" path="res://scripts/structures/laser_turret.gd" id="1_turret"]
 [ext_resource type="Script" path="res://scripts/components/team_component.gd" id="2_team"]
@@ -6,6 +6,8 @@
 [ext_resource type="Script" path="res://scripts/components/construction_component.gd" id="4_construct"]
 [ext_resource type="Script" path="res://scripts/components/power_node.gd" id="5_power_node"]
 [ext_resource type="Script" path="res://scripts/components/power_user.gd" id="6_power_user"]
+[ext_resource type="Script" path="res://scripts/components/selectable_component.gd" id="7_selectable"]
+[ext_resource type="Script" path="res://scripts/components/selection_visuals.gd" id="8_selection_visuals"]
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_base"]
 top_radius = 1.0
@@ -31,8 +33,12 @@ emission_enabled = true
 emission = Color(0.5, 0.5, 0.6, 1)
 emission_energy_multiplier = 0.3
 
+[sub_resource type="SphereShape3D" id="SphereShape3D_collision"]
+radius = 1.5
+
 [node name="LaserTurret" type="Node3D"]
 script = ExtResource("1_turret")
+building_type = "laser_turret"
 attack_range = 100.0
 fire_rate = 1.0
 damage = 10.0
@@ -69,3 +75,18 @@ is_enabled = false
 script = ExtResource("6_power_user")
 use_power_cost = 5.0
 power_buffer_capacity = 15.0
+
+[node name="Area3D" type="Area3D" parent="."]
+input_ray_pickable = true
+monitorable = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Area3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+shape = SubResource("SphereShape3D_collision")
+
+[node name="SelectableComponent" type="Node" parent="."]
+script = ExtResource("7_selectable")
+selection_kind = "structure"
+
+[node name="SelectionVisuals" type="Node3D" parent="."]
+script = ExtResource("8_selection_visuals")

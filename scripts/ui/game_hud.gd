@@ -4,6 +4,10 @@ class_name GameHUD
 
 signal build_button_pressed(building_type: String)
 
+# Hotkeys for building (Q, E, R, T, Y, U)
+const BUILD_HOTKEYS: Array[int] = [KEY_Q, KEY_E, KEY_R, KEY_T, KEY_Y, KEY_U]
+const HOTKEY_LABELS: Array[String] = ["Q", "E", "R", "T", "Y", "U"]
+
 @onready var minerals_label: Label = $Margin/VBox/TopBar/ResourcesPanel/MarginContainer/VBoxContainer/MineralsLabel
 @onready var energy_label: Label = $Margin/VBox/TopBar/ResourcesPanel/MarginContainer/VBoxContainer/EnergyLabel
 @onready var wave_label: Label = $Margin/VBox/TopBar/WavePanel/MarginContainer/VBoxContainer/WaveLabel
@@ -11,12 +15,26 @@ signal build_button_pressed(building_type: String)
 @onready var build_panel: PanelContainer = $Margin/VBox/BottomBar/BuildPanel
 @onready var build_buttons_container: HBoxContainer = $Margin/VBox/BottomBar/BuildPanel/MarginContainer/BuildButtons
 
+var _building_types: Array[String] = []
+
 
 func _ready() -> void:
 	_connect_signals()
 	_setup_build_buttons()
 	_update_resources()
 	_update_wave_info()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	# Handle build hotkeys
+	if event is InputEventKey:
+		var key_event: InputEventKey = event as InputEventKey
+		if key_event.pressed and not key_event.echo:
+			for i in range(mini(BUILD_HOTKEYS.size(), _building_types.size())):
+				if key_event.keycode == BUILD_HOTKEYS[i]:
+					_on_build_button_pressed(_building_types[i])
+					get_viewport().set_input_as_handled()
+					break
 
 
 func _process(_delta: float) -> void:
@@ -32,13 +50,20 @@ func _connect_signals() -> void:
 
 func _setup_build_buttons() -> void:
 	# Get building types from BuildManager
-	var building_types: Array[String] = ["solar_panel", "power_node", "mining_station", "laser_turret"]
+	_building_types = ["solar_panel", "power_node", "mining_station", "laser_turret"]
 	
-	for building_type in building_types:
+	for i in range(_building_types.size()):
+		var building_type: String = _building_types[i]
 		var button: Button = Button.new()
-		button.custom_minimum_size = Vector2(180, 80)
-		button.text = _format_building_name(building_type)
-		button.add_theme_font_size_override("font_size", 28)
+		button.custom_minimum_size = Vector2(200, 80)
+		
+		# Add hotkey label if available
+		var hotkey_text: String = ""
+		if i < HOTKEY_LABELS.size():
+			hotkey_text = " (%s)" % HOTKEY_LABELS[i]
+		
+		button.text = _format_building_name(building_type) + hotkey_text
+		button.add_theme_font_size_override("font_size", 24)
 		button.pressed.connect(_on_build_button_pressed.bind(building_type))
 		build_buttons_container.add_child(button)
 

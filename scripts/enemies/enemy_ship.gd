@@ -30,9 +30,11 @@ var _retarget_timer: float = 0.0
 var _steering_force: Vector3 = Vector3.ZERO
 
 var is_destroyed: bool = false
+var selectable_component: Node
 
 
 func _ready() -> void:
+	selectable_component = get_node_or_null("SelectableComponent")
 	_setup_components()
 	_find_nearest_target()
 
@@ -44,8 +46,7 @@ func _setup_components() -> void:
 			health_component.destroyed.connect(_on_destroyed)
 		elif child is TeamComponent:
 			team_component = child
-
-
+	
 func _physics_process(delta: float) -> void:
 	if is_destroyed:
 		return
@@ -88,6 +89,9 @@ func _physics_process(delta: float) -> void:
 		if look_direction.length() > 0.01:
 			var target_rotation: float = atan2(look_direction.x, look_direction.z)
 			rotation.y = lerp_angle(rotation.y, target_rotation, delta * 5.0)
+	
+	if selectable_component and selectable_component.is_selected():
+		selectable_component.notify_details_changed()
 
 
 func _update_target() -> void:
@@ -268,3 +272,63 @@ func set_stats(new_health: float, new_speed: float) -> void:
 func take_damage(amount: float) -> void:
 	if health_component:
 		health_component.take_damage(amount)
+
+
+## Handle mouse input for selection
+func _on_input_event(_camera: Node, _event: InputEvent, _position: Vector3, _normal: Vector3, _shape_idx: int) -> void:
+	pass
+
+
+func _on_mouse_entered() -> void:
+	pass
+
+
+func _on_mouse_exited() -> void:
+	pass
+
+
+func _on_selection_changed(_entity: Node3D, _entity_type: String) -> void:
+	pass
+
+
+func _on_selection_cleared() -> void:
+	pass
+
+
+func _update_visual_feedback() -> void:
+	pass
+
+
+## Called when this entity is deselected
+func on_deselected() -> void:
+	pass
+
+
+func get_selection_name() -> String:
+	return "Enemy Ship"
+
+
+func get_selection_details() -> Dictionary:
+	var faction: String = "enemy"
+	if team_component:
+		faction = team_component.get_team_string()
+
+	var details: Dictionary = {
+		"name": get_selection_name(),
+		"category": "enemy",
+		"faction": faction,
+		"damage": damage,
+		"speed": speed,
+		"weakness": "Laser",
+		"stats": [
+			{"label": "Damage", "value": "%.0f" % damage},
+			{"label": "Speed", "value": "%.1f" % speed},
+			{"label": "Weakness", "value": "Laser"}
+		]
+	}
+
+	if health_component:
+		details["health_current"] = health_component.health
+		details["health_max"] = health_component.max_health
+
+	return details

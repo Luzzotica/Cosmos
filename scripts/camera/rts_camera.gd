@@ -30,8 +30,13 @@ var _is_dragging: bool = false
 var _drag_start_mouse_pos: Vector2
 var _drag_start_look_at: Vector3
 
+# Debug sphere to show mouse position
+var _debug_sphere: MeshInstance3D = null
+@export var show_debug_sphere: bool = true
+
 
 func _ready() -> void:
+	_create_debug_sphere()
 	# Initialize from current position - calculate look-at point
 	var pitch_rad: float = deg_to_rad(camera_pitch)
 	_target_zoom = global_position.y / sin(pitch_rad) if sin(pitch_rad) > 0.01 else 50.0
@@ -43,6 +48,7 @@ func _process(delta: float) -> void:
 	_handle_keyboard_panning(delta)
 	_smooth_movement(delta)
 	_clamp_to_bounds()
+	_update_debug_sphere()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -231,3 +237,33 @@ func _update_camera_position_immediate() -> void:
 	rotation.x = -pitch_rad
 	rotation.y = 0
 	rotation.z = 0
+
+
+func _create_debug_sphere() -> void:
+	_debug_sphere = MeshInstance3D.new()
+	var sphere: SphereMesh = SphereMesh.new()
+	sphere.radius = 0.5
+	sphere.height = 1.0
+	_debug_sphere.mesh = sphere
+	
+	var material: StandardMaterial3D = StandardMaterial3D.new()
+	material.albedo_color = Color(1.0, 0.0, 1.0, 0.8)  # Magenta
+	material.emission_enabled = true
+	material.emission = Color(1.0, 0.0, 1.0)
+	material.emission_energy_multiplier = 3.0
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_debug_sphere.material_override = material
+	
+	# Add to scene root so it's not affected by camera movement
+	_debug_sphere.visible = show_debug_sphere
+	get_tree().root.call_deferred("add_child", _debug_sphere)
+
+
+func _update_debug_sphere() -> void:
+	if not _debug_sphere or not show_debug_sphere:
+		return
+	
+	var world_pos: Vector3 = get_mouse_world_position()
+	_debug_sphere.global_position = Vector3(world_pos.x, 0.5, world_pos.z)
+	_debug_sphere.visible = true

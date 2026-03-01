@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3 uid="uid://dpnx7w2lqeqmx"]
+[gd_scene load_steps=12 format=3 uid="uid://dpnx7w2lqeqmx"]
 
 [ext_resource type="Script" path="res://scripts/structures/mining_station.gd" id="1_mining"]
 [ext_resource type="Script" path="res://scripts/components/team_component.gd" id="2_team"]
@@ -6,6 +6,8 @@
 [ext_resource type="Script" path="res://scripts/components/construction_component.gd" id="4_construct"]
 [ext_resource type="Script" path="res://scripts/components/power_node.gd" id="5_power_node"]
 [ext_resource type="Script" path="res://scripts/components/power_user.gd" id="6_power_user"]
+[ext_resource type="Script" path="res://scripts/components/selectable_component.gd" id="7_selectable"]
+[ext_resource type="Script" path="res://scripts/components/selection_visuals.gd" id="8_selection_visuals"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_base"]
 size = Vector3(2.5, 1.5, 2.5)
@@ -18,8 +20,12 @@ emission_enabled = true
 emission = Color(0.8, 0.4, 0.0, 1)
 emission_energy_multiplier = 1.0
 
+[sub_resource type="SphereShape3D" id="SphereShape3D_collision"]
+radius = 2.0
+
 [node name="MiningStation" type="Node3D"]
 script = ExtResource("1_mining")
+building_type = "mining_station"
 mining_radius = 12.5
 mining_interval = 3.0
 mine_amount = 5.0
@@ -51,3 +57,18 @@ is_enabled = false
 script = ExtResource("6_power_user")
 use_power_cost = 2.0
 power_buffer_capacity = 6.0
+
+[node name="Area3D" type="Area3D" parent="."]
+input_ray_pickable = true
+monitorable = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Area3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+shape = SubResource("SphereShape3D_collision")
+
+[node name="SelectableComponent" type="Node" parent="."]
+script = ExtResource("7_selectable")
+selection_kind = "structure"
+
+[node name="SelectionVisuals" type="Node3D" parent="."]
+script = ExtResource("8_selection_visuals")

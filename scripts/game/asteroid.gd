@@ -4,6 +4,7 @@ class_name Asteroid
 
 signal minerals_changed(remaining: float, total: float)
 signal depleted
+signal destroyed  # For selection tracking
 
 const MIN_SIZE: float = 2.0
 const MAX_SIZE: float = 4.0
@@ -17,6 +18,7 @@ const MINERAL_DENSITY: float = 10.0  # Minerals per size unit
 var total_minerals: float
 var remaining_minerals: float
 var is_depleted: bool = false
+var selectable_component: Node
 
 # Mining impact visual
 var _impact_ring: MeshInstance3D = null
@@ -24,19 +26,28 @@ var _impact_timer: float = 0.0
 const IMPACT_DURATION: float = 0.4
 
 @onready var mesh_instance: MeshInstance3D = $MeshInstance3D
-@onready var collision_shape: CollisionShape3D = $StaticBody3D/CollisionShape3D
+@onready var collision_shape: CollisionShape3D = $Area3D/CollisionShape3D
+@onready var area_3d: Area3D = $Area3D
 
 
 func _ready() -> void:
+	selectable_component = get_node_or_null("SelectableComponent")
 	total_minerals = asteroid_size * MINERAL_DENSITY
 	remaining_minerals = total_minerals
 	_create_unique_material()
 	_create_impact_ring()
+	_connect_signals()
 	_update_visuals()
+
+
+func _connect_signals() -> void:
+	pass
 
 
 func _process(delta: float) -> void:
 	_update_impact_effect(delta)
+	if selectable_component and selectable_component.is_selected():
+		selectable_component.notify_details_changed()
 
 
 func _create_unique_material() -> void:
@@ -72,7 +83,7 @@ func _create_impact_ring() -> void:
 	_impact_ring.material_override = material
 	
 	# Rotate to be flat on the plane
-	_impact_ring.rotation_degrees.x = 90
+	# Torus is already flat on XZ plane, no rotation needed
 	_impact_ring.visible = false
 	add_child(_impact_ring)
 
@@ -171,6 +182,8 @@ func mine_minerals(amount: int) -> int:
 	if remaining_minerals <= 0:
 		is_depleted = true
 		depleted.emit()
+		if selectable_component:
+			selectable_component.notify_details_changed()
 	
 	return actual_amount
 
@@ -216,3 +229,58 @@ static func create_random(pos: Vector3) -> Asteroid:
 		asteroid.asteroid_size = randf_range(MIN_SIZE, MAX_SIZE)
 	
 	return asteroid
+
+
+## Handle mouse input for selection
+func _on_input_event(_camera: Node, _event: InputEvent, _position: Vector3, _normal: Vector3, _shape_idx: int) -> void:
+	pass
+
+
+func _on_mouse_entered() -> void:
+	pass
+
+
+func _on_mouse_exited() -> void:
+	pass
+
+
+func _on_selection_changed(_entity: Node3D, _entity_type: String) -> void:
+	pass
+
+
+func _on_selection_cleared() -> void:
+	pass
+
+
+func _update_visual_feedback() -> void:
+	pass
+
+
+## Called when this entity is deselected
+func on_deselected() -> void:
+	pass
+
+
+func get_selection_name() -> String:
+	return "Asteroid"
+
+
+func get_selection_details() -> Dictionary:
+	return {
+		"name": get_selection_name(),
+		"category": "asteroid",
+		"faction": "neutral",
+		"size": asteroid_size,
+		"is_depleted": is_depleted,
+		"resource_current": remaining_minerals,
+		"resource_max": total_minerals,
+		"stats": [
+			{"label": "Size", "value": "%.1f" % asteroid_size},
+			{"label": "Status", "value": "Depleted" if is_depleted else "Mineable"}
+		]
+	}
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE:
+		destroyed.emit()
