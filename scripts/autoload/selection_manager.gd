@@ -19,6 +19,7 @@ var selected_type: EntityType = EntityType.NONE
 var selected_selectable: Node = null
 var selected_entities: Array[Node3D] = []
 var selected_selectables: Array = []
+var _registered_selectables: Array = []
 var _legacy_selected_entity: Node3D = null
 var _hovered_selectable: Node = null
 
@@ -33,12 +34,17 @@ func _process(_delta: float) -> void:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
-		var debug_mouse: InputEventMouseButton = event as InputEventMouseButton
-		if debug_mouse.pressed and debug_mouse.button_index == MOUSE_BUTTON_LEFT:
+		var select_mouse: InputEventMouseButton = event as InputEventMouseButton
+		if select_mouse.pressed and select_mouse.button_index == MOUSE_BUTTON_LEFT:
 			if not BuildManager.is_selection_blocked():
-				var selectable: Node = _raycast_selectable_at_mouse(debug_mouse.position)
+				var selectable: Node = _raycast_selectable_at_mouse(select_mouse.position)
 				if selectable:
 					select_selectable(selectable)
+					get_viewport().set_input_as_handled()
+					return
+				# Explicit empty-world deselect: if click hits no world collider, clear selection.
+				if _raycast_collider_at_mouse(select_mouse.position) == null:
+					clear_selection()
 					get_viewport().set_input_as_handled()
 					return
 
@@ -77,6 +83,31 @@ func select(entity: Node3D) -> void:
 
 	# Temporary compatibility path for legacy entities still on old system.
 	_select_legacy_entity(entity)
+
+
+func register_selectable(selectable: Node) -> void:
+	if selectable == null or not is_instance_valid(selectable):
+		return
+	if _registered_selectables.has(selectable):
+		return
+
+	_registered_selectables.append(selectable)
+	_connect_selectable(selectable)
+
+	if selectable.has_signal("input_event") and not selectable.is_connected("input_event", _on_selectable_input_event):
+		selectable.input_event.connect(_on_selectable_input_event.bind(selectable))
+	if selectable.has_signal("mouse_entered") and not selectable.is_connected("mouse_entered", _on_selectable_mouse_entered):
+		selectable.mouse_entered.connect(_on_selectable_mouse_entered.bind(selectable))
+	if selectable.has_signal("mouse_exited") and not selectable.is_connected("mouse_exited", _on_selectable_mouse_exited):
+		selectable.mouse_exited.connect(_on_selectable_mouse_exited.bind(selectable))
+
+
+func unregister_selectable(selectable: Node) -> void:
+	if selectable == null:
+		return
+	_registered_selectables.erase(selectable)
+	if selected_selectable == selectable:
+		clear_selection()
 
 
 ## Select using a SelectableComponent contract
@@ -337,7 +368,36 @@ func _on_selectable_selection_requested(selectable: Node) -> void:
 	select_selectable(selectable)
 
 
+func _on_selectable_input_event(_camera: Node, event: InputEvent, _position: Vector3, _normal: Vector3, _shape_idx: int, selectable: Node) -> void:
+	if selectable == null or not is_instance_valid(selectable):
+		return
+	if not selectable.is_selectable:
+		return
+	if event is InputEventMouseButton:
+		var mouse_event: InputEventMouseButton = event as InputEventMouseButton
+		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
+			if BuildManager.is_selection_blocked():
+				return
+			select_selectable(selectable)
+			get_viewport().set_input_as_handled()
+
+
+func _on_selectable_mouse_entered(selectable: Node) -> void:
+	if selectable == null or not is_instance_valid(selectable):
+		return
+	if selectable.has_method("handle_mouse_entered"):
+		selectable.handle_mouse_entered()
+
+
+func _on_selectable_mouse_exited(selectable: Node) -> void:
+	if selectable == null or not is_instance_valid(selectable):
+		return
+	if selectable.has_method("handle_mouse_exited"):
+		selectable.handle_mouse_exited()
+
+
 func _on_selectable_destroyed(selectable: Node) -> void:
+	unregister_selectable(selectable)
 	if selected_selectable == selectable:
 		clear_selection()
 
@@ -353,12 +413,10 @@ func _update_hover_from_raycast() -> void:
 	if BuildManager.is_hover_blocked():
 		_set_hovered_selectable(null)
 		return
-
 	var viewport: Viewport = get_viewport()
 	if viewport == null:
 		_set_hovered_selectable(null)
 		return
-
 	var selectable: Node = _raycast_selectable_at_mouse(viewport.get_mouse_position())
 	_set_hovered_selectable(selectable)
 
@@ -376,6 +434,13 @@ func _set_hovered_selectable(selectable: Node) -> void:
 
 
 func _raycast_selectable_at_mouse(mouse_pos: Vector2) -> Node:
+	var collider: Node = _raycast_collider_at_mouse(mouse_pos)
+	if collider == null:
+		return null
+	return _resolve_selectable_from_node(collider)
+
+
+func _raycast_collider_at_mouse(mouse_pos: Vector2) -> Node:
 	var viewport: Viewport = get_viewport()
 	if viewport == null:
 		return null
@@ -395,14 +460,14 @@ func _raycast_selectable_at_mouse(mouse_pos: Vector2) -> Node:
 	var collider: Variant = result.get("collider")
 	if not (collider is Node):
 		return null
-	return _find_selectable_for_node(collider as Node)
+	return collider as Node
 
 
-func _find_selectable_for_node(start_node: Node) -> Node:
-	var current: Node = start_node
+func _resolve_selectable_from_node(node: Node) -> Node:
+	var current: Node = node
 	while current != null:
-		if current.has_node("SelectableComponent"):
-			return current.get_node("SelectableComponent")
+		if current.name == "SelectableComponent" and current.has_method("set_selected"):
+			return current
 		current = current.get_parent()
 	return null
 
@@ -494,3 +559,5 @@ func _get_legacy_entity_info(entity: Node3D) -> Dictionary:
 		EntityType.ASTEROID:
 			info.merge(_get_asteroid_info(entity))
 	return info
+
+

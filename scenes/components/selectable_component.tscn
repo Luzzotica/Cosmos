@@ -1,6 +1,13 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3 uid="uid://r1vhglyeysme"]
 
-[ext_resource type="Script" path="res://scripts/components/selectable_component.gd" id="1_selectable"]
+[ext_resource type="Script" uid="uid://bgsj22r2hy2c8" path="res://scripts/components/selectable_component.gd" id="1_selectable"]
 
-[node name="SelectableComponent" type="Node"]
+[sub_resource type="SphereShape3D" id="SphereShape3D_default"]
+radius = 1.0
+
+[node name="SelectableComponent" type="Area3D"]
+monitoring = false
 script = ExtResource("1_selectable")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("SphereShape3D_default")

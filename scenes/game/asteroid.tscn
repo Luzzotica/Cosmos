@@ -1,8 +1,8 @@
 [gd_scene load_steps=6 format=3 uid="uid://dh7x4qf6a2wcg"]
 
 [ext_resource type="Script" path="res://scripts/game/asteroid.gd" id="1_asteroid"]
-[ext_resource type="Script" path="res://scripts/components/selectable_component.gd" id="2_selectable"]
-[ext_resource type="Script" path="res://scripts/components/selection_visuals.gd" id="3_selection_visuals"]
+[ext_resource type="PackedScene" path="res://scenes/components/selectable_component.tscn" id="2_selectable"]
+[ext_resource type="PackedScene" path="res://scenes/components/selection_visuals.tscn" id="3_selection_visuals"]
 
 [sub_resource type="SphereMesh" id="SphereMesh_asteroid"]
 radius = 1.5
@@ -25,17 +25,11 @@ script = ExtResource("1_asteroid")
 mesh = SubResource("SphereMesh_asteroid")
 surface_material_override/0 = SubResource("StandardMaterial3D_asteroid")
 
-[node name="Area3D" type="Area3D" parent="."]
-input_ray_pickable = true
-monitorable = false
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Area3D"]
-shape = SubResource("SphereShape3D_collision")
-
-[node name="SelectableComponent" type="Node" parent="."]
-script = ExtResource("2_selectable")
+[node name="SelectableComponent" parent="." instance=ExtResource("2_selectable")]
 selection_kind = "asteroid"
 faction_override = "neutral"
 
-[node name="SelectionVisuals" type="Node3D" parent="."]
-script = ExtResource("3_selection_visuals")
+[node name="CollisionShape3D" parent="SelectableComponent" index="0"]
+shape = SubResource("SphereShape3D_collision")
+
+[node name="SelectionVisuals" parent="." instance=ExtResource("3_selection_visuals")]

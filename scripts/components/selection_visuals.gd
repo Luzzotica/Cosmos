@@ -38,7 +38,9 @@ func _ready() -> void:
 
 
 func _compute_radius() -> float:
-	var area: Area3D = get_parent().get_node_or_null("Area3D") as Area3D
+	var area: Area3D = get_parent().get_node_or_null("SelectableComponent") as Area3D
+	if area == null:
+		area = get_parent().get_node_or_null("Area3D") as Area3D
 	if area:
 		var shape_node: CollisionShape3D = area.get_node_or_null("CollisionShape3D") as CollisionShape3D
 		if shape_node and shape_node.shape:

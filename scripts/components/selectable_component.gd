@@ -1,4 +1,4 @@
-extends Node
+extends Area3D
 class_name SelectableComponent
 ## Reusable RTS-style selection input/state component.
 
@@ -12,41 +12,25 @@ signal selectable_destroyed
 @export var display_name_override: String = ""
 @export var faction_override: String = ""
 @export var is_selectable: bool = true
-@export var auto_connect_area: bool = true
-@export var area_path: NodePath = NodePath("../Area3D")
 
 var owner_entity: Node3D = null
-var _area: Area3D = null
 var _is_selected: bool = false
 var _is_hovered: bool = false
 
 
 func _ready() -> void:
 	owner_entity = get_parent() as Node3D
-	if auto_connect_area:
-		_try_connect_area_signals()
+	input_ray_pickable = true
+	monitorable = false
+	collision_layer = 1 << 1
+	collision_mask = 0
+	SelectionManager.register_selectable(self)
 	tree_exiting.connect(_on_tree_exiting)
-
-
-func _try_connect_area_signals() -> void:
-	var node: Node = get_node_or_null(area_path)
-	if node is Area3D:
-		_area = node as Area3D
-	else:
-		return
-
-	if not _area.is_connected("input_event", _on_area_input_event):
-		_area.input_event.connect(_on_area_input_event)
-	if not _area.is_connected("mouse_entered", _on_area_mouse_entered):
-		_area.mouse_entered.connect(_on_area_mouse_entered)
-	if not _area.is_connected("mouse_exited", _on_area_mouse_exited):
-		_area.mouse_exited.connect(_on_area_mouse_exited)
 
 
 func request_selection() -> void:
 	if not is_selectable:
 		return
-	SelectionManager.select_selectable(self)
 	selection_requested.emit(self)
 
 
@@ -111,26 +95,14 @@ func notify_details_changed() -> void:
 	details_changed.emit()
 
 
-func _on_area_input_event(_camera: Node, event: InputEvent, _position: Vector3, _normal: Vector3, _shape_idx: int) -> void:
-	if not is_selectable:
-		return
-	if event is InputEventMouseButton:
-		var mouse_event: InputEventMouseButton = event as InputEventMouseButton
-		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
-			var blocked: bool = BuildManager.is_selection_blocked()
-			if blocked:
-				return
-			request_selection()
-
-
-func _on_area_mouse_entered() -> void:
+func handle_mouse_entered() -> void:
 	var blocked: bool = BuildManager.is_hover_blocked()
 	if blocked:
 		return
 	set_hovered(true)
 
 
-func _on_area_mouse_exited() -> void:
+func handle_mouse_exited() -> void:
 	set_hovered(false)
 
 

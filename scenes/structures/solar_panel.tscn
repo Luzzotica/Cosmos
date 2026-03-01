@@ -1,14 +1,14 @@
 [gd_scene load_steps=15 format=3 uid="uid://bvxk8wn2hqtgc"]
 
 [ext_resource type="Script" path="res://scripts/structures/solar_panel.gd" id="1_solar"]
-[ext_resource type="Script" path="res://scripts/components/team_component.gd" id="2_team"]
-[ext_resource type="Script" path="res://scripts/components/health_component.gd" id="3_health"]
-[ext_resource type="Script" path="res://scripts/components/construction_component.gd" id="4_construct"]
-[ext_resource type="Script" path="res://scripts/components/power_node.gd" id="5_power_node"]
-[ext_resource type="Script" path="res://scripts/components/power_source.gd" id="6_power_source"]
-[ext_resource type="Script" path="res://scripts/components/power_generator.gd" id="7_power_gen"]
-[ext_resource type="Script" path="res://scripts/components/selectable_component.gd" id="8_selectable"]
-[ext_resource type="Script" path="res://scripts/components/selection_visuals.gd" id="9_selection_visuals"]
+[ext_resource type="PackedScene" path="res://scenes/components/team_component.tscn" id="2_team"]
+[ext_resource type="PackedScene" path="res://scenes/components/health_component.tscn" id="3_health"]
+[ext_resource type="PackedScene" path="res://scenes/components/construction_component.tscn" id="4_construct"]
+[ext_resource type="PackedScene" path="res://scenes/components/power_node_component.tscn" id="5_power_node"]
+[ext_resource type="PackedScene" path="res://scenes/components/power_source_component.tscn" id="6_power_source"]
+[ext_resource type="PackedScene" path="res://scenes/components/power_generator_component.tscn" id="7_power_gen"]
+[ext_resource type="PackedScene" path="res://scenes/components/selectable_component.tscn" id="8_selectable"]
+[ext_resource type="PackedScene" path="res://scenes/components/selection_visuals.tscn" id="9_selection_visuals"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_base"]
 size = Vector3(2, 0.5, 2)
@@ -47,43 +47,31 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
 mesh = SubResource("BoxMesh_panel")
 surface_material_override/0 = SubResource("StandardMaterial3D_panel")
 
-[node name="TeamComponent" type="Node3D" parent="."]
-script = ExtResource("2_team")
+[node name="TeamComponent" parent="." instance=ExtResource("2_team")]
 team = 0
 
-[node name="HealthComponent" type="Node3D" parent="."]
-script = ExtResource("3_health")
+[node name="HealthComponent" parent="." instance=ExtResource("3_health")]
 max_health = 75.0
 health = 75.0
 
-[node name="ConstructionComponent" type="Node3D" parent="."]
-script = ExtResource("4_construct")
+[node name="ConstructionComponent" parent="." instance=ExtResource("4_construct")]
 construction_time = 1.0
 
-[node name="PowerNode" type="Node3D" parent="."]
-script = ExtResource("5_power_node")
+[node name="PowerNode" parent="." instance=ExtResource("5_power_node")]
 max_connections = 20
 is_enabled = false
 
-[node name="PowerSource" type="Node3D" parent="PowerNode"]
-script = ExtResource("6_power_source")
+[node name="PowerSource" parent="PowerNode" instance=ExtResource("6_power_source")]
 max_storage = 100.0
 
-[node name="PowerGenerator" type="Node3D" parent="PowerNode/PowerSource"]
-script = ExtResource("7_power_gen")
+[node name="PowerGenerator" parent="PowerNode/PowerSource" instance=ExtResource("7_power_gen")]
 power_output = 10.0
 
-[node name="Area3D" type="Area3D" parent="."]
-input_ray_pickable = true
-monitorable = false
+[node name="SelectableComponent" parent="." instance=ExtResource("8_selectable")]
+selection_kind = "structure"
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Area3D"]
+[node name="CollisionShape3D" parent="SelectableComponent" index="0"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 shape = SubResource("SphereShape3D_collision")
 
-[node name="SelectableComponent" type="Node" parent="."]
-script = ExtResource("8_selectable")
-selection_kind = "structure"
-
-[node name="SelectionVisuals" type="Node3D" parent="."]
-script = ExtResource("9_selection_visuals")
+[node name="SelectionVisuals" parent="." instance=ExtResource("9_selection_visuals")]

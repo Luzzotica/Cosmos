@@ -1,12 +1,12 @@
 [gd_scene load_steps=10 format=3 uid="uid://cwp2r8nxg4yqr"]
 
 [ext_resource type="Script" path="res://scripts/structures/power_node_structure.gd" id="1_power_node"]
-[ext_resource type="Script" path="res://scripts/components/team_component.gd" id="2_team"]
-[ext_resource type="Script" path="res://scripts/components/health_component.gd" id="3_health"]
-[ext_resource type="Script" path="res://scripts/components/construction_component.gd" id="4_construct"]
-[ext_resource type="Script" path="res://scripts/components/power_node.gd" id="5_power_node"]
-[ext_resource type="Script" path="res://scripts/components/selectable_component.gd" id="6_selectable"]
-[ext_resource type="Script" path="res://scripts/components/selection_visuals.gd" id="7_selection_visuals"]
+[ext_resource type="PackedScene" path="res://scenes/components/team_component.tscn" id="2_team"]
+[ext_resource type="PackedScene" path="res://scenes/components/health_component.tscn" id="3_health"]
+[ext_resource type="PackedScene" path="res://scenes/components/construction_component.tscn" id="4_construct"]
+[ext_resource type="PackedScene" path="res://scenes/components/power_node_component.tscn" id="5_power_node"]
+[ext_resource type="PackedScene" path="res://scenes/components/selectable_component.tscn" id="6_selectable"]
+[ext_resource type="PackedScene" path="res://scenes/components/selection_visuals.tscn" id="7_selection_visuals"]
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_node"]
 top_radius = 0.5
@@ -33,35 +33,25 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 mesh = SubResource("CylinderMesh_node")
 surface_material_override/0 = SubResource("StandardMaterial3D_node")
 
-[node name="TeamComponent" type="Node3D" parent="."]
-script = ExtResource("2_team")
+[node name="TeamComponent" parent="." instance=ExtResource("2_team")]
 team = 0
 
-[node name="HealthComponent" type="Node3D" parent="."]
-script = ExtResource("3_health")
+[node name="HealthComponent" parent="." instance=ExtResource("3_health")]
 max_health = 50.0
 health = 50.0
 
-[node name="ConstructionComponent" type="Node3D" parent="."]
-script = ExtResource("4_construct")
+[node name="ConstructionComponent" parent="." instance=ExtResource("4_construct")]
 construction_time = 1.0
 
-[node name="PowerNodeComp" type="Node3D" parent="."]
-script = ExtResource("5_power_node")
+[node name="PowerNodeComp" parent="." instance=ExtResource("5_power_node")]
 max_connections = 6
 is_enabled = false
 
-[node name="Area3D" type="Area3D" parent="."]
-input_ray_pickable = true
-monitorable = false
+[node name="SelectableComponent" parent="." instance=ExtResource("6_selectable")]
+selection_kind = "structure"
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Area3D"]
+[node name="CollisionShape3D" parent="SelectableComponent" index="0"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 shape = SubResource("SphereShape3D_collision")
 
-[node name="SelectableComponent" type="Node" parent="."]
-script = ExtResource("6_selectable")
-selection_kind = "structure"
-
-[node name="SelectionVisuals" type="Node3D" parent="."]
-script = ExtResource("7_selection_visuals")
+[node name="SelectionVisuals" parent="." instance=ExtResource("7_selection_visuals")]

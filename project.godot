@@ -58,6 +58,10 @@ camera_pan_right={
 ]
 }
 
+[layer_names]
+
+3d_physics/layer_2="Selection"
+
 [rendering]
 
 renderer/rendering_method="mobile"
