@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3 uid="uid://b0n8xrwg3ht1y"]
+[gd_scene load_steps=16 format=3 uid="uid://b0n8xrwg3ht1y"]
 
 [ext_resource type="Script" path="res://scripts/structures/laser_turret.gd" id="1_turret"]
 [ext_resource type="PackedScene" path="res://scenes/components/team_component.tscn" id="2_team"]
@@ -10,28 +10,34 @@
 [ext_resource type="PackedScene" path="res://scenes/components/selection_visuals.tscn" id="8_selection_visuals"]
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_base"]
-top_radius = 1.0
-bottom_radius = 1.2
-height = 0.8
+top_radius = 1.05
+bottom_radius = 1.05
+height = 0.45
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_base"]
-albedo_color = Color(1.0, 0.2, 0.3, 1)
-metallic = 0.6
-roughness = 0.3
-emission_enabled = true
-emission = Color(1.0, 0.1, 0.2, 1)
-emission_energy_multiplier = 1.5
+albedo_color = Color(0.45, 0.48, 0.52, 1)
+metallic = 0.8
+roughness = 0.35
 
-[sub_resource type="BoxMesh" id="BoxMesh_barrel"]
-size = Vector3(0.3, 0.3, 1.5)
+[sub_resource type="CylinderMesh" id="CylinderMesh_barrel"]
+top_radius = 0.22
+bottom_radius = 0.28
+height = 1.15
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_barrel"]
-albedo_color = Color(0.8, 0.8, 0.9, 1)
+albedo_color = Color(0.34, 0.37, 0.42, 1)
 metallic = 0.9
-roughness = 0.1
+roughness = 0.2
+
+[sub_resource type="SphereMesh" id="SphereMesh_orb"]
+radius = 0.32
+height = 0.64
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_orb"]
+albedo_color = Color(0.15, 0.7, 1, 1)
 emission_enabled = true
-emission = Color(0.5, 0.5, 0.6, 1)
-emission_energy_multiplier = 0.3
+emission = Color(0.12, 0.65, 1, 1)
+emission_energy_multiplier = 2.4
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_collision"]
 radius = 1.5
@@ -44,14 +50,22 @@ fire_rate = 1.0
 damage = 10.0
 
 [node name="TurretBase" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.225, 0)
 mesh = SubResource("CylinderMesh_base")
 surface_material_override/0 = SubResource("StandardMaterial3D_base")
 
 [node name="TurretBarrel" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0.5)
-mesh = SubResource("BoxMesh_barrel")
+transform = Transform3D(1, 0, 0, 0, 6.12323e-17, -1, 0, 1, 6.12323e-17, 0, 0.95, 0)
+mesh = SubResource("CylinderMesh_barrel")
 surface_material_override/0 = SubResource("StandardMaterial3D_barrel")
+
+[node name="ActiveOrb" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.45, 0)
+mesh = SubResource("SphereMesh_orb")
+surface_material_override/0 = SubResource("StandardMaterial3D_orb")
+
+[node name="ConnectionPoint" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.225, 0)
 
 [node name="TeamComponent" parent="." instance=ExtResource("2_team")]
 team = 0

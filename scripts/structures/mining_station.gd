@@ -20,6 +20,7 @@ var _mining_beam: MeshInstance3D = null
 var _beam_visible_timer: float = 0.0
 const BEAM_VISIBLE_DURATION: float = 0.5  # How long the beam stays visible after firing
 const BEAM_FADE_SPEED: float = 4.0  # How fast the beam fades out
+var _last_powered_state: bool = true
 
 
 func _ready() -> void:
@@ -42,9 +43,14 @@ func _apply_balance_data() -> void:
 func _setup_power_user() -> void:
 	if power_node:
 		for child in power_node.get_children():
-			if child is PowerUser:
+			if child is PowerUser and not child.is_construction_user:
 				power_user = child
+				if not power_user.power_state_changed.is_connected(_on_power_state_changed):
+					power_user.power_state_changed.connect(_on_power_state_changed)
 				break
+	_last_powered_state = power_user != null and power_user.has_power
+	if has_method("set_powered_visual_state"):
+		call("set_powered_visual_state", _last_powered_state)
 
 
 func _process(delta: float) -> void:
@@ -61,6 +67,14 @@ func _process(delta: float) -> void:
 		_is_mining = false
 		_update_mining_beam(delta)
 		return
+	
+	if power_user and not power_user.has_power:
+		power_user.draw_power_from_graph()
+	var powered_now: bool = power_user != null and power_user.has_power
+	if powered_now != _last_powered_state:
+		_last_powered_state = powered_now
+		if has_method("set_powered_visual_state"):
+			call("set_powered_visual_state", powered_now)
 	
 	# Update mining timer
 	_mining_timer += delta
@@ -107,6 +121,9 @@ func _try_mine() -> void:
 ## Fire the mining beam (burst effect)
 func _fire_mining_beam() -> void:
 	_beam_visible_timer = BEAM_VISIBLE_DURATION
+	var render_manager: Node = get_node_or_null("/root/StructureRenderManager")
+	if render_manager:
+		render_manager.call("pulse_structure", self, 0.18)
 	if _mining_beam:
 		_mining_beam.visible = true
 		# Reset beam to full brightness
@@ -241,3 +258,9 @@ func _play_sfx(sfx_id: String, volume_db: float = -6.0) -> void:
 	var sfx_manager: Node = get_node_or_null("/root/SfxManager")
 	if sfx_manager and sfx_manager.has_method("play_sfx"):
 		sfx_manager.call("play_sfx", sfx_id, volume_db)
+
+
+func _on_power_state_changed(has_power: bool) -> void:
+	_last_powered_state = has_power
+	if has_method("set_powered_visual_state"):
+		call("set_powered_visual_state", has_power)

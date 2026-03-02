@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://dpnx7w2lqeqmx"]
+[gd_scene load_steps=14 format=3 uid="uid://dpnx7w2lqeqmx"]
 
 [ext_resource type="Script" path="res://scripts/structures/mining_station.gd" id="1_mining"]
 [ext_resource type="PackedScene" path="res://scenes/components/team_component.tscn" id="2_team"]
@@ -9,16 +9,27 @@
 [ext_resource type="PackedScene" path="res://scenes/components/selectable_component.tscn" id="7_selectable"]
 [ext_resource type="PackedScene" path="res://scenes/components/selection_visuals.tscn" id="8_selection_visuals"]
 
-[sub_resource type="BoxMesh" id="BoxMesh_base"]
-size = Vector3(2.5, 1.5, 2.5)
+[sub_resource type="SphereMesh" id="SphereMesh_base"]
+radius = 1.2
+height = 2.4
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_base"]
-albedo_color = Color(1.0, 0.6, 0.1, 1)
-metallic = 0.5
-roughness = 0.4
+albedo_color = Color(0.42, 0.45, 0.5, 1)
+metallic = 0.75
+roughness = 0.32
 emission_enabled = true
-emission = Color(0.8, 0.4, 0.0, 1)
-emission_energy_multiplier = 1.0
+emission = Color(0.1, 0.5, 1, 1)
+emission_energy_multiplier = 1.5
+
+[sub_resource type="SphereMesh" id="SphereMesh_core"]
+radius = 0.42
+height = 0.84
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_core"]
+albedo_color = Color(0.12, 0.68, 1, 1)
+emission_enabled = true
+emission = Color(0.08, 0.62, 1, 1)
+emission_energy_multiplier = 2.1
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_collision"]
 radius = 2.0
@@ -31,9 +42,14 @@ mining_interval = 3.0
 mine_amount = 5.0
 
 [node name="Base" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
-mesh = SubResource("BoxMesh_base")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
+mesh = SubResource("SphereMesh_base")
 surface_material_override/0 = SubResource("StandardMaterial3D_base")
+
+[node name="ActiveCore" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
+mesh = SubResource("SphereMesh_core")
+surface_material_override/0 = SubResource("StandardMaterial3D_core")
 
 [node name="TeamComponent" parent="." instance=ExtResource("2_team")]
 team = 0

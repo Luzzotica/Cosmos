@@ -19,6 +19,8 @@ var fire_timer: float = 0.0
 
 @onready var turret_base: MeshInstance3D = $TurretBase
 @onready var turret_barrel: MeshInstance3D = $TurretBarrel
+@onready var active_orb: MeshInstance3D = $ActiveOrb
+var _last_powered_state: bool = true
 
 
 func _ready() -> void:
@@ -43,7 +45,12 @@ func _setup_power_user() -> void:
 		for child in power_node.get_children():
 			if child is PowerUser and not child.is_construction_user:
 				power_user = child
+				if not power_user.power_state_changed.is_connected(_on_power_state_changed):
+					power_user.power_state_changed.connect(_on_power_state_changed)
 				break
+	_last_powered_state = power_user != null and power_user.has_power
+	if has_method("set_powered_visual_state"):
+		call("set_powered_visual_state", _last_powered_state)
 
 
 func _process(delta: float) -> void:
@@ -60,9 +67,14 @@ func _process(delta: float) -> void:
 	
 	if power_user and not power_user.has_power:
 		power_user.draw_power_from_graph()
+	var powered_now: bool = power_user != null and power_user.has_power
+	if powered_now != _last_powered_state:
+		_last_powered_state = powered_now
+		if has_method("set_powered_visual_state"):
+			call("set_powered_visual_state", powered_now)
 	
 	# Only operate if powered
-	if power_user and power_user.has_power:
+	if powered_now:
 		_find_target()
 		_update_rotation()
 		_try_attack()
@@ -145,6 +157,7 @@ func _try_attack() -> void:
 	fire_timer = 1.0 / fire_rate
 	var target_pos: Vector3 = target.global_position + Vector3.UP * 0.8
 	_show_laser_beam(_get_muzzle_position(target_pos), target_pos, Color(0.2, 0.9, 1.0, 0.95))
+	_flash_active_orb()
 	_play_sfx("laser_shot", -6.0)
 	
 	# Deal damage to target
@@ -202,6 +215,32 @@ func get_target() -> Node3D:
 ## Check if turret is active and powered
 func is_active() -> bool:
 	return is_built() and power_user and power_user.has_power
+
+
+func _on_power_state_changed(has_power: bool) -> void:
+	_last_powered_state = has_power
+	if has_method("set_powered_visual_state"):
+		call("set_powered_visual_state", has_power)
+
+
+func _flash_active_orb() -> void:
+	if active_orb:
+		var mat: StandardMaterial3D = active_orb.get_active_material(0) as StandardMaterial3D
+		if mat:
+			mat.emission_enabled = true
+			mat.emission_energy_multiplier = 6.0
+			var timer: SceneTreeTimer = get_tree().create_timer(0.08)
+			timer.timeout.connect(func() -> void:
+				if not is_instance_valid(active_orb):
+					return
+				var reset_mat: StandardMaterial3D = active_orb.get_active_material(0) as StandardMaterial3D
+				if reset_mat:
+					reset_mat.emission_energy_multiplier = 2.4 if _last_powered_state else 0.0
+			)
+	
+	var render_manager: Node = get_node_or_null("/root/StructureRenderManager")
+	if render_manager:
+		render_manager.call("pulse_structure", self, 0.1)
 
 
 func _play_sfx(sfx_id: String, volume_db: float = -6.0) -> void:

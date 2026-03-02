@@ -10,25 +10,29 @@
 [ext_resource type="PackedScene" path="res://scenes/components/selectable_component.tscn" id="8_selectable"]
 [ext_resource type="PackedScene" path="res://scenes/components/selection_visuals.tscn" id="9_selection_visuals"]
 
-[sub_resource type="BoxMesh" id="BoxMesh_base"]
-size = Vector3(2, 0.5, 2)
+[sub_resource type="CylinderMesh" id="CylinderMesh_base"]
+top_radius = 1.0
+bottom_radius = 1.1
+height = 0.6
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_base"]
-albedo_color = Color(0.9, 0.7, 0.2, 1)
-emission_enabled = true
-emission = Color(0.5, 0.4, 0.0, 1)
-emission_energy_multiplier = 0.5
+albedo_color = Color(0.44, 0.47, 0.52, 1)
+metallic = 0.75
+roughness = 0.34
 
-[sub_resource type="BoxMesh" id="BoxMesh_panel"]
-size = Vector3(1.8, 0.1, 1.4)
+[sub_resource type="SphereMesh" id="SphereMesh_panel"]
+radius = 0.95
+height = 1.9
+is_hemisphere = true
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_panel"]
-albedo_color = Color(0.0, 0.9, 1.0, 1)
+albedo_color = Color(0.1, 0.72, 1, 1)
 metallic = 0.7
 roughness = 0.2
 emission_enabled = true
-emission = Color(0.0, 0.6, 0.8, 1)
-emission_energy_multiplier = 1.5
+emission = Color(0.08, 0.58, 0.95, 1)
+emission_energy_multiplier = 1.8
+cull_mode = 2
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_collision"]
 radius = 1.5
@@ -38,14 +42,17 @@ script = ExtResource("1_solar")
 building_type = "solar_panel"
 
 [node name="Base" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
-mesh = SubResource("BoxMesh_base")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
+mesh = SubResource("CylinderMesh_base")
 surface_material_override/0 = SubResource("StandardMaterial3D_base")
 
 [node name="Panel" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
-mesh = SubResource("BoxMesh_panel")
+transform = Transform3D(1.08, 0, 0, 0, -0.26, 0, 0, 0, 1.08, 0, 1.2, 0)
+mesh = SubResource("SphereMesh_panel")
 surface_material_override/0 = SubResource("StandardMaterial3D_panel")
+
+[node name="ConnectionPoint" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.34, 0)
 
 [node name="TeamComponent" parent="." instance=ExtResource("2_team")]
 team = 0
@@ -65,7 +72,7 @@ is_enabled = false
 max_storage = 100.0
 
 [node name="PowerGenerator" parent="PowerNode/PowerSource" instance=ExtResource("7_power_gen")]
-power_output = 10.0
+power_output = 5.0
 
 [node name="SelectableComponent" parent="." instance=ExtResource("8_selectable")]
 selection_kind = "structure"

@@ -50,6 +50,10 @@ const PLACEMENT_OCCUPANCY_MARGIN: float = 0.1
 const POWER_LINE_RADIUS: float = 0.03
 const POWER_LINE_CLEARANCE: float = 0.03
 const PREVIEW_ALPHA: float = 0.5
+const PREVIEW_VALID_TINT: Color = Color(0.2, 0.72, 1.0, PREVIEW_ALPHA)
+const PREVIEW_INVALID_TINT: Color = Color(1.0, 0.26, 0.22, PREVIEW_ALPHA)
+const PREVIEW_VALID_EMISSION: Color = Color(0.08, 0.62, 1.0, 1.0)
+const PREVIEW_INVALID_EMISSION: Color = Color(0.95, 0.2, 0.2, 1.0)
 
 # Cooldown after placing to prevent auto-selection
 var _placement_cooldown: float = 0.0
@@ -337,6 +341,11 @@ func _copy_meshes_to_preview(source: Node, preview_root: Node3D, parent_transfor
 	var current_transform: Transform3D = parent_transform
 	if source is Node3D:
 		current_transform = parent_transform * (source as Node3D).transform
+		if source.name == "ConnectionPoint":
+			var preview_connection_point: Marker3D = Marker3D.new()
+			preview_connection_point.name = "ConnectionPoint"
+			preview_connection_point.transform = current_transform
+			preview_root.add_child(preview_connection_point)
 	
 	if source is MeshInstance3D:
 		var source_mesh: MeshInstance3D = source as MeshInstance3D
@@ -389,7 +398,7 @@ func _destroy_placement_preview() -> void:
 ## Create range indicator showing connection radius
 func _create_range_indicator(building_type: String) -> void:
 	# Connection range indicator (for all buildings) - uses PowerNode's constant
-	_connection_range_indicator = _create_ring_mesh(PowerNodeClass.CONNECTION_RANGE, Color(0.3, 0.7, 1.0, 0.4))
+	_connection_range_indicator = _create_ring_mesh(PowerNodeClass.CONNECTION_RANGE, Color(0.2, 0.72, 1.0, 0.42))
 	get_tree().root.add_child(_connection_range_indicator)
 	_connection_range_indicator.global_position = Vector3(_drag_position.x, 0.2, _drag_position.z)
 	
@@ -400,7 +409,7 @@ func _create_range_indicator(building_type: String) -> void:
 	
 	# Show one action range ring depending on targeting role.
 	if _preview_show_asteroid_targeting and _preview_action_range > 0.0:
-		_mining_range_indicator = _create_ring_mesh(_preview_action_range, Color(1.0, 0.8, 0.2, 0.3))
+		_mining_range_indicator = _create_ring_mesh(_preview_action_range, Color(0.16, 0.8, 1.0, 0.32))
 		get_tree().root.add_child(_mining_range_indicator)
 		_mining_range_indicator.global_position = Vector3(_drag_position.x, 0.15, _drag_position.z)
 	elif _preview_show_enemy_targeting and _preview_action_range > 0.0:
@@ -460,8 +469,8 @@ func _create_ring_mesh(radius: float, color: Color) -> MeshInstance3D:
 	var ring: MeshInstance3D = MeshInstance3D.new()
 	
 	var torus: TorusMesh = TorusMesh.new()
-	torus.inner_radius = radius - 0.2
-	torus.outer_radius = radius + 0.2
+	torus.inner_radius = radius - 0.15
+	torus.outer_radius = radius + 0.15
 	torus.rings = RANGE_RING_SEGMENTS
 	torus.ring_segments = RANGE_RING_SEGMENTS
 	ring.mesh = torus
@@ -469,8 +478,8 @@ func _create_ring_mesh(radius: float, color: Color) -> MeshInstance3D:
 	var material: StandardMaterial3D = StandardMaterial3D.new()
 	material.albedo_color = color
 	material.emission_enabled = true
-	material.emission = Color(color.r * 0.7, color.g * 0.7, color.b * 0.7)
-	material.emission_energy_multiplier = 1.5
+	material.emission = Color(color.r * 0.85, color.g * 0.85, color.b * 0.85)
+	material.emission_energy_multiplier = 1.9
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	ring.material_override = material
@@ -508,10 +517,8 @@ func _update_connection_preview(world_position: Vector3) -> void:
 		
 		preview_line.visible = true
 	
-		var start_pos: Vector3 = world_position
-		start_pos.y = 0.3
-		var end_pos: Vector3 = parent_structure.global_position
-		end_pos.y = 0.3
+		var start_pos: Vector3 = _get_preview_connection_anchor(world_position)
+		var end_pos: Vector3 = _get_structure_top_anchor(parent_structure, parent_structure.global_position)
 		
 		var distance: float = start_pos.distance_to(end_pos)
 		
@@ -820,8 +827,8 @@ func _collect_mesh_instances_recursive(node: Node) -> void:
 
 
 func _set_preview_visual_state(is_valid: bool) -> void:
-	var tint_color: Color = Color(0.0, 1.0, 0.0, PREVIEW_ALPHA) if is_valid else Color(1.0, 0.0, 0.0, PREVIEW_ALPHA)
-	var emission_color: Color = Color(0.2, 0.85, 0.45) if is_valid else Color(0.95, 0.2, 0.2)
+	var tint_color: Color = PREVIEW_VALID_TINT if is_valid else PREVIEW_INVALID_TINT
+	var emission_color: Color = PREVIEW_VALID_EMISSION if is_valid else PREVIEW_INVALID_EMISSION
 	
 	for mesh_instance in _preview_mesh_instances:
 		if not is_instance_valid(mesh_instance):
@@ -847,8 +854,8 @@ func _get_or_create_preview_holo_material(mesh_instance: MeshInstance3D) -> Shad
 	if _placement_holo_shader == null:
 		return null
 	shader_material.shader = _placement_holo_shader
-	shader_material.set_shader_parameter("tint_color", Color(0.0, 1.0, 0.0, PREVIEW_ALPHA))
-	shader_material.set_shader_parameter("emission_color", Color(0.2, 0.85, 0.45))
+	shader_material.set_shader_parameter("tint_color", PREVIEW_VALID_TINT)
+	shader_material.set_shader_parameter("emission_color", PREVIEW_VALID_EMISSION)
 	shader_material.set_shader_parameter("is_valid", 1.0)
 	mesh_instance.material_override = shader_material
 	_preview_holo_materials[mesh_id] = shader_material
@@ -860,8 +867,40 @@ func _get_power_node_world_position(node: Node3D) -> Vector3:
 		return Vector3.ZERO
 	var parent_node: Node3D = node.get_parent() as Node3D
 	if parent_node and parent_node.is_inside_tree():
-		return parent_node.global_position
+		return _get_structure_top_anchor(parent_node, parent_node.global_position)
 	return node.global_position
+
+
+func _get_preview_connection_anchor(world_position: Vector3) -> Vector3:
+	if _placement_preview and is_instance_valid(_placement_preview):
+		return _get_structure_top_anchor(_placement_preview, world_position)
+	return Vector3(world_position.x, world_position.y + 0.8, world_position.z)
+
+
+func _get_structure_top_anchor(structure_node: Node3D, fallback_position: Vector3) -> Vector3:
+	if structure_node == null:
+		return fallback_position
+	
+	var connection_point: Node3D = structure_node.get_node_or_null("ConnectionPoint") as Node3D
+	if connection_point and connection_point.is_inside_tree():
+		return connection_point.global_position
+	
+	var top_y: float = fallback_position.y + 0.8
+	var found_mesh: bool = false
+	for child in structure_node.get_children():
+		if child is MeshInstance3D:
+			var mesh_instance: MeshInstance3D = child as MeshInstance3D
+			if mesh_instance.mesh == null:
+				continue
+			var local_aabb: AABB = mesh_instance.mesh.get_aabb()
+			var world_aabb: AABB = local_aabb * mesh_instance.global_transform
+			top_y = maxf(top_y, world_aabb.end.y)
+			found_mesh = true
+	
+	if not found_mesh:
+		top_y = maxf(top_y, fallback_position.y + 0.8)
+	
+	return Vector3(fallback_position.x, top_y, fallback_position.z)
 
 
 func _get_edge_key(node1: Node3D, node2: Node3D) -> String:
@@ -1005,10 +1044,10 @@ func _create_asteroid_highlight_at(asteroid_node: Node3D) -> MeshInstance3D:
 	highlight.mesh = torus
 	
 	var material: StandardMaterial3D = StandardMaterial3D.new()
-	material.albedo_color = Color(1.0, 0.9, 0.3, 0.7)  # Yellow highlight
+	material.albedo_color = Color(0.18, 0.8, 1.0, 0.7)
 	material.emission_enabled = true
-	material.emission = Color(1.0, 0.8, 0.1)
-	material.emission_energy_multiplier = 2.5
+	material.emission = Color(0.12, 0.68, 1.0)
+	material.emission_energy_multiplier = 2.8
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	highlight.material_override = material
@@ -1077,7 +1116,7 @@ func _create_enemy_highlight_at(enemy_node: Node3D) -> MeshInstance3D:
 	var material: StandardMaterial3D = StandardMaterial3D.new()
 	material.albedo_color = Color(1.0, 0.35, 0.3, 0.7)
 	material.emission_enabled = true
-	material.emission = Color(0.9, 0.2, 0.15)
+	material.emission = Color(1.0, 0.2, 0.16)
 	material.emission_energy_multiplier = 2.2
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED

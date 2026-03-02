@@ -42,6 +42,7 @@ func _ready() -> void:
 	var pitch_rad: float = deg_to_rad(camera_pitch)
 	_target_zoom = global_position.y / sin(pitch_rad) if sin(pitch_rad) > 0.01 else 50.0
 	_target_look_at = Vector3(global_position.x, 0, global_position.z + global_position.y / tan(pitch_rad))
+	_update_camera_position_immediate()
 
 
 func _process(delta: float) -> void:
@@ -169,7 +170,7 @@ func _smooth_movement(delta: float) -> void:
 	var pitch_rad: float = deg_to_rad(camera_pitch)
 	var horizontal_offset: float = _target_zoom * cos(pitch_rad)
 	var vertical_offset: float = _target_zoom * sin(pitch_rad)
-	
+
 	var target_pos: Vector3 = Vector3(
 		_target_look_at.x,
 		vertical_offset,
@@ -227,7 +228,7 @@ func _update_camera_position_immediate() -> void:
 	var pitch_rad: float = deg_to_rad(camera_pitch)
 	var horizontal_offset: float = _target_zoom * cos(pitch_rad)
 	var vertical_offset: float = _target_zoom * sin(pitch_rad)
-	
+
 	global_position = Vector3(
 		_target_look_at.x,
 		vertical_offset,

@@ -815,11 +815,8 @@ func _create_edge(node1: Node3D, node2: Node3D) -> void:
 func _create_line_mesh(node1: Node3D, node2: Node3D) -> MeshInstance3D:
 	var line_instance: MeshInstance3D = MeshInstance3D.new()
 	
-	# Get parent positions (nodes are children of structures)
-	var parent1: Node = node1.get_parent()
-	var parent2: Node = node2.get_parent()
-	var pos1: Vector3 = parent1.global_position if parent1 and parent1.is_inside_tree() else node1.position
-	var pos2: Vector3 = parent2.global_position if parent2 and parent2.is_inside_tree() else node2.position
+	var pos1: Vector3 = _get_connection_anchor(node1)
+	var pos2: Vector3 = _get_connection_anchor(node2)
 	
 	# Create a cylinder mesh as the line
 	var cylinder: CylinderMesh = CylinderMesh.new()
@@ -843,7 +840,6 @@ func _create_line_mesh(node1: Node3D, node2: Node3D) -> MeshInstance3D:
 	
 	# Position at midpoint
 	var midpoint: Vector3 = (pos1 + pos2) / 2.0
-	midpoint.y = 0.3  # Slightly above ground
 	line_instance.position = midpoint
 	
 	# Rotate to point from pos1 to pos2
@@ -857,6 +853,35 @@ func _create_line_mesh(node1: Node3D, node2: Node3D) -> MeshInstance3D:
 		line_instance.rotate_object_local(Vector3(1, 0, 0), PI / 2)
 	
 	return line_instance
+
+
+func _get_connection_anchor(node: Node3D) -> Vector3:
+	if node == null:
+		return Vector3.ZERO
+	var structure: Node3D = node.get_parent() as Node3D
+	if structure == null or not structure.is_inside_tree():
+		return node.global_position
+	
+	var connection_point: Node3D = structure.get_node_or_null("ConnectionPoint") as Node3D
+	if connection_point and connection_point.is_inside_tree():
+		return connection_point.global_position
+	
+	var top_y: float = structure.global_position.y + 0.8
+	var found_mesh: bool = false
+	for child in structure.get_children():
+		if child is MeshInstance3D:
+			var mesh_instance: MeshInstance3D = child as MeshInstance3D
+			if mesh_instance.mesh == null:
+				continue
+			var local_aabb: AABB = mesh_instance.mesh.get_aabb()
+			var world_aabb: AABB = local_aabb * mesh_instance.global_transform
+			top_y = maxf(top_y, world_aabb.end.y)
+			found_mesh = true
+	
+	if not found_mesh:
+		top_y = maxf(top_y, node.global_position.y + 0.8)
+	
+	return Vector3(structure.global_position.x, top_y, structure.global_position.z)
 
 
 ## Remove visual edge between two nodes
