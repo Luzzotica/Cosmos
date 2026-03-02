@@ -32,11 +32,12 @@ var _drag_start_look_at: Vector3
 
 # Debug sphere to show mouse position
 var _debug_sphere: MeshInstance3D = null
-@export var show_debug_sphere: bool = true
+@export var show_debug_sphere: bool = false
 
 
 func _ready() -> void:
-	_create_debug_sphere()
+	if show_debug_sphere:
+		_create_debug_sphere()
 	# Initialize from current position - calculate look-at point
 	var pitch_rad: float = deg_to_rad(camera_pitch)
 	_target_zoom = global_position.y / sin(pitch_rad) if sin(pitch_rad) > 0.01 else 50.0
@@ -125,8 +126,8 @@ func _handle_drag_panning(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion and _is_dragging:
 		var motion_event: InputEventMouseMotion = event as InputEventMouseMotion
 		var delta_pos: Vector2 = motion_event.position - _drag_start_mouse_pos
-		var scale: float = _target_zoom / 500.0  # Scale movement based on zoom
-		_target_look_at = _drag_start_look_at - Vector3(delta_pos.x * scale, 0, delta_pos.y * scale)
+		var drag_scale: float = _target_zoom / 500.0  # Scale movement based on zoom
+		_target_look_at = _drag_start_look_at - Vector3(delta_pos.x * drag_scale, 0, delta_pos.y * drag_scale)
 
 
 func _handle_zoom(event: InputEvent) -> void:

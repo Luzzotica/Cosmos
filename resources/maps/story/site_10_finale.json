@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "story_site_10_finale",
+  "name": "Site 10 - Final Monolith",
+  "description": "End-chain confrontation map designed for high-pressure final extraction.",
+  "biome": "void_nexus",
+  "difficulty_band": "hard",
+  "act": "act_04",
+  "chapter": "chapter_07_the_dilemma",
+  "tags": ["story", "official", "finale"],
+  "size": [720, 720],
+  "initial_wave_delay": 20.0,
+  "wave_interval": 48.0,
+  "allow_partial_extraction": false,
+  "target_carryover_minerals": 1500,
+  "target_carryover_energy": 80.0,
+  "starting_resources": {
+    "override_defaults": true,
+    "minerals": 5000,
+    "energy": 90.0,
+    "energy_capacity": 110.0
+  },
+  "asteroid_clouds": [
+    {
+      "center": [-160, 0, -140],
+      "radius": 60,
+      "count": 16,
+      "min_size": 2.0,
+      "max_size": 4.0,
+      "min_minerals": 16,
+      "max_minerals": 42,
+      "seed": 100001
+    },
+    {
+      "center": [150, 0, -130],
+      "radius": 54,
+      "count": 15,
+      "min_size": 2.0,
+      "max_size": 3.8,
+      "min_minerals": 14,
+      "max_minerals": 38,
+      "seed": 100002
+    },
+    {
+      "center": [0, 0, 180],
+      "radius": 68,
+      "count": 20,
+      "min_size": 2.0,
+      "max_size": 4.2,
+      "min_minerals": 18,
+      "max_minerals": 45,
+      "seed": 100003
+    }
+  ],
+  "starting_structures": [
+    { "type": "solar_panel", "position": [0, 0, 0], "pre_built": true },
+    { "type": "power_node", "position": [24, 0, 0], "pre_built": true },
+    { "type": "laser_turret", "position": [-32, 0, 30], "pre_built": true }
+  ],
+  "waves": [
+    { "enemy_count": 10, "delay": 1.4, "health_mult": 1.5, "speed_mult": 1.1 },
+    { "enemy_count": 14, "delay": 1.2, "health_mult": 1.8, "speed_mult": 1.16 },
+    {
+      "enemy_count": 18,
+      "delay": 1.05,
+      "health_mult": 2.1,
+      "speed_mult": 1.22
+    },
+    { "enemy_count": 24, "delay": 0.95, "health_mult": 2.5, "speed_mult": 1.3 }
+  ]
+}

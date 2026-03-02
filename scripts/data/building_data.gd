@@ -14,6 +14,7 @@ class_name BuildingData
 @export_group("Cost & Construction")
 @export var cost: int = 100
 @export var construction_time: float = 1.0
+@export var placement_sphere_radius: float = 1.2
 
 @export_group("Health")
 @export var max_health: float = 100.0

@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "id": "story_site_04_grind",
+  "name": "Site 04 - The Grind",
+  "description": "Attrition-focused extraction site with exposed conduit lanes.",
+  "biome": "debris_belt",
+  "difficulty_band": "hard",
+  "act": "act_02",
+  "chapter": "chapter_04_the_grind",
+  "tags": ["story", "official", "attrition"],
+  "size": [600, 600],
+  "initial_wave_delay": 30.0,
+  "wave_interval": 55.0,
+  "allow_partial_extraction": true,
+  "target_carryover_minerals": 4500,
+  "target_carryover_energy": 120.0,
+  "starting_resources": {
+    "override_defaults": true,
+    "minerals": 8000,
+    "energy": 100.0,
+    "energy_capacity": 120.0
+  },
+  "asteroids": [
+    { "position": [-130, 0, -60], "size": 2.8, "minerals": 26 },
+    { "position": [145, 0, 10], "size": 3.0, "minerals": 28 }
+  ],
+  "asteroid_clouds": [
+    {
+      "center": [-70, 0, 120],
+      "radius": 44,
+      "count": 10,
+      "min_size": 2.0,
+      "max_size": 3.5,
+      "min_minerals": 20,
+      "max_minerals": 42,
+      "seed": 40401
+    },
+    {
+      "center": [95, 0, -110],
+      "radius": 52,
+      "count": 12,
+      "min_size": 2.2,
+      "max_size": 3.8,
+      "min_minerals": 22,
+      "max_minerals": 46,
+      "seed": 40402
+    }
+  ],
+  "starting_structures": [
+    { "type": "solar_panel", "position": [0, 0, 0], "pre_built": true },
+    { "type": "power_node", "position": [20, 0, 0], "pre_built": true }
+  ],
+  "waves": [
+    { "enemy_count": 5, "delay": 1.8, "health_mult": 1.1, "speed_mult": 1.0 },
+    { "enemy_count": 8, "delay": 1.6, "health_mult": 1.3, "speed_mult": 1.05 },
+    { "enemy_count": 11, "delay": 1.4, "health_mult": 1.5, "speed_mult": 1.1 },
+    { "enemy_count": 15, "delay": 1.2, "health_mult": 1.8, "speed_mult": 1.18 }
+  ]
+}

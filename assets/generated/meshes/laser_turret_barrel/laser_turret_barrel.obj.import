@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://di17mk5arrknq"
+path="res://.godot/imported/laser_turret_barrel.obj-7f10a167495b7a0f5eca50c67e93782b.mesh"
+
+[deps]
+
+files=["res://.godot/imported/laser_turret_barrel.obj-7f10a167495b7a0f5eca50c67e93782b.mesh"]
+
+source_file="res://assets/generated/meshes/laser_turret_barrel/laser_turret_barrel.obj"
+dest_files=["res://.godot/imported/laser_turret_barrel.obj-7f10a167495b7a0f5eca50c67e93782b.mesh", "res://.godot/imported/laser_turret_barrel.obj-7f10a167495b7a0f5eca50c67e93782b.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

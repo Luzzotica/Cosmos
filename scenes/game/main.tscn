@@ -1,19 +1,24 @@
-[gd_scene load_steps=10 format=3 uid="uid://dkwt3h8ycvvqm"]
+[gd_scene load_steps=16 format=3 uid="uid://dkwt3h8ycvvqm"]
 
 [ext_resource type="Script" path="res://scripts/camera/rts_camera.gd" id="1_camera"]
 [ext_resource type="Script" path="res://scripts/game/main_game.gd" id="2_main"]
 [ext_resource type="PackedScene" uid="uid://c5yh8m2qxr4wv" path="res://scenes/ui/game_hud.tscn" id="3_hud"]
 [ext_resource type="PackedScene" uid="uid://bxg4k2m8qr5tn" path="res://scenes/ui/game_over_screen.tscn" id="4_gameover"]
 [ext_resource type="PackedScene" uid="uid://dpxs3m2yh8v4w" path="res://scenes/ui/selection_panel.tscn" id="5_selection"]
+[ext_resource type="Shader" path="res://shaders/starfield_sky.gdshader" id="6_starfield"]
+[ext_resource type="PackedScene" path="res://scenes/ui/pause_menu.tscn" id="7_pause"]
+[ext_resource type="Script" path="res://scripts/game/map_editor_controller.gd" id="8_mapeditor"]
+[ext_resource type="PackedScene" path="res://scenes/ui/map_editor_panel.tscn" id="9_mapeditorpanel"]
+[ext_resource type="Shader" path="res://shaders/aurora_layer.gdshader" id="10_aurora"]
 
-[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_space"]
-sky_top_color = Color(0.02, 0.02, 0.05, 1)
-sky_horizon_color = Color(0.05, 0.05, 0.1, 1)
-ground_bottom_color = Color(0.01, 0.01, 0.02, 1)
-ground_horizon_color = Color(0.03, 0.03, 0.06, 1)
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_starfield"]
+shader = ExtResource("6_starfield")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_aurora"]
+shader = ExtResource("10_aurora")
 
 [sub_resource type="Sky" id="Sky_space"]
-sky_material = SubResource("ProceduralSkyMaterial_space")
+sky_material = SubResource("ShaderMaterial_starfield")
 
 [sub_resource type="Environment" id="Environment_space"]
 background_mode = 2
@@ -27,6 +32,9 @@ size = Vector2(500, 500)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ground"]
 albedo_color = Color(0.1, 0.1, 0.15, 1)
+
+[sub_resource type="QuadMesh" id="QuadMesh_aurora"]
+size = Vector2(1400, 920)
 
 [node name="Main" type="Node3D"]
 script = ExtResource("2_main")
@@ -53,6 +61,13 @@ zoom_speed = 3.0
 bounds_min = Vector3(-200, 0, -200)
 bounds_max = Vector3(200, 100, 200)
 
+[node name="AuroraLayer" type="MeshInstance3D" parent="RTSCamera"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -260)
+cast_shadow = 0
+mesh = SubResource("QuadMesh_aurora")
+surface_material_override/0 = SubResource("ShaderMaterial_aurora")
+extra_cull_margin = 600.0
+
 [node name="GroundPlane" type="MeshInstance3D" parent="."]
 visible = false
 mesh = SubResource("PlaneMesh_ground")
@@ -71,3 +86,10 @@ surface_material_override/0 = SubResource("StandardMaterial3D_ground")
 [node name="GameOverScreen" parent="UI" instance=ExtResource("4_gameover")]
 
 [node name="SelectionPanel" parent="UI" instance=ExtResource("5_selection")]
+
+[node name="PauseMenu" parent="UI" instance=ExtResource("7_pause")]
+
+[node name="MapEditorPanel" parent="UI" instance=ExtResource("9_mapeditorpanel")]
+
+[node name="MapEditorController" type="Node" parent="."]
+script = ExtResource("8_mapeditor")

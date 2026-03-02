@@ -9,6 +9,9 @@ signal destroyed  # For selection tracking
 const MIN_SIZE: float = 2.0
 const MAX_SIZE: float = 4.0
 const MINERAL_DENSITY: float = 10.0  # Minerals per size unit
+const ASTEROID_SHADER_PATH: String = "res://shaders/asteroid_sick.gdshader"
+const MIN_ROTATION_SPEED: float = 0.04
+const MAX_ROTATION_SPEED: float = 0.12
 
 @export var asteroid_size: float = 3.0:
 	set(value):
@@ -19,6 +22,9 @@ var total_minerals: float
 var remaining_minerals: float
 var is_depleted: bool = false
 var selectable_component: Node
+var _asteroid_shader: Shader = null
+var _rotation_axis: Vector3 = Vector3.UP
+var _rotation_speed: float = 0.0
 
 # Mining impact visual
 var _impact_ring: MeshInstance3D = null
@@ -26,14 +32,15 @@ var _impact_timer: float = 0.0
 const IMPACT_DURATION: float = 0.4
 
 @onready var mesh_instance: MeshInstance3D = $MeshInstance3D
-@onready var collision_shape: CollisionShape3D = $Area3D/CollisionShape3D
-@onready var area_3d: Area3D = $Area3D
+@onready var collision_shape: CollisionShape3D = $SelectableComponent/CollisionShape3D
+@onready var area_3d: Area3D = $SelectableComponent
 
 
 func _ready() -> void:
 	selectable_component = get_node_or_null("SelectableComponent")
 	total_minerals = asteroid_size * MINERAL_DENSITY
 	remaining_minerals = total_minerals
+	_initialize_rotation()
 	_create_unique_material()
 	_create_impact_ring()
 	_connect_signals()
@@ -45,20 +52,79 @@ func _connect_signals() -> void:
 
 
 func _process(delta: float) -> void:
+	rotate(_rotation_axis, _rotation_speed * delta)
 	_update_impact_effect(delta)
 	if selectable_component and selectable_component.is_selected():
 		selectable_component.notify_details_changed()
 
 
+func _initialize_rotation() -> void:
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.randomize()
+
+	# Mostly Y-axis drift with a bit of tilt so asteroids feel alive but calm.
+	_rotation_axis = Vector3(
+		rng.randf_range(-0.25, 0.25),
+		1.0,
+		rng.randf_range(-0.25, 0.25)
+	).normalized()
+	_rotation_speed = rng.randf_range(MIN_ROTATION_SPEED, MAX_ROTATION_SPEED)
+
+
 func _create_unique_material() -> void:
 	if not mesh_instance:
 		return
-	
-	# Create a unique material for this asteroid instance
+
+	if _asteroid_shader == null:
+		_asteroid_shader = load(ASTEROID_SHADER_PATH) as Shader
+
+	# Preferred look: procedural shader with per-instance randomization.
+	if _asteroid_shader:
+		var shader_material: ShaderMaterial = ShaderMaterial.new()
+		shader_material.shader = _asteroid_shader
+		_randomize_shader_material(shader_material)
+		mesh_instance.set_surface_override_material(0, shader_material)
+		return
+
+	# Fallback if shader could not be loaded.
 	var original_material: Material = mesh_instance.get_active_material(0)
 	if original_material:
 		var unique_material: StandardMaterial3D = original_material.duplicate() as StandardMaterial3D
 		mesh_instance.set_surface_override_material(0, unique_material)
+
+
+func _randomize_shader_material(shader_material: ShaderMaterial) -> void:
+	var resource_percentage: float = remaining_minerals / total_minerals if total_minerals > 0 else 0.0
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.randomize()
+
+	shader_material.set_shader_parameter("seed", rng.randf_range(0.0, 1000.0))
+	shader_material.set_shader_parameter("deform_strength", rng.randf_range(0.26, 0.48))
+	shader_material.set_shader_parameter("ridge_scale", rng.randf_range(2.2, 3.8))
+	shader_material.set_shader_parameter("warp_scale", rng.randf_range(1.0, 1.8))
+	shader_material.set_shader_parameter("warp_strength", rng.randf_range(0.20, 0.46))
+	shader_material.set_shader_parameter("valley_sharpness", rng.randf_range(1.2, 2.0))
+	shader_material.set_shader_parameter("line_frequency", rng.randf_range(16.0, 30.0))
+	shader_material.set_shader_parameter("line_width", rng.randf_range(0.05, 0.10))
+	shader_material.set_shader_parameter("line_scale", rng.randf_range(2.6, 5.0))
+	shader_material.set_shader_parameter("line_contrast", rng.randf_range(0.32, 0.60))
+	shader_material.set_shader_parameter("pulse_speed", rng.randf_range(0.8, 1.6))
+	shader_material.set_shader_parameter("pulse_strength", rng.randf_range(0.16, 0.42))
+	shader_material.set_shader_parameter("emission_base", rng.randf_range(0.38, 0.68))
+	shader_material.set_shader_parameter("roughness", rng.randf_range(0.84, 0.97))
+	shader_material.set_shader_parameter("metallic", rng.randf_range(0.0, 0.08))
+
+	var hill_gray: float = rng.randf_range(0.38, 0.58)
+	shader_material.set_shader_parameter("hill_color", Color(hill_gray, hill_gray * 0.98, hill_gray * 1.05))
+	shader_material.set_shader_parameter(
+		"valley_color",
+		Color(rng.randf_range(0.04, 0.10), rng.randf_range(0.18, 0.34), rng.randf_range(0.06, 0.16))
+	)
+	shader_material.set_shader_parameter(
+		"glow_color",
+		Color(rng.randf_range(0.10, 0.22), rng.randf_range(0.88, 1.0), rng.randf_range(0.20, 0.38))
+	)
+	shader_material.set_shader_parameter("resource_level", resource_percentage)
 
 
 ## Create the impact ring effect mesh
@@ -146,6 +212,12 @@ func _update_color() -> void:
 		return
 	
 	var resource_percentage: float = remaining_minerals / total_minerals if total_minerals > 0 else 0.0
+	var material: Material = mesh_instance.get_active_material(0)
+	if material is ShaderMaterial:
+		var shader_material: ShaderMaterial = material as ShaderMaterial
+		# Keep pulse timing continuous by changing only intensity with resource updates.
+		shader_material.set_shader_parameter("resource_level", resource_percentage)
+		return
 	
 	# Green asteroids - darker when depleted, brighter green when full
 	var base_color: Color = Color(
@@ -161,11 +233,11 @@ func _update_color() -> void:
 		0.05
 	)
 	
-	var material: StandardMaterial3D = mesh_instance.get_active_material(0) as StandardMaterial3D
-	if material:
-		material.albedo_color = base_color
-		material.emission = emission_color
-		material.emission_energy_multiplier = 0.3 + 0.7 * resource_percentage
+	var standard_material: StandardMaterial3D = material as StandardMaterial3D
+	if standard_material:
+		standard_material.albedo_color = base_color
+		standard_material.emission = emission_color
+		standard_material.emission_energy_multiplier = 0.3 + 0.7 * resource_percentage
 
 
 ## Mine minerals from this asteroid

@@ -36,6 +36,7 @@ func set_starter_panel(is_starter: bool) -> void:
 
 
 func _process(_delta: float) -> void:
+	super._process(_delta)
 	if not is_built():
 		return
 	

@@ -8,14 +8,23 @@ class_name SelectionVisuals
 @export var hover_color: Color = Color(1.0, 0.95, 0.35, 0.6)
 @export var selection_ring_height: float = 0.1
 @export var hover_ring_height: float = 0.1
+@export var action_ring_height: float = 0.08
 @export var selection_thickness: float = 0.15
 @export var hover_thickness: float = 0.12
+@export var action_thickness: float = 0.1
 @export var radius_padding: float = 0.35
+@export var attack_range_color: Color = Color(1.0, 0.35, 0.3, 0.35)
+@export var mining_range_color: Color = Color(1.0, 0.8, 0.2, 0.3)
 
 var _selectable: Node = null
 var _selection_ring: MeshInstance3D = null
 var _hover_ring: MeshInstance3D = null
+var _action_range_ring: MeshInstance3D = null
 var _current_radius: float = 1.2
+var _current_action_range: float = 0.0
+var _action_range_color: Color = Color(1.0, 0.8, 0.2, 0.3)
+
+const RANGE_RING_SEGMENTS: int = 96
 
 
 func _ready() -> void:
@@ -26,6 +35,11 @@ func _ready() -> void:
 	_current_radius = _compute_radius()
 	_selection_ring = _create_ring(_current_radius, selection_thickness, selection_ring_height)
 	_hover_ring = _create_ring(_current_radius + 0.2, hover_thickness, hover_ring_height)
+	
+	_current_action_range = _compute_action_range()
+	if _current_action_range > 0.0:
+		_action_range_ring = _create_ring(_current_action_range, action_thickness, action_ring_height)
+		_action_range_ring.visible = false
 
 	_selection_ring.visible = false
 	_hover_ring.visible = false
@@ -56,8 +70,8 @@ func _create_ring(radius: float, thickness: float, ring_height: float) -> MeshIn
 	var mesh: TorusMesh = TorusMesh.new()
 	mesh.inner_radius = maxf(radius - thickness, 0.05)
 	mesh.outer_radius = radius
-	mesh.rings = 32
-	mesh.ring_segments = 32
+	mesh.rings = RANGE_RING_SEGMENTS
+	mesh.ring_segments = RANGE_RING_SEGMENTS
 	ring.mesh = mesh
 
 	var mat: StandardMaterial3D = StandardMaterial3D.new()
@@ -74,6 +88,8 @@ func _create_ring(radius: float, thickness: float, ring_height: float) -> MeshIn
 func _on_selected_changed(is_selected: bool) -> void:
 	if _selection_ring:
 		_selection_ring.visible = is_selected
+	if _action_range_ring:
+		_action_range_ring.visible = is_selected
 	if is_selected and _hover_ring:
 		_hover_ring.visible = false
 	elif _hover_ring:
@@ -110,3 +126,28 @@ func _update_ring_color() -> void:
 		hover_mat.albedo_color = hover_color
 		hover_mat.emission = Color(hover_color.r * 0.8, hover_color.g * 0.8, hover_color.b * 0.8, 1.0)
 		hover_mat.emission_energy_multiplier = 2.0
+	
+	if _action_range_ring:
+		var action_mat: StandardMaterial3D = _action_range_ring.material_override as StandardMaterial3D
+		if action_mat:
+			action_mat.albedo_color = _action_range_color
+			action_mat.emission = Color(_action_range_color.r * 0.7, _action_range_color.g * 0.7, _action_range_color.b * 0.7, 1.0)
+			action_mat.emission_energy_multiplier = 1.6
+
+
+func _compute_action_range() -> float:
+	var owner_entity: Node3D = get_parent() as Node3D
+	if owner_entity == null:
+		return 0.0
+	
+	var attack_range: Variant = owner_entity.get("attack_range")
+	if attack_range != null:
+		_action_range_color = attack_range_color
+		return maxf(float(attack_range), 0.0)
+	
+	var mining_radius: Variant = owner_entity.get("mining_radius")
+	if mining_radius != null:
+		_action_range_color = mining_range_color
+		return maxf(float(mining_radius), 0.0)
+	
+	return 0.0

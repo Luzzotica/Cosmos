@@ -69,7 +69,7 @@ func _process(delta: float) -> void:
 				can_build = true
 	
 	if can_build:
-		build_progress += delta / construction_time
+		build_progress += delta / maxf(construction_time, 0.001)
 		construction_progress_changed.emit(build_progress)
 		
 		if build_progress >= 1.0:

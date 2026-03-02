@@ -27,6 +27,13 @@ var _lines_parent: Node3D = null
 # Power flow animation - edges being animated
 var _pulsing_edges: Dictionary = {}  # edge_key -> remaining_time
 const PULSE_DURATION: float = 0.3  # How long the pulse lasts
+const RECONNECT_SCAN_INTERVAL: float = 0.5
+const LEAF_RECONNECT_COOLDOWN: float = 1.25
+
+var _known_disrupted_edges: Dictionary = {}  # edge_key -> true
+var _reconnect_queue: Dictionary = {}  # PowerNode -> true
+var _leaf_reconnect_cooldowns: Dictionary = {}  # instance_id -> remaining seconds
+var _reconnect_scan_timer: float = 0.0
 
 
 func _ready() -> void:
@@ -38,6 +45,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_update_power_flows(delta)
+	_update_reconnect_state(delta)
 
 
 ## Get total power capacity across all sources
@@ -144,6 +152,8 @@ func remove_node(node: Node3D) -> void:
 		return
 	
 	_nodes.erase(node)
+	_reconnect_queue.erase(node)
+	_leaf_reconnect_cooldowns.erase(node.get_instance_id())
 	
 	# Get all nodes that were connected to this node
 	var connected_nodes: Array = _graph.get(node, {}).keys()
@@ -162,6 +172,9 @@ func remove_node(node: Node3D) -> void:
 	# Remove the node's entry from the graphs
 	_graph.erase(node)
 	_edges.erase(node)
+	
+	# Try to reconnect affected leaf endpoints immediately.
+	_attempt_leaf_reconnect(connected_nodes, true)
 	
 	# Rebuild subgraphs
 	_identify_subgraphs()
@@ -197,7 +210,146 @@ func is_edge_enabled(node1: Node3D, node2: Node3D) -> bool:
 
 
 func _can_edge_handle_power(node1: Node3D, node2: Node3D) -> bool:
-	return node1.get("is_enabled") or node2.get("is_enabled")
+	return (node1.get("is_enabled") or node2.get("is_enabled")) and _has_edge_line_of_sight(node1, node2)
+
+
+func _has_edge_line_of_sight(node1: Node3D, node2: Node3D) -> bool:
+	var struct1: Node3D = node1.get_parent() as Node3D
+	var struct2: Node3D = node2.get_parent() as Node3D
+	if not struct1 or not struct2:
+		return true
+	return PowerNode.has_line_of_sight(struct1.global_position, struct2.global_position, struct1, struct2)
+
+
+func _update_reconnect_state(delta: float) -> void:
+	if _leaf_reconnect_cooldowns.is_empty():
+		_reconnect_scan_timer = maxf(_reconnect_scan_timer - delta, 0.0)
+	else:
+		var cooldown_ids: Array = _leaf_reconnect_cooldowns.keys()
+		for node_id in cooldown_ids:
+			var remaining: float = _leaf_reconnect_cooldowns[node_id]
+			remaining -= delta
+			if remaining <= 0.0:
+				_leaf_reconnect_cooldowns.erase(node_id)
+			else:
+				_leaf_reconnect_cooldowns[node_id] = remaining
+		_reconnect_scan_timer = maxf(_reconnect_scan_timer - delta, 0.0)
+	
+	if _reconnect_scan_timer > 0.0 or _reconnect_queue.is_empty():
+		return
+	_reconnect_scan_timer = RECONNECT_SCAN_INTERVAL
+	
+	var queued_nodes: Array = _reconnect_queue.keys()
+	_reconnect_queue.clear()
+	_attempt_leaf_reconnect(queued_nodes)
+
+
+func _attempt_leaf_reconnect(candidates: Array, force: bool = false) -> void:
+	if candidates.is_empty():
+		return
+	
+	var any_reconnected: bool = false
+	for candidate in candidates:
+		var leaf_node: Node3D = candidate as Node3D
+		if not _is_valid_leaf_reconnect_candidate(leaf_node, force):
+			continue
+		
+		var candidate_max_distance: float = float(leaf_node.get("max_connection_distance"))
+		var candidate_max_connections: int = int(leaf_node.get("max_connections"))
+		var candidate_position: Vector3 = _get_node_world_position(leaf_node)
+		var alternatives: Array = find_power_nodes_in_range(
+			candidate_position,
+			candidate_max_distance,
+			candidate_max_connections
+		)
+		
+		var reconnected: bool = false
+		for other in alternatives:
+			var target_node: Node3D = other as Node3D
+			if not _is_valid_reconnect_target(leaf_node, target_node):
+				continue
+			if _connect_nodes(leaf_node, target_node):
+				any_reconnected = true
+				reconnected = true
+				break
+		
+		# Keep retry pressure low so disrupted links do not cause thrashing.
+		if reconnected or not force:
+			_leaf_reconnect_cooldowns[leaf_node.get_instance_id()] = LEAF_RECONNECT_COOLDOWN
+	
+	if any_reconnected:
+		_identify_subgraphs()
+
+
+func _connect_nodes(node1: Node3D, node2: Node3D) -> bool:
+	if node1 == null or node2 == null:
+		return false
+	if not _graph.has(node1) or not _graph.has(node2):
+		return false
+	if _graph[node1].has(node2):
+		return false
+	if not node1.can_connect_to(node2) or not node2.can_connect_to(node1):
+		return false
+	
+	_graph[node1][node2] = true
+	_graph[node2][node1] = true
+	_create_edge(node1, node2)
+	node1.connect_node(node2)
+	node2.connect_node(node1)
+	return true
+
+
+func _is_valid_leaf_reconnect_candidate(node: Node3D, force: bool) -> bool:
+	if not is_instance_valid(node):
+		return false
+	if not _nodes.has(node):
+		return false
+	if not node.has_method("get_node_type") or not node.has_method("can_accept_more_connections"):
+		return false
+	if int(node.call("get_node_type")) != int(PowerNode.NodeType.LEAF):
+		return false
+	if not node.can_accept_more_connections():
+		return false
+	if not force and _leaf_reconnect_cooldowns.has(node.get_instance_id()):
+		return false
+	return true
+
+
+func _is_valid_reconnect_target(leaf_node: Node3D, target_node: Node3D) -> bool:
+	if target_node == null or target_node == leaf_node:
+		return false
+	if not is_instance_valid(target_node):
+		return false
+	if not _nodes.has(target_node):
+		return false
+	if not target_node.has_method("can_accept_more_connections"):
+		return false
+	if _graph.has(leaf_node) and _graph[leaf_node].has(target_node):
+		return false
+	if not target_node.can_accept_more_connections():
+		return false
+	if target_node.has_method("is_valid_connection_target") and not target_node.is_valid_connection_target():
+		return false
+	
+	var leaf_max_connections: int = int(leaf_node.get("max_connections"))
+	var target_max_connections: int = int(target_node.get("max_connections"))
+	if leaf_max_connections == 1 and target_max_connections == 1:
+		return false
+	
+	return leaf_node.can_connect_to(target_node) and target_node.can_connect_to(leaf_node)
+
+
+func _get_node_world_position(node: Node3D) -> Vector3:
+	var struct: Node3D = node.get_parent() as Node3D
+	if struct:
+		return struct.global_position
+	return node.global_position
+
+
+func _queue_reconnect_for_leaf(node: Node3D) -> void:
+	if not _is_valid_leaf_reconnect_candidate(node, false):
+		return
+	_reconnect_queue[node] = true
 
 
 ## Add a power user to tracking
@@ -464,6 +616,8 @@ func _update_power_flows(delta: float) -> void:
 
 ## Update visual state of all edges
 func _update_all_edge_visuals() -> void:
+	var current_disrupted_edges: Dictionary = {}
+	
 	for node1 in _edges.keys():
 		if not is_instance_valid(node1):
 			continue
@@ -483,7 +637,19 @@ func _update_all_edge_visuals() -> void:
 				continue
 			
 			var edge_key: String = _get_edge_key(node1, node2)
-			if _pulsing_edges.has(edge_key):
+			var edge_has_los: bool = _has_edge_line_of_sight(node1, node2)
+			var endpoints_enabled: bool = node1.get("is_enabled") or node2.get("is_enabled")
+			if not edge_has_los:
+				current_disrupted_edges[edge_key] = true
+				if not _known_disrupted_edges.has(edge_key):
+					_queue_reconnect_for_leaf(node1)
+					_queue_reconnect_for_leaf(node2)
+				
+				# Blocked LOS - red and dim to indicate disrupted link.
+				mat.emission = Color(0.6, 0.1, 0.1)
+				mat.emission_energy_multiplier = 1.2
+				mat.albedo_color = Color(0.9, 0.2, 0.2, 0.75)
+			elif _pulsing_edges.has(edge_key) and endpoints_enabled:
 				# Pulsing - bright yellow/white
 				var remaining: float = _pulsing_edges[edge_key]
 				var intensity: float = remaining / PULSE_DURATION  # 1.0 to 0.0
@@ -491,10 +657,17 @@ func _update_all_edge_visuals() -> void:
 				mat.emission_energy_multiplier = 3.0 + 5.0 * intensity
 				mat.albedo_color = Color(1.0, 0.9, 0.4, 0.9)
 			else:
-				# Normal - blue
-				mat.emission = Color(0.2, 0.5, 0.9)
-				mat.emission_energy_multiplier = 2.0
-				mat.albedo_color = Color(0.3, 0.7, 1.0, 0.8)
+				# Normal - blue (dimmer when endpoint nodes are disabled)
+				if endpoints_enabled:
+					mat.emission = Color(0.2, 0.5, 0.9)
+					mat.emission_energy_multiplier = 2.0
+					mat.albedo_color = Color(0.3, 0.7, 1.0, 0.8)
+				else:
+					mat.emission = Color(0.1, 0.2, 0.4)
+					mat.emission_energy_multiplier = 0.8
+					mat.albedo_color = Color(0.2, 0.35, 0.6, 0.6)
+	
+	_known_disrupted_edges = current_disrupted_edges
 
 
 ## BFS to find nearest source node

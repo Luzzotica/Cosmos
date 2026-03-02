@@ -1,0 +1,172 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/map_editor_panel.gd" id="1_panel"]
+[ext_resource type="Theme" path="res://themes/cosmos_ui_theme.tres" id="2_theme"]
+
+[node name="MapEditorPanel" type="Control"]
+layout_mode = 1
+anchors_preset = 0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 400.0
+offset_bottom = 660.0
+mouse_filter = 1
+theme = ExtResource("2_theme")
+script = ExtResource("1_panel")
+
+[node name="Panel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="VBox" type="VBoxContainer" parent="Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="Panel/Margin/VBox"]
+layout_mode = 2
+text = "Map Editor (F9)"
+
+[node name="ToolSelect" type="OptionButton" parent="Panel/Margin/VBox"]
+layout_mode = 2
+
+[node name="StructureTypeSelect" type="OptionButton" parent="Panel/Margin/VBox"]
+layout_mode = 2
+
+[node name="AsteroidSize" type="SpinBox" parent="Panel/Margin/VBox"]
+layout_mode = 2
+min_value = 1.0
+max_value = 8.0
+step = 0.1
+value = 3.0
+prefix = "Size "
+
+[node name="AsteroidMinerals" type="SpinBox" parent="Panel/Margin/VBox"]
+layout_mode = 2
+min_value = 1.0
+max_value = 500.0
+step = 1.0
+value = 30.0
+prefix = "Minerals "
+
+[node name="CloudRadius" type="SpinBox" parent="Panel/Margin/VBox"]
+layout_mode = 2
+min_value = 5.0
+max_value = 200.0
+step = 1.0
+value = 35.0
+prefix = "Cloud Radius "
+
+[node name="CloudCount" type="SpinBox" parent="Panel/Margin/VBox"]
+layout_mode = 2
+min_value = 1.0
+max_value = 100.0
+step = 1.0
+value = 8.0
+prefix = "Cloud Count "
+
+[node name="MapName" type="LineEdit" parent="Panel/Margin/VBox"]
+layout_mode = 2
+placeholder_text = "Map name"
+text = "Community Draft"
+
+[node name="Biome" type="LineEdit" parent="Panel/Margin/VBox"]
+layout_mode = 2
+placeholder_text = "Biome"
+text = "asteroid_field"
+
+[node name="Difficulty" type="LineEdit" parent="Panel/Margin/VBox"]
+layout_mode = 2
+placeholder_text = "Difficulty band"
+text = "normal"
+
+[node name="Act" type="LineEdit" parent="Panel/Margin/VBox"]
+layout_mode = 2
+placeholder_text = "Story act"
+text = "act_01"
+
+[node name="Chapter" type="LineEdit" parent="Panel/Margin/VBox"]
+layout_mode = 2
+placeholder_text = "Story chapter"
+text = "chapter_01_first_light"
+
+[node name="PartialExtraction" type="CheckBox" parent="Panel/Margin/VBox"]
+layout_mode = 2
+button_pressed = true
+text = "Allow partial extraction"
+
+[node name="CarryoverMinerals" type="SpinBox" parent="Panel/Margin/VBox"]
+layout_mode = 2
+min_value = 0.0
+max_value = 50000.0
+step = 100.0
+value = 6000.0
+prefix = "Target carryover minerals "
+
+[node name="CarryoverEnergy" type="SpinBox" parent="Panel/Margin/VBox"]
+layout_mode = 2
+min_value = 0.0
+max_value = 1000.0
+step = 5.0
+value = 100.0
+prefix = "Target carryover energy "
+
+[node name="StatusLabel" type="Label" parent="Panel/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+text = "Editor idle."
+
+[node name="ButtonRow" type="HBoxContainer" parent="Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SaveButton" type="Button" parent="Panel/Margin/VBox/ButtonRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Save Draft"
+
+[node name="TestButton" type="Button" parent="Panel/Margin/VBox/ButtonRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Test Play"
+
+[node name="CloseButton" type="Button" parent="Panel/Margin/VBox/ButtonRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Close"
+
+[node name="FileRow" type="HBoxContainer" parent="Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ExportButton" type="Button" parent="Panel/Margin/VBox/FileRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Export JSON"
+
+[node name="ImportButton" type="Button" parent="Panel/Margin/VBox/FileRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Import JSON"
+
+[node name="ExportDialog" type="FileDialog" parent="."]
+title = "Export Map JSON"
+access = 2
+file_mode = 4
+filters = PackedStringArray("*.json ; JSON map files")
+
+[node name="ImportDialog" type="FileDialog" parent="."]
+title = "Import Map JSON"
+access = 2
+file_mode = 0
+filters = PackedStringArray("*.json ; JSON map files")

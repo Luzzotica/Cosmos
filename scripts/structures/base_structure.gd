@@ -293,3 +293,5 @@ func get_selection_details() -> Dictionary:
 
 	details["stats"] = stats
 	return details
+
+

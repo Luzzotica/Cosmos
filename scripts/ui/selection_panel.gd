@@ -8,19 +8,21 @@ signal panel_hidden
 const SLIDE_DURATION: float = 0.25
 const HIDDEN_X_OFFSET: float = -400.0
 
-# Colors for factions
-const COLOR_PLAYER: Color = Color(0.1, 0.5, 0.2, 0.95)
-const COLOR_ENEMY: Color = Color(0.6, 0.15, 0.15, 0.95)
-const COLOR_NEUTRAL: Color = Color(0.7, 0.6, 0.1, 0.95)
+const COLOR_PANEL_BG: Color = Color(0.0196078, 0.0784314, 0.152941, 0.95) # #051427
+const COLOR_TEXT_MUTED: Color = Color(0.92, 0.95, 1.0, 1.0)
+const COLOR_TEXT_PRIMARY: Color = Color(1.0, 1.0, 1.0, 1.0)
+const COLOR_TAG_ALLY: Color = Color(0.35, 1.0, 0.45, 1.0)
+const COLOR_TAG_ENEMY: Color = Color(1.0, 0.28, 0.28, 1.0)
+const COLOR_TAG_NEUTRAL: Color = Color(1.0, 0.9, 0.25, 1.0)
 
 @onready var title_label: Label = $MarginContainer/VBoxContainer/TitleLabel
+@onready var faction_tag_label: Label = $MarginContainer/VBoxContainer/FactionTagLabel
 @onready var info_container: VBoxContainer = $MarginContainer/VBoxContainer/InfoContainer
 @onready var health_bar: ProgressBar = $MarginContainer/VBoxContainer/HealthBar
 @onready var health_label: Label = $MarginContainer/VBoxContainer/HealthBar/HealthLabel
 
 var _is_shown: bool = false
 var _slide_tween: Tween = null
-var _color_tween: Tween = null
 var _target_x: float = 0.0
 var _style_box: StyleBoxFlat = null
 var _last_details: Dictionary = {}
@@ -29,13 +31,15 @@ var _last_details: Dictionary = {}
 func _ready() -> void:
 	# Create unique stylebox for color changes
 	_style_box = StyleBoxFlat.new()
-	_style_box.bg_color = COLOR_PLAYER
-	_style_box.border_width_left = 0
+	_style_box.bg_color = COLOR_PANEL_BG
+	_style_box.border_width_left = 2
 	_style_box.border_width_top = 2
 	_style_box.border_width_right = 2
 	_style_box.border_width_bottom = 2
-	_style_box.border_color = Color(1, 1, 1, 0.5)
+	_style_box.border_color = Color(0.972549, 0.737255, 0.0156863, 0.75)
+	_style_box.corner_radius_top_left = 8
 	_style_box.corner_radius_top_right = 8
+	_style_box.corner_radius_bottom_left = 8
 	_style_box.corner_radius_bottom_right = 8
 	add_theme_stylebox_override("panel", _style_box)
 	
@@ -54,6 +58,8 @@ func _ready() -> void:
 	SelectionManager.selection_details_changed.connect(_on_selection_details_changed)
 	SelectionManager.selection_changed.connect(_on_selection_changed)
 	SelectionManager.selection_cleared.connect(_on_selection_cleared)
+	GameState.pause_changed.connect(_on_pause_changed)
+	GameState.game_over.connect(_on_game_over)
 
 
 func _set_mouse_filter_recursive(node: Node) -> void:
@@ -124,25 +130,31 @@ func _on_selection_cleared() -> void:
 	hide_panel()
 
 
-func _update_panel_color(faction: String) -> void:
-	var target_color: Color
-	
+func _on_pause_changed(paused: bool) -> void:
+	if paused:
+		hide_panel()
+
+
+func _on_game_over() -> void:
+	hide_panel()
+
+
+func _update_faction_tag(faction: String) -> void:
+	if not faction_tag_label:
+		return
 	match faction:
-		"player":
-			target_color = COLOR_PLAYER
-		"enemy":
-			target_color = COLOR_ENEMY
+		"player", "ally", "friendly":
+			faction_tag_label.text = "ALLY"
+			faction_tag_label.add_theme_color_override("font_color", COLOR_TAG_ALLY)
+		"enemy", "hostile":
+			faction_tag_label.text = "ENEMY"
+			faction_tag_label.add_theme_color_override("font_color", COLOR_TAG_ENEMY)
 		"neutral":
-			target_color = COLOR_NEUTRAL
+			faction_tag_label.text = "NEUTRAL"
+			faction_tag_label.add_theme_color_override("font_color", COLOR_TAG_NEUTRAL)
 		_:
-			target_color = COLOR_PLAYER
-	
-	# Animate color change
-	if _color_tween:
-		_color_tween.kill()
-	
-	_color_tween = create_tween()
-	_color_tween.tween_property(_style_box, "bg_color", target_color, 0.15)
+			faction_tag_label.text = "ALLY"
+			faction_tag_label.add_theme_color_override("font_color", COLOR_TAG_ALLY)
 
 
 func _update_from_details(details: Dictionary) -> void:
@@ -152,7 +164,7 @@ func _update_from_details(details: Dictionary) -> void:
 		return
 	_last_details = details.duplicate(true)
 
-	_update_panel_color(str(details.get("faction", "player")).to_lower())
+	_update_faction_tag(str(details.get("faction", "player")).to_lower())
 
 	if title_label:
 		title_label.text = str(details.get("name", "Unknown"))
@@ -242,14 +254,18 @@ func _add_info_row(label_text: String, value_text: String) -> void:
 	var label: Label = Label.new()
 	label.text = label_text + ":"
 	label.add_theme_font_size_override("font_size", 28)
-	label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8, 1.0))
+	label.add_theme_color_override("font_color", COLOR_TEXT_MUTED)
+	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+	label.add_theme_constant_override("outline_size", 1)
 	label.custom_minimum_size.x = 140
 	row.add_child(label)
 	
 	var value: Label = Label.new()
 	value.text = value_text
 	value.add_theme_font_size_override("font_size", 28)
-	value.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+	value.add_theme_color_override("font_color", COLOR_TEXT_PRIMARY)
+	value.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+	value.add_theme_constant_override("outline_size", 1)
 	row.add_child(value)
 	
 	info_container.add_child(row)

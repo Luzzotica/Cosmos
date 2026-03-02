@@ -1,0 +1,13 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/minimap_panel.gd" id="1_minimap"]
+[ext_resource type="Theme" path="res://themes/cosmos_ui_theme.tres" id="2_theme"]
+
+[node name="MinimapPanel" type="Control"]
+custom_minimum_size = Vector2(260, 260)
+layout_mode = 1
+offset_right = 260.0
+offset_bottom = 260.0
+mouse_filter = 0
+theme = ExtResource("2_theme")
+script = ExtResource("1_minimap")

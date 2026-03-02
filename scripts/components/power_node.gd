@@ -156,6 +156,8 @@ static func has_line_of_sight(from_pos: Vector3, to_pos: Vector3, exclude1: Node
 	
 	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(start, end)
 	query.collision_mask = 0xFFFFFFFF  # Check all layers
+	query.collide_with_bodies = true
+	query.collide_with_areas = true
 	
 	# Exclude the two structures we're connecting
 	var exclude_rids: Array[RID] = []

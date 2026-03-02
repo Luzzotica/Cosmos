@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://brpap1khukiub"
+path="res://.godot/imported/solar_panel_panel.obj-db89f940b3d80faf6030c3c2fc030137.mesh"
+
+[deps]
+
+files=["res://.godot/imported/solar_panel_panel.obj-db89f940b3d80faf6030c3c2fc030137.mesh"]
+
+source_file="res://assets/generated/meshes/solar_panel_panel/solar_panel_panel.obj"
+dest_files=["res://.godot/imported/solar_panel_panel.obj-db89f940b3d80faf6030c3c2fc030137.mesh", "res://.godot/imported/solar_panel_panel.obj-db89f940b3d80faf6030c3c2fc030137.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

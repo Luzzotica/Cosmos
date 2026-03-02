@@ -6,6 +6,7 @@ signal energy_changed(current: float, capacity: float)
 signal wave_started(wave_number: int)
 signal wave_ended(wave_number: int)
 signal game_over
+signal pause_changed(paused: bool)
 
 # Resources
 var minerals: int = 10000:
@@ -26,6 +27,8 @@ var energy_consumption: float = 0.0
 var current_wave: int = 0
 var is_wave_in_progress: bool = false
 var time_until_next_wave: float = 30.0
+var map_initial_wave_delay: float = 20.0
+var map_wave_interval: float = 60.0
 
 # Game state
 var game_time: float = 0.0
@@ -33,8 +36,8 @@ var is_paused: bool = false
 var is_game_over: bool = false
 
 # Config
-const INITIAL_DELAY: float = 90.0  # 90 seconds before first wave
-const WAVE_INTERVAL: float = 60.0  # 60 seconds between waves
+const DEFAULT_INITIAL_DELAY: float = 20.0  # 20 seconds before first wave
+const DEFAULT_WAVE_INTERVAL: float = 60.0  # 60 seconds between waves
 
 
 func _ready() -> void:
@@ -79,7 +82,7 @@ func increase_energy_capacity(amount: float) -> void:
 
 func start_wave() -> void:
 	is_wave_in_progress = true
-	time_until_next_wave = WAVE_INTERVAL
+	time_until_next_wave = map_wave_interval
 	wave_started.emit(current_wave)
 
 
@@ -104,7 +107,7 @@ func _update_energy_balance(delta: float) -> void:
 
 func trigger_game_over() -> void:
 	is_game_over = true
-	is_paused = true
+	set_paused(true)
 	game_over.emit()
 
 
@@ -112,11 +115,54 @@ func reset() -> void:
 	minerals = 10000
 	energy = 100.0
 	energy_capacity = 100.0
+	map_initial_wave_delay = DEFAULT_INITIAL_DELAY
+	map_wave_interval = DEFAULT_WAVE_INTERVAL
 	energy_production = 0.0
 	energy_consumption = 0.0
 	current_wave = 0
 	is_wave_in_progress = false
-	time_until_next_wave = INITIAL_DELAY
+	time_until_next_wave = map_initial_wave_delay
 	game_time = 0.0
-	is_paused = false
 	is_game_over = false
+	set_paused(false)
+
+
+func apply_map_settings(map_data: MapData) -> void:
+	if not map_data:
+		return
+
+	current_wave = 0
+	is_wave_in_progress = false
+	map_initial_wave_delay = map_data.initial_wave_delay
+	map_wave_interval = map_data.wave_interval
+	time_until_next_wave = map_initial_wave_delay
+
+	if map_data.starting_resources and map_data.starting_resources.override_defaults:
+		minerals = map_data.starting_resources.minerals
+		energy_capacity = map_data.starting_resources.energy_capacity
+		energy = clampf(map_data.starting_resources.energy, 0.0, energy_capacity)
+		energy_changed.emit(energy, energy_capacity)
+	else:
+		minerals = 10000
+		energy_capacity = 100.0
+		energy = 100.0
+
+	game_time = 0.0
+	is_game_over = false
+	set_paused(false)
+
+
+func set_paused(paused: bool) -> void:
+	if is_paused == paused:
+		return
+	is_paused = paused
+	var tree: SceneTree = get_tree()
+	if tree:
+		tree.paused = paused
+	pause_changed.emit(is_paused)
+
+
+func toggle_pause() -> void:
+	if is_game_over:
+		return
+	set_paused(not is_paused)

@@ -1,0 +1,95 @@
+{
+  "name": "Cosmii Story Campaign",
+  "ordered_map_ids": [
+    "story_site_01_tutorial",
+    "story_site_02_pattern",
+    "story_site_03_hope",
+    "story_site_04_grind",
+    "story_site_05_unease",
+    "story_site_06_revelation",
+    "story_site_07_threshold",
+    "story_site_08_hunt",
+    "story_site_09_choice",
+    "story_site_10_finale",
+    "story_epilogue_break_chain"
+  ],
+  "maps": [
+    {
+      "id": "story_site_01_tutorial",
+      "map_path": "res://resources/maps/tutorial_map.json",
+      "act": "act_01",
+      "chapter": "chapter_01_first_light",
+      "supports_partial_extraction": true
+    },
+    {
+      "id": "story_site_02_pattern",
+      "map_path": "res://resources/maps/tutorial_map.json",
+      "act": "act_01",
+      "chapter": "chapter_02_the_pattern",
+      "supports_partial_extraction": true
+    },
+    {
+      "id": "story_site_03_hope",
+      "map_path": "res://resources/maps/tutorial_map.json",
+      "act": "act_01",
+      "chapter": "chapter_03_hope_burns",
+      "supports_partial_extraction": true
+    },
+    {
+      "id": "story_site_04_grind",
+      "map_path": "res://resources/maps/story/site_04_grind.json",
+      "act": "act_02",
+      "chapter": "chapter_04_the_grind",
+      "supports_partial_extraction": true
+    },
+    {
+      "id": "story_site_05_unease",
+      "map_path": "res://resources/maps/tutorial_map.json",
+      "act": "act_02",
+      "chapter": "chapter_05_the_unease",
+      "supports_partial_extraction": true
+    },
+    {
+      "id": "story_site_06_revelation",
+      "map_path": "res://resources/maps/tutorial_map.json",
+      "act": "act_03",
+      "chapter": "chapter_06_the_revelation",
+      "supports_partial_extraction": true
+    },
+    {
+      "id": "story_site_07_threshold",
+      "map_path": "res://resources/maps/tutorial_map.json",
+      "act": "act_04",
+      "chapter": "chapter_07_the_dilemma",
+      "supports_partial_extraction": true
+    },
+    {
+      "id": "story_site_08_hunt",
+      "map_path": "res://resources/maps/tutorial_map.json",
+      "act": "act_04",
+      "chapter": "chapter_07_the_dilemma",
+      "supports_partial_extraction": true
+    },
+    {
+      "id": "story_site_09_choice",
+      "map_path": "res://resources/maps/tutorial_map.json",
+      "act": "act_04",
+      "chapter": "chapter_07_the_dilemma",
+      "supports_partial_extraction": true
+    },
+    {
+      "id": "story_site_10_finale",
+      "map_path": "res://resources/maps/story/site_10_finale.json",
+      "act": "act_04",
+      "chapter": "chapter_07_the_dilemma",
+      "supports_partial_extraction": false
+    },
+    {
+      "id": "story_epilogue_break_chain",
+      "map_path": "res://resources/maps/tutorial_map.json",
+      "act": "act_04",
+      "chapter": "chapter_07_the_dilemma",
+      "supports_partial_extraction": false
+    }
+  ]
+}

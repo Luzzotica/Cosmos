@@ -41,7 +41,7 @@ max_health = 50.0
 health = 50.0
 
 [node name="ConstructionComponent" parent="." instance=ExtResource("4_construct")]
-construction_time = 1.0
+construction_time = 3.0
 
 [node name="PowerNodeComp" parent="." instance=ExtResource("5_power_node")]
 max_connections = 6

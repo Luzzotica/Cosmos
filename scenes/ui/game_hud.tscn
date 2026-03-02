@@ -1,39 +1,41 @@
-[gd_scene load_steps=5 format=3 uid="uid://c5yh8m2qxr4wv"]
+[gd_scene load_steps=7 format=3 uid="uid://c5yh8m2qxr4wv"]
 
 [ext_resource type="Script" path="res://scripts/ui/game_hud.gd" id="1_hud"]
+[ext_resource type="PackedScene" path="res://scenes/ui/minimap_panel.tscn" id="2_minimap"]
+[ext_resource type="Theme" path="res://themes/cosmos_ui_theme.tres" id="3_theme"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
-bg_color = Color(0.08, 0.08, 0.12, 0.9)
+bg_color = Color(0.0196078, 0.0784314, 0.152941, 0.9)
 border_width_left = 2
 border_width_top = 2
 border_width_right = 2
 border_width_bottom = 2
-border_color = Color(0.3, 0.5, 0.8, 0.8)
-corner_radius_left_top = 4
+border_color = Color(0.643137, 0.262745, 0.133333, 0.9)
+corner_radius_top_left = 4
 corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_normal"]
-bg_color = Color(0.15, 0.2, 0.3, 1)
+bg_color = Color(0.32549, 0.0588235, 0.117647, 0.92)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.4, 0.6, 0.9, 0.6)
-corner_radius_left_top = 3
+border_color = Color(0.643137, 0.262745, 0.133333, 0.85)
+corner_radius_top_left = 3
 corner_radius_top_right = 3
 corner_radius_bottom_right = 3
 corner_radius_bottom_left = 3
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_hover"]
-bg_color = Color(0.2, 0.3, 0.45, 1)
+bg_color = Color(0.643137, 0.262745, 0.133333, 0.95)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.5, 0.7, 1, 0.8)
-corner_radius_left_top = 3
+border_color = Color(0.972549, 0.737255, 0.0156863, 1)
+corner_radius_top_left = 3
 corner_radius_top_right = 3
 corner_radius_bottom_right = 3
 corner_radius_bottom_left = 3
@@ -46,6 +48,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
+theme = ExtResource("3_theme")
 script = ExtResource("1_hud")
 
 [node name="Margin" type="MarginContainer" parent="."]
@@ -88,14 +91,14 @@ layout_mode = 2
 [node name="MineralsLabel" type="Label" parent="Margin/VBox/TopBar/ResourcesPanel/MarginContainer/VBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.9, 0.8, 0.3, 1)
+theme_override_colors/font_color = Color(0.972549, 0.737255, 0.0156863, 1)
 theme_override_font_sizes/font_size = 36
 text = "Minerals: 10000"
 
 [node name="EnergyLabel" type="Label" parent="Margin/VBox/TopBar/ResourcesPanel/MarginContainer/VBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.3, 0.8, 1, 1)
+theme_override_colors/font_color = Color(0.643137, 0.262745, 0.133333, 1)
 theme_override_font_sizes/font_size = 36
 text = "Energy: 100 / 100 (100%)"
 
@@ -117,14 +120,14 @@ layout_mode = 2
 [node name="WaveLabel" type="Label" parent="Margin/VBox/TopBar/WavePanel/MarginContainer/VBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.6, 0.3, 1)
+theme_override_colors/font_color = Color(0.972549, 0.737255, 0.0156863, 1)
 theme_override_font_sizes/font_size = 36
 text = "Wave 1"
 
 [node name="WaveTimerLabel" type="Label" parent="Margin/VBox/TopBar/WavePanel/MarginContainer/VBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+theme_override_colors/font_color = Color(0.643137, 0.262745, 0.133333, 1)
 theme_override_font_sizes/font_size = 32
 text = "Next wave in: 30.0s"
 
@@ -157,3 +160,15 @@ theme_override_constants/margin_bottom = 10
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 10
+
+[node name="MinimapPanel" parent="." instance=ExtResource("2_minimap")]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -280.0
+offset_top = -280.0
+offset_right = -20.0
+offset_bottom = -20.0

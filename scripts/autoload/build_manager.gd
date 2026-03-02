@@ -3,6 +3,7 @@ extends Node
 
 # Preload PowerNode to ensure type is available
 const PowerNodeClass: GDScript = preload("res://scripts/components/power_node.gd")
+const PLACEMENT_HOLO_SHADER_PATH: String = "res://shaders/placement_holo.gdshader"
 
 signal build_started(building_type: String)
 signal build_cancelled
@@ -20,19 +21,35 @@ var _dragging_building_type: String = ""
 var _drag_position: Vector3 = Vector3.ZERO
 var _placement_preview: Node3D = null
 var _is_placement_valid: bool = false
+var _placement_overlap_detector: Area3D = null
+var _placement_overlap_counts: Dictionary = {}  # instance_id -> overlap count
+var _preview_mesh_instances: Array[MeshInstance3D] = []
+var _preview_holo_materials: Dictionary = {}  # mesh_instance_id -> ShaderMaterial
+var _preview_collision_radius: float = 1.2
+var _placement_holo_shader: Shader = null
 
 # Range indicators
 var _connection_range_indicator: MeshInstance3D = null
 var _mining_range_indicator: MeshInstance3D = null
-var _connection_line: MeshInstance3D = null
-var _closest_power_node: Node3D = null  # PowerNode component
-var _connection_blocked: bool = false  # True if line of sight is blocked
+var _action_range_indicator: MeshInstance3D = null
+var _connection_lines: Array[MeshInstance3D] = []
+var _preview_max_connections: int = 0
+var _preview_action_range: float = 0.0
+var _preview_show_asteroid_targeting: bool = false
+var _preview_show_enemy_targeting: bool = false
 var _asteroid_highlights: Array[MeshInstance3D] = []
-
-const MINING_RANGE: float = 12.5  # Should match MiningStation default
+var _enemy_highlights: Array[MeshInstance3D] = []
 
 # Building data cache
 var _building_data: Dictionary = {}
+
+const RANGE_RING_SEGMENTS: int = 96
+const HIGHLIGHT_RING_SEGMENTS: int = 64
+const DEFAULT_PLACEMENT_RADIUS: float = 1.2
+const PLACEMENT_OCCUPANCY_MARGIN: float = 0.1
+const POWER_LINE_RADIUS: float = 0.03
+const POWER_LINE_CLEARANCE: float = 0.03
+const PREVIEW_ALPHA: float = 0.5
 
 # Cooldown after placing to prevent auto-selection
 var _placement_cooldown: float = 0.0
@@ -41,11 +58,17 @@ const PLACEMENT_COOLDOWN_DURATION: float = 0.2
 
 func _ready() -> void:
 	_load_building_data()
+	_placement_holo_shader = load(PLACEMENT_HOLO_SHADER_PATH) as Shader
 	set_process_input(true)
 	set_process(true)
 
 
 func _process(delta: float) -> void:
+	if not _is_gameplay_active():
+		_is_consuming_release = false
+		return
+	if GameState.is_game_over:
+		return
 	if _placement_cooldown > 0:
 		_placement_cooldown -= delta
 
@@ -55,6 +78,15 @@ var _is_consuming_release: bool = false
 
 
 func _input(event: InputEvent) -> void:
+	if not _is_gameplay_active():
+		# Never swallow UI clicks outside gameplay scenes.
+		_is_consuming_release = false
+		return
+	if GameState.is_game_over:
+		# Prevent stale release-consumption from eating UI button clicks.
+		_is_consuming_release = false
+		return
+
 	# Always track mouse position for hotkey placement
 	if event is InputEventMouseMotion:
 		var camera: Camera3D = get_viewport().get_camera_3d()
@@ -183,12 +215,23 @@ func update_placement_preview(world_position: Vector3) -> void:
 	if _mining_range_indicator:
 		_mining_range_indicator.global_position = Vector3(world_position.x, 0.15, world_position.z)
 	
+	# Update action range indicator position
+	if _action_range_indicator:
+		_action_range_indicator.global_position = Vector3(world_position.x, 0.18, world_position.z)
+	
 	# Update connection line to nearest power node
 	_update_connection_preview(world_position)
 	
-	# Update asteroid highlights for mining stations
-	if _dragging_building_type == "mining_station":
+	# Update placement target highlights based on building data flags.
+	if _preview_show_asteroid_targeting:
 		_update_asteroid_highlights(world_position)
+		_clear_enemy_highlights()
+	elif _preview_show_enemy_targeting:
+		_update_enemy_highlights(world_position)
+		_clear_asteroid_highlights()
+	else:
+		_clear_asteroid_highlights()
+		_clear_enemy_highlights()
 
 
 ## Confirm building placement
@@ -197,6 +240,7 @@ func confirm_placement() -> void:
 		return
 	
 	if not _is_placement_valid:
+		_play_sfx("structure_invalid_place", -8.0)
 		return
 	
 	var data: Resource = get_building_data(_dragging_building_type)
@@ -231,15 +275,27 @@ func _create_placement_preview(building_type: String) -> void:
 	_destroy_placement_preview()
 	
 	var data: Resource = get_building_data(building_type)
-	if not data or not data.preview_scene:
-		# Create a simple placeholder preview
-		_placement_preview = _create_default_preview()
+	var scene_for_preview: PackedScene = null
+	if data:
+		# Preview should mirror the actual structure silhouette.
+		if data.get("scene") is PackedScene:
+			scene_for_preview = data.get("scene") as PackedScene
+		elif data.get("preview_scene") is PackedScene:
+			scene_for_preview = data.get("preview_scene") as PackedScene
+	
+	if scene_for_preview:
+		_placement_preview = _create_visual_preview_from_scene(scene_for_preview)
 	else:
-		_placement_preview = data.preview_scene.instantiate()
+		# Fallback placeholder when no scene data exists.
+		_placement_preview = _create_default_preview()
 	
 	if _placement_preview:
 		get_tree().root.add_child(_placement_preview)
 		_placement_preview.global_position = _drag_position
+		_collect_preview_mesh_instances()
+		_preview_collision_radius = _resolve_preview_collision_radius(data)
+		_set_preview_visual_state(_is_placement_valid)
+		_setup_placement_overlap_detector()
 	
 	# Create range indicator circle(s)
 	_create_range_indicator(building_type)
@@ -261,11 +317,49 @@ func _create_default_preview() -> Node3D:
 	return preview
 
 
+## Build a preview from the real structure scene by copying meshes only.
+func _create_visual_preview_from_scene(scene: PackedScene) -> Node3D:
+	var preview_root: Node3D = Node3D.new()
+	var source_root: Node3D = scene.instantiate() as Node3D
+	if not source_root:
+		return _create_default_preview()
+	
+	_copy_meshes_to_preview(source_root, preview_root, Transform3D.IDENTITY)
+	source_root.free()
+	
+	# Fallback in case source scene has no mesh content at runtime.
+	if preview_root.get_child_count() == 0:
+		return _create_default_preview()
+	return preview_root
+
+
+func _copy_meshes_to_preview(source: Node, preview_root: Node3D, parent_transform: Transform3D) -> void:
+	var current_transform: Transform3D = parent_transform
+	if source is Node3D:
+		current_transform = parent_transform * (source as Node3D).transform
+	
+	if source is MeshInstance3D:
+		var source_mesh: MeshInstance3D = source as MeshInstance3D
+		var preview_mesh: MeshInstance3D = MeshInstance3D.new()
+		preview_mesh.mesh = source_mesh.mesh
+		preview_mesh.transform = current_transform
+		preview_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		preview_root.add_child(preview_mesh)
+	
+	for child in source.get_children():
+		_copy_meshes_to_preview(child, preview_root, current_transform)
+
+
 ## Internal: Destroy placement preview
 func _destroy_placement_preview() -> void:
 	if _placement_preview:
 		_placement_preview.queue_free()
 		_placement_preview = null
+	_placement_overlap_detector = null
+	_placement_overlap_counts.clear()
+	_preview_mesh_instances.clear()
+	_preview_holo_materials.clear()
+	_preview_collision_radius = DEFAULT_PLACEMENT_RADIUS
 	
 	if _connection_range_indicator:
 		_connection_range_indicator.queue_free()
@@ -275,12 +369,21 @@ func _destroy_placement_preview() -> void:
 		_mining_range_indicator.queue_free()
 		_mining_range_indicator = null
 	
-	if _connection_line:
-		_connection_line.queue_free()
-		_connection_line = null
+	if _action_range_indicator:
+		_action_range_indicator.queue_free()
+		_action_range_indicator = null
+	
+	for line in _connection_lines:
+		if is_instance_valid(line):
+			line.queue_free()
+	_connection_lines.clear()
 	
 	_clear_asteroid_highlights()
-	_closest_power_node = null
+	_clear_enemy_highlights()
+	_preview_max_connections = 0
+	_preview_action_range = 0.0
+	_preview_show_asteroid_targeting = false
+	_preview_show_enemy_targeting = false
 
 
 ## Create range indicator showing connection radius
@@ -290,25 +393,66 @@ func _create_range_indicator(building_type: String) -> void:
 	get_tree().root.add_child(_connection_range_indicator)
 	_connection_range_indicator.global_position = Vector3(_drag_position.x, 0.2, _drag_position.z)
 	
-	# Mining range indicator (only for mining stations)
-	if building_type == "mining_station":
-		_mining_range_indicator = _create_ring_mesh(MINING_RANGE, Color(1.0, 0.8, 0.2, 0.3))
+	var data: Resource = get_building_data(building_type)
+	_preview_action_range = _get_building_action_range(building_type)
+	_preview_show_asteroid_targeting = data != null and bool(data.get("show_asteroid_targeting"))
+	_preview_show_enemy_targeting = data != null and bool(data.get("show_enemy_targeting"))
+	
+	# Show one action range ring depending on targeting role.
+	if _preview_show_asteroid_targeting and _preview_action_range > 0.0:
+		_mining_range_indicator = _create_ring_mesh(_preview_action_range, Color(1.0, 0.8, 0.2, 0.3))
 		get_tree().root.add_child(_mining_range_indicator)
 		_mining_range_indicator.global_position = Vector3(_drag_position.x, 0.15, _drag_position.z)
+	elif _preview_show_enemy_targeting and _preview_action_range > 0.0:
+		_action_range_indicator = _create_ring_mesh(_preview_action_range, Color(1.0, 0.35, 0.3, 0.35))
+		get_tree().root.add_child(_action_range_indicator)
+		_action_range_indicator.global_position = Vector3(_drag_position.x, 0.18, _drag_position.z)
 	
-	# Connection line - we'll create the mesh dynamically in _update_connection_preview
-	_connection_line = MeshInstance3D.new()
+	_preview_max_connections = _get_preview_max_connections(building_type)
+
+
+func _get_preview_max_connections(building_type: String) -> int:
+	var data: Resource = get_building_data(building_type)
+	if not data or not data.scene:
+		return 0
 	
-	var line_mat: StandardMaterial3D = StandardMaterial3D.new()
-	line_mat.albedo_color = Color(0.3, 1.0, 0.3, 0.7)
-	line_mat.emission_enabled = true
-	line_mat.emission = Color(0.2, 0.8, 0.2)
-	line_mat.emission_energy_multiplier = 2.0
-	line_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_connection_line.material_override = line_mat
-	_connection_line.visible = false
+	var temp_structure: Node = data.scene.instantiate()
+	if not temp_structure:
+		return 0
 	
-	get_tree().root.add_child(_connection_line)
+	var max_connections: int = 0
+	if temp_structure is Node3D:
+		var power_node: Node3D = _find_power_node_in_structure(temp_structure as Node3D)
+		if power_node:
+			max_connections = int(power_node.get("max_connections"))
+	
+	temp_structure.queue_free()
+	return maxi(max_connections, 0)
+
+
+func _get_building_action_range(building_type: String) -> float:
+	var data: Resource = get_building_data(building_type)
+	if data == null:
+		return 0.0
+	var maybe_value: Variant = data.get("action_range")
+	if maybe_value == null:
+		return 0.0
+	return maxf(float(maybe_value), 0.0)
+
+
+func _ensure_connection_line_pool(count: int) -> void:
+	while _connection_lines.size() < count:
+		var line: MeshInstance3D = MeshInstance3D.new()
+		var line_mat: StandardMaterial3D = StandardMaterial3D.new()
+		line_mat.albedo_color = Color(0.3, 1.0, 0.3, 0.7)
+		line_mat.emission_enabled = true
+		line_mat.emission = Color(0.2, 0.8, 0.2)
+		line_mat.emission_energy_multiplier = 2.0
+		line_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		line.material_override = line_mat
+		line.visible = false
+		_connection_lines.append(line)
+		get_tree().root.add_child(line)
 
 
 ## Create a ring mesh for range indicators
@@ -318,8 +462,8 @@ func _create_ring_mesh(radius: float, color: Color) -> MeshInstance3D:
 	var torus: TorusMesh = TorusMesh.new()
 	torus.inner_radius = radius - 0.2
 	torus.outer_radius = radius + 0.2
-	torus.rings = 48
-	torus.ring_segments = 48
+	torus.rings = RANGE_RING_SEGMENTS
+	torus.ring_segments = RANGE_RING_SEGMENTS
 	ring.mesh = torus
 	
 	var material: StandardMaterial3D = StandardMaterial3D.new()
@@ -337,44 +481,57 @@ func _create_ring_mesh(radius: float, color: Color) -> MeshInstance3D:
 
 ## Update connection preview line to nearest power node
 func _update_connection_preview(world_position: Vector3) -> void:
-	if not _connection_line:
+	if _preview_max_connections <= 0:
+		for line in _connection_lines:
+			if is_instance_valid(line):
+				line.visible = false
 		return
 	
-	# Find nearest valid power node in range (sources and relays only, not leaves)
-	_closest_power_node = _find_nearest_power_node(world_position)
-	_connection_blocked = false
+	var candidates: Array[Dictionary] = _find_power_nodes_for_preview(world_position, _preview_max_connections)
+	_ensure_connection_line_pool(candidates.size())
 	
-	if _closest_power_node:
-		_connection_line.visible = true
+	# Hide all lines before redrawing active candidates.
+	for line in _connection_lines:
+		if is_instance_valid(line):
+			line.visible = false
+	
+	for i in range(candidates.size()):
+		var preview_line: MeshInstance3D = _connection_lines[i]
+		if not is_instance_valid(preview_line):
+			continue
 		
+		var candidate: Dictionary = candidates[i]
+		var power_node: Node3D = candidate.node
+		var parent_structure: Node3D = power_node.get_parent() as Node3D
+		if not parent_structure:
+			continue
+		
+		preview_line.visible = true
+	
 		var start_pos: Vector3 = world_position
 		start_pos.y = 0.3
-		var parent_structure: Node3D = _closest_power_node.get_parent() as Node3D
-		if not parent_structure:
-			_connection_line.visible = false
-			return
 		var end_pos: Vector3 = parent_structure.global_position
 		end_pos.y = 0.3
 		
 		var distance: float = start_pos.distance_to(end_pos)
 		
 		if distance < 0.1:
-			_connection_line.visible = false
-			return
+			preview_line.visible = false
+			continue
 		
 		# Check line of sight
-		_connection_blocked = not _check_line_of_sight(world_position, parent_structure.global_position, parent_structure)
+		var blocked: bool = not _check_line_of_sight(world_position, parent_structure.global_position, parent_structure)
 		
 		# Create cylinder mesh with the exact distance as height (same as power_graph_manager)
 		var cylinder: CylinderMesh = CylinderMesh.new()
 		cylinder.top_radius = 0.15
 		cylinder.bottom_radius = 0.15
 		cylinder.height = distance
-		_connection_line.mesh = cylinder
+		preview_line.mesh = cylinder
 		
 		# Position at midpoint
 		var midpoint: Vector3 = (start_pos + end_pos) / 2.0
-		_connection_line.global_position = midpoint
+		preview_line.global_position = midpoint
 		
 		# Rotate to point from start to end (same logic as power_graph_manager)
 		var direction: Vector3 = (end_pos - start_pos).normalized()
@@ -382,22 +539,25 @@ func _update_connection_preview(world_position: Vector3) -> void:
 			var up: Vector3 = Vector3.UP
 			if abs(direction.dot(up)) > 0.99:
 				up = Vector3.RIGHT
-			_connection_line.look_at_from_position(midpoint, midpoint + direction, up)
-			_connection_line.rotate_object_local(Vector3(1, 0, 0), PI / 2)
+			preview_line.look_at_from_position(midpoint, midpoint + direction, up)
+			preview_line.rotate_object_local(Vector3(1, 0, 0), PI / 2)
 		
-		# Update line color based on blocked status
-		var mat: StandardMaterial3D = _connection_line.material_override as StandardMaterial3D
+		# Update line color:
+		# - red when LOS is blocked OR placement is invalid for any reason
+		# - green only when both LOS and placement validity pass
+		var mat: StandardMaterial3D = preview_line.material_override as StandardMaterial3D
 		if mat:
-			if _connection_blocked:
-				# Red = blocked
+			var line_invalid: bool = blocked or not _is_placement_valid
+			if line_invalid:
+				# Red = invalid
 				mat.albedo_color = Color(1.0, 0.3, 0.2, 0.7)
 				mat.emission = Color(0.8, 0.1, 0.1)
 			else:
 				# Green = valid
 				mat.albedo_color = Color(0.3, 1.0, 0.3, 0.7)
 				mat.emission = Color(0.2, 0.8, 0.2)
-	else:
-		_connection_line.visible = false
+		else:
+			preview_line.visible = false
 
 
 ## Check line of sight between two positions (for power line placement)
@@ -412,6 +572,8 @@ func _check_line_of_sight(from_pos: Vector3, to_pos: Vector3, exclude_structure:
 	
 	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(start, end)
 	query.collision_mask = 0xFFFFFFFF  # Check all layers
+	query.collide_with_bodies = true
+	query.collide_with_areas = true
 	
 	# Exclude the target structure
 	var exclude_rids: Array[RID] = []
@@ -436,16 +598,306 @@ func _find_collision_body(node: Node) -> CollisionObject3D:
 	return null
 
 
-## Find the nearest power node within connection range
-## Returns ANY node in range - the preview line color will indicate if it's a good target
-func _find_nearest_power_node(position: Vector3) -> Node3D:
+## Setup an overlap detector area on the placement preview.
+func _setup_placement_overlap_detector() -> void:
+	if not _placement_preview:
+		return
+	
+	_placement_overlap_counts.clear()
+	_placement_overlap_detector = Area3D.new()
+	_placement_overlap_detector.name = "PlacementOverlapDetector"
+	_placement_overlap_detector.monitoring = true
+	_placement_overlap_detector.monitorable = false
+	_placement_overlap_detector.collision_layer = 0
+	# Match selectable layer used by entities (structures/asteroids/enemies/ships).
+	_placement_overlap_detector.collision_mask = 1 << 1
+	
+	var shape_node: CollisionShape3D = CollisionShape3D.new()
+	shape_node.name = "CollisionShape3D"
+	var sphere: SphereShape3D = SphereShape3D.new()
+	sphere.radius = _get_placement_collision_radius() + PLACEMENT_OCCUPANCY_MARGIN
+	shape_node.shape = sphere
+	shape_node.position = Vector3(0.0, 0.5, 0.0)
+	
+	_placement_overlap_detector.add_child(shape_node)
+	_placement_preview.add_child(_placement_overlap_detector)
+	
+	_placement_overlap_detector.area_entered.connect(_on_placement_detector_area_entered)
+	_placement_overlap_detector.area_exited.connect(_on_placement_detector_area_exited)
+	_placement_overlap_detector.body_entered.connect(_on_placement_detector_body_entered)
+	_placement_overlap_detector.body_exited.connect(_on_placement_detector_body_exited)
+	
+	_refresh_placement_overlaps()
+
+
+## Check if placement overlaps blocked entities via overlap detector state.
+func _is_position_occupied_for_build(_position: Vector3) -> bool:
+	_refresh_placement_overlaps()
+	return not _placement_overlap_counts.is_empty()
+
+
+func _refresh_placement_overlaps() -> void:
+	if not _placement_overlap_detector or not is_instance_valid(_placement_overlap_detector):
+		_placement_overlap_counts.clear()
+		return
+	
+	_placement_overlap_counts.clear()
+	for area in _placement_overlap_detector.get_overlapping_areas():
+		_register_placement_overlap(area)
+	for body in _placement_overlap_detector.get_overlapping_bodies():
+		_register_placement_overlap(body)
+
+
+func _register_placement_overlap(collider: Object) -> void:
+	if not _is_valid_placement_blocker(collider):
+		return
+	var collider_id: int = collider.get_instance_id()
+	var current_count: int = int(_placement_overlap_counts.get(collider_id, 0))
+	_placement_overlap_counts[collider_id] = current_count + 1
+
+
+func _unregister_placement_overlap(collider: Object) -> void:
+	if collider == null:
+		return
+	var collider_id: int = collider.get_instance_id()
+	if not _placement_overlap_counts.has(collider_id):
+		return
+	var next_count: int = int(_placement_overlap_counts[collider_id]) - 1
+	if next_count <= 0:
+		_placement_overlap_counts.erase(collider_id)
+	else:
+		_placement_overlap_counts[collider_id] = next_count
+
+
+func _is_valid_placement_blocker(collider: Object) -> bool:
+	var collider_node: Node = collider as Node
+	if not collider_node:
+		return false
+	if _placement_preview and (_placement_preview == collider_node or _placement_preview.is_ancestor_of(collider_node)):
+		return false
+	# Any selectable-layer collider outside the preview should block placement.
+	return collider_node.is_inside_tree()
+
+
+func _on_placement_detector_area_entered(area: Area3D) -> void:
+	_register_placement_overlap(area)
+	_update_placement_validity()
+
+
+func _on_placement_detector_area_exited(area: Area3D) -> void:
+	_unregister_placement_overlap(area)
+	_update_placement_validity()
+
+
+func _on_placement_detector_body_entered(body: Node3D) -> void:
+	_register_placement_overlap(body)
+	_update_placement_validity()
+
+
+func _on_placement_detector_body_exited(body: Node3D) -> void:
+	_unregister_placement_overlap(body)
+	_update_placement_validity()
+
+
+## Check if placement point intersects an existing power-line segment footprint.
+func _is_position_blocked_by_power_line(position: Vector3) -> bool:
+	if not PowerGraphManager or not PowerGraphManager.has_method("get_edges"):
+		return false
+	
+	var edges: Dictionary = PowerGraphManager.get_edges()
+	if edges.is_empty():
+		return false
+	
+	var checked_edges: Dictionary = {}
+	var point_2d: Vector2 = Vector2(position.x, position.z)
+	var required_clearance: float = _get_placement_collision_radius() + POWER_LINE_RADIUS + POWER_LINE_CLEARANCE
+	
+	for node1 in edges.keys():
+		if not is_instance_valid(node1):
+			continue
+		var neighbors: Variant = edges[node1]
+		if not neighbors is Dictionary:
+			continue
+		for node2 in neighbors.keys():
+			if not is_instance_valid(node2):
+				continue
+			var edge_key: String = _get_edge_key(node1 as Node3D, node2 as Node3D)
+			if checked_edges.has(edge_key):
+				continue
+			checked_edges[edge_key] = true
+			
+			var endpoint_a: Vector3 = _get_power_node_world_position(node1 as Node3D)
+			var endpoint_b: Vector3 = _get_power_node_world_position(node2 as Node3D)
+			var distance: float = _distance_to_segment_2d(
+				point_2d,
+				Vector2(endpoint_a.x, endpoint_a.z),
+				Vector2(endpoint_b.x, endpoint_b.z)
+			)
+			if distance <= required_clearance:
+				return true
+	
+	return false
+
+
+func _get_placement_collision_radius() -> float:
+	return maxf(_preview_collision_radius, 0.2)
+
+
+func _resolve_preview_collision_radius(data: Resource) -> float:
+	if data:
+		var configured_radius: Variant = data.get("placement_sphere_radius")
+		if configured_radius != null:
+			var radius_value: float = float(configured_radius)
+			if radius_value > 0.0:
+				return radius_value
+	return _derive_preview_collision_radius()
+
+
+func _derive_preview_collision_radius() -> float:
+	if not _placement_preview:
+		return DEFAULT_PLACEMENT_RADIUS
+	
+	var selectable_area: Area3D = _placement_preview.get_node_or_null("SelectableComponent") as Area3D
+	if selectable_area:
+		var shape_node: CollisionShape3D = selectable_area.get_node_or_null("CollisionShape3D") as CollisionShape3D
+		if shape_node and shape_node.shape:
+			return _shape_radius_for_placement(shape_node.shape)
+	
+	# If preview has only visuals, derive radius from mesh AABB.
+	var has_bounds: bool = false
+	var min_x: float = 0.0
+	var max_x: float = 0.0
+	var min_z: float = 0.0
+	var max_z: float = 0.0
+	for mesh_instance in _preview_mesh_instances:
+		if not is_instance_valid(mesh_instance) or not mesh_instance.mesh:
+			continue
+		var local_aabb: AABB = mesh_instance.mesh.get_aabb()
+		var world_aabb: AABB = local_aabb * mesh_instance.transform
+		if not has_bounds:
+			min_x = world_aabb.position.x
+			max_x = world_aabb.end.x
+			min_z = world_aabb.position.z
+			max_z = world_aabb.end.z
+			has_bounds = true
+		else:
+			min_x = minf(min_x, world_aabb.position.x)
+			max_x = maxf(max_x, world_aabb.end.x)
+			min_z = minf(min_z, world_aabb.position.z)
+			max_z = maxf(max_z, world_aabb.end.z)
+	
+	if has_bounds:
+		var radius_x: float = maxf(absf(min_x), absf(max_x))
+		var radius_z: float = maxf(absf(min_z), absf(max_z))
+		return maxf(maxf(radius_x, radius_z), 0.2)
+	
+	return DEFAULT_PLACEMENT_RADIUS
+
+
+func _shape_radius_for_placement(shape: Shape3D) -> float:
+	if shape is SphereShape3D:
+		return maxf((shape as SphereShape3D).radius, 0.2)
+	if shape is BoxShape3D:
+		var extents: Vector3 = (shape as BoxShape3D).size * 0.5
+		return maxf(maxf(extents.x, extents.z), 0.2)
+	if shape is CylinderShape3D:
+		return maxf((shape as CylinderShape3D).radius, 0.2)
+	return DEFAULT_PLACEMENT_RADIUS
+
+
+func _collect_preview_mesh_instances() -> void:
+	_preview_mesh_instances.clear()
+	if not _placement_preview:
+		return
+	_collect_mesh_instances_recursive(_placement_preview)
+
+
+func _collect_mesh_instances_recursive(node: Node) -> void:
+	if node is MeshInstance3D:
+		_preview_mesh_instances.append(node as MeshInstance3D)
+	for child in node.get_children():
+		_collect_mesh_instances_recursive(child)
+
+
+func _set_preview_visual_state(is_valid: bool) -> void:
+	var tint_color: Color = Color(0.0, 1.0, 0.0, PREVIEW_ALPHA) if is_valid else Color(1.0, 0.0, 0.0, PREVIEW_ALPHA)
+	var emission_color: Color = Color(0.2, 0.85, 0.45) if is_valid else Color(0.95, 0.2, 0.2)
+	
+	for mesh_instance in _preview_mesh_instances:
+		if not is_instance_valid(mesh_instance):
+			continue
+		var material: ShaderMaterial = _get_or_create_preview_holo_material(mesh_instance)
+		if not material:
+			continue
+		material.set_shader_parameter("tint_color", tint_color)
+		material.set_shader_parameter("emission_color", emission_color)
+		material.set_shader_parameter("is_valid", 1.0 if is_valid else 0.0)
+
+
+func _get_or_create_preview_holo_material(mesh_instance: MeshInstance3D) -> ShaderMaterial:
+	var mesh_id: int = mesh_instance.get_instance_id()
+	if _preview_holo_materials.has(mesh_id):
+		var cached: ShaderMaterial = _preview_holo_materials[mesh_id] as ShaderMaterial
+		if cached:
+			return cached
+	
+	var shader_material: ShaderMaterial = ShaderMaterial.new()
+	if _placement_holo_shader == null:
+		_placement_holo_shader = load(PLACEMENT_HOLO_SHADER_PATH) as Shader
+	if _placement_holo_shader == null:
+		return null
+	shader_material.shader = _placement_holo_shader
+	shader_material.set_shader_parameter("tint_color", Color(0.0, 1.0, 0.0, PREVIEW_ALPHA))
+	shader_material.set_shader_parameter("emission_color", Color(0.2, 0.85, 0.45))
+	shader_material.set_shader_parameter("is_valid", 1.0)
+	mesh_instance.material_override = shader_material
+	_preview_holo_materials[mesh_id] = shader_material
+	return shader_material
+
+
+func _get_power_node_world_position(node: Node3D) -> Vector3:
+	if node == null:
+		return Vector3.ZERO
+	var parent_node: Node3D = node.get_parent() as Node3D
+	if parent_node and parent_node.is_inside_tree():
+		return parent_node.global_position
+	return node.global_position
+
+
+func _get_edge_key(node1: Node3D, node2: Node3D) -> String:
+	if node1 == null or node2 == null:
+		return ""
+	var id1: int = node1.get_instance_id()
+	var id2: int = node2.get_instance_id()
+	if id1 < id2:
+		return "%d_%d" % [id1, id2]
+	return "%d_%d" % [id2, id1]
+
+
+func _distance_to_segment_2d(point: Vector2, a: Vector2, b: Vector2) -> float:
+	var segment: Vector2 = b - a
+	var segment_len_sq: float = segment.length_squared()
+	if segment_len_sq <= 0.000001:
+		return point.distance_to(a)
+	var t: float = clampf((point - a).dot(segment) / segment_len_sq, 0.0, 1.0)
+	var closest: Vector2 = a + segment * t
+	return point.distance_to(closest)
+
+
+## Find nearest power node candidates within connection range.
+## Returns nearest candidates up to max_preview_count.
+func _find_power_nodes_for_preview(position: Vector3, max_preview_count: int) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if max_preview_count <= 0:
+		return result
+	
 	var main: Node = get_tree().root.get_node_or_null("Main")
 	if not main:
-		return null
+		return result
 	
 	var structures_parent: Node = main.get_node_or_null("Structures")
 	if not structures_parent:
-		return null
+		return result
 	
 	# Collect all nodes with their distances
 	var all_nodes: Array = []
@@ -457,10 +909,21 @@ func _find_nearest_power_node(position: Vector3) -> Node3D:
 		# Find power node component
 		var power_node: Node3D = _find_power_node_in_structure(structure)
 		if power_node:
+			if power_node.has_method("is_valid_connection_target") and not power_node.is_valid_connection_target():
+				# Allow previewing connections to structures still under construction.
+				# They can receive links before they become valid relay/target nodes.
+				if not _is_structure_under_construction(structure):
+					continue
+			
 			# Check if this node can accept more connections
 			if power_node.has_method("can_accept_more_connections"):
 				if not power_node.can_accept_more_connections():
 					continue
+			
+			# Keep existing leaf-to-leaf exclusion behavior in preview.
+			var other_max_connections: int = int(power_node.get("max_connections"))
+			if _preview_max_connections == 1 and other_max_connections == 1:
+				continue
 			
 			var distance: float = position.distance_to(structure.global_position)
 			# Use the PowerNode's constant for range check
@@ -476,11 +939,11 @@ func _find_nearest_power_node(position: Vector3) -> Node3D:
 		return a.distance < b.distance
 	)
 	
-	# Return the closest node
-	if all_nodes.size() > 0:
-		return all_nodes[0].node
+	var preview_count: int = mini(max_preview_count, all_nodes.size())
+	for i in range(preview_count):
+		result.append(all_nodes[i])
 	
-	return null
+	return result
 
 
 ## Find power node component in a structure
@@ -492,9 +955,18 @@ func _find_power_node_in_structure(structure: Node3D) -> Node3D:
 	return null
 
 
+func _is_structure_under_construction(structure: Node3D) -> bool:
+	for child in structure.get_children():
+		if child.has_method("get_progress") and child.get("is_built") == false:
+			return true
+	return false
+
+
 ## Update asteroid highlights for mining station placement
 func _update_asteroid_highlights(world_position: Vector3) -> void:
 	_clear_asteroid_highlights()
+	if _preview_action_range <= 0.0:
+		return
 	
 	var main: Node = get_tree().root.get_node_or_null("Main")
 	if not main:
@@ -510,7 +982,7 @@ func _update_asteroid_highlights(world_position: Vector3) -> void:
 			var asteroid_node: Node3D = child as Node3D
 			if asteroid_node and not asteroid_node.get("is_depleted"):
 				var distance: float = world_position.distance_to(asteroid_node.global_position)
-				if distance <= MINING_RANGE:
+				if distance <= _preview_action_range:
 					var highlight: MeshInstance3D = _create_asteroid_highlight_at(asteroid_node)
 					_asteroid_highlights.append(highlight)
 					get_tree().root.add_child(highlight)
@@ -528,8 +1000,8 @@ func _create_asteroid_highlight_at(asteroid_node: Node3D) -> MeshInstance3D:
 	var torus: TorusMesh = TorusMesh.new()
 	torus.inner_radius = asteroid_radius + 0.3
 	torus.outer_radius = asteroid_radius + 0.6
-	torus.rings = 24
-	torus.ring_segments = 24
+	torus.rings = HIGHLIGHT_RING_SEGMENTS
+	torus.ring_segments = HIGHLIGHT_RING_SEGMENTS
 	highlight.mesh = torus
 	
 	var material: StandardMaterial3D = StandardMaterial3D.new()
@@ -556,6 +1028,73 @@ func _clear_asteroid_highlights() -> void:
 	_asteroid_highlights.clear()
 
 
+## Update enemy highlights for laser turret placement
+func _update_enemy_highlights(world_position: Vector3) -> void:
+	_clear_enemy_highlights()
+	if _preview_action_range <= 0.0:
+		return
+	
+	var main: Node = get_tree().root.get_node_or_null("Main")
+	if not main:
+		return
+	
+	var enemies_parent: Node = main.get_node_or_null("Enemies")
+	if not enemies_parent:
+		return
+	
+	for child in enemies_parent.get_children():
+		if not (child is Node3D):
+			continue
+		if child.get("is_destroyed") == true:
+			continue
+		
+		var enemy_node: Node3D = child as Node3D
+		var distance: float = world_position.distance_to(enemy_node.global_position)
+		if distance <= _preview_action_range:
+			var highlight: MeshInstance3D = _create_enemy_highlight_at(enemy_node)
+			_enemy_highlights.append(highlight)
+			get_tree().root.add_child(highlight)
+
+
+func _create_enemy_highlight_at(enemy_node: Node3D) -> MeshInstance3D:
+	var highlight: MeshInstance3D = MeshInstance3D.new()
+	var ring_radius: float = 1.0
+	
+	var selectable_area: Area3D = enemy_node.get_node_or_null("SelectableComponent") as Area3D
+	if selectable_area:
+		var shape_node: CollisionShape3D = selectable_area.get_node_or_null("CollisionShape3D") as CollisionShape3D
+		if shape_node and shape_node.shape:
+			if shape_node.shape is SphereShape3D:
+				ring_radius = maxf((shape_node.shape as SphereShape3D).radius + 0.3, 0.6)
+	
+	var torus: TorusMesh = TorusMesh.new()
+	torus.inner_radius = ring_radius
+	torus.outer_radius = ring_radius + 0.25
+	torus.rings = HIGHLIGHT_RING_SEGMENTS
+	torus.ring_segments = HIGHLIGHT_RING_SEGMENTS
+	highlight.mesh = torus
+	
+	var material: StandardMaterial3D = StandardMaterial3D.new()
+	material.albedo_color = Color(1.0, 0.35, 0.3, 0.7)
+	material.emission_enabled = true
+	material.emission = Color(0.9, 0.2, 0.15)
+	material.emission_energy_multiplier = 2.2
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	highlight.material_override = material
+	
+	var pos: Vector3 = enemy_node.global_position
+	highlight.position = Vector3(pos.x, 0.35, pos.z)
+	return highlight
+
+
+func _clear_enemy_highlights() -> void:
+	for highlight in _enemy_highlights:
+		if is_instance_valid(highlight):
+			highlight.queue_free()
+	_enemy_highlights.clear()
+
+
 ## Internal: Update placement validity
 func _update_placement_validity() -> void:
 	var was_valid: bool = _is_placement_valid
@@ -564,12 +1103,7 @@ func _update_placement_validity() -> void:
 	_is_placement_valid = _check_placement_validity(_drag_position)
 	
 	# Update preview color
-	if _placement_preview:
-		var mesh_instance: MeshInstance3D = _placement_preview.get_node_or_null("MeshInstance3D") as MeshInstance3D
-		if mesh_instance and mesh_instance.material_override:
-			var mat: StandardMaterial3D = mesh_instance.material_override as StandardMaterial3D
-			if mat:
-				mat.albedo_color = Color(0, 1, 0, 0.5) if _is_placement_valid else Color(1, 0, 0, 0.5)
+	_set_preview_visual_state(_is_placement_valid)
 	
 	if was_valid != _is_placement_valid:
 		placement_valid_changed.emit(_is_placement_valid)
@@ -585,9 +1119,15 @@ func _check_placement_validity(position: Vector3) -> bool:
 	if position.y < -10 or position.y > 100:
 		return false
 	
-	# Note: We allow placement even without power connection
-	# Buildings just won't start construction until connected to power
-	# The connection line will show red if blocked, but placement is still allowed
+	# Physics occupancy check: cannot overlap existing structures or asteroids.
+	if _is_position_occupied_for_build(position):
+		return false
+	
+	# Segment proximity check: cannot place on top of any power line path.
+	if _is_position_blocked_by_power_line(position):
+		return false
+	
+	# Placement validity already includes occupancy and power-line collision checks.
 	
 	return true
 
@@ -637,3 +1177,19 @@ func is_selection_blocked() -> bool:
 ## Check if hover should be blocked (only while actually building)
 func is_hover_blocked() -> bool:
 	return current_state != BuildState.IDLE
+
+
+func _play_sfx(sfx_id: String, volume_db: float = -6.0) -> void:
+	var sfx_manager: Node = get_node_or_null("/root/SfxManager")
+	if sfx_manager and sfx_manager.has_method("play_sfx"):
+		sfx_manager.call("play_sfx", sfx_id, volume_db)
+
+
+func _is_gameplay_active() -> bool:
+	var tree: SceneTree = get_tree()
+	if tree == null:
+		return false
+	var root: Node = tree.root
+	if root == null:
+		return false
+	return root.get_node_or_null("Main") != null

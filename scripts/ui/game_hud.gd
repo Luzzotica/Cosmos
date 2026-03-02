@@ -16,6 +16,7 @@ const HOTKEY_LABELS: Array[String] = ["Q", "E", "R", "T", "Y", "U"]
 @onready var build_buttons_container: HBoxContainer = $Margin/VBox/BottomBar/BuildPanel/MarginContainer/BuildButtons
 
 var _building_types: Array[String] = []
+var _build_buttons: Array[Button] = []
 
 
 func _ready() -> void:
@@ -39,6 +40,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _process(_delta: float) -> void:
 	_update_wave_timer()
+	_update_energy_display()
 
 
 func _connect_signals() -> void:
@@ -65,7 +67,9 @@ func _setup_build_buttons() -> void:
 		button.text = _format_building_name(building_type) + hotkey_text
 		button.add_theme_font_size_override("font_size", 24)
 		button.pressed.connect(_on_build_button_pressed.bind(building_type))
+		button.mouse_entered.connect(_on_build_button_hovered)
 		build_buttons_container.add_child(button)
+		_build_buttons.append(button)
 
 
 func _format_building_name(building_type: String) -> String:
@@ -73,11 +77,27 @@ func _format_building_name(building_type: String) -> String:
 
 
 func _update_resources() -> void:
+	_update_minerals_display()
+	_update_energy_display()
+
+
+func _update_minerals_display() -> void:
 	if minerals_label:
 		minerals_label.text = "Minerals: %d" % GameState.minerals
-	if energy_label:
-		var energy_percent: float = (GameState.energy / GameState.energy_capacity) * 100.0 if GameState.energy_capacity > 0 else 0.0
-		energy_label.text = "Energy: %.0f / %.0f (%.0f%%)" % [GameState.energy, GameState.energy_capacity, energy_percent]
+
+
+func _update_energy_display() -> void:
+	if not energy_label:
+		return
+	
+	var current_energy: float = 0.0
+	var max_energy: float = 0.0
+	if PowerGraphManager:
+		current_energy = PowerGraphManager.get_power_current()
+		max_energy = PowerGraphManager.get_power_capacity()
+	
+	var energy_percent: float = (current_energy / max_energy) * 100.0 if max_energy > 0.0 else 0.0
+	energy_label.text = "Energy: %.0f / %.0f (%.0f%%)" % [current_energy, max_energy, energy_percent]
 
 
 func _update_wave_info() -> void:
@@ -97,11 +117,11 @@ func _update_wave_timer() -> void:
 
 
 func _on_minerals_changed(_amount: int) -> void:
-	_update_resources()
+	_update_minerals_display()
 
 
 func _on_energy_changed(_current: float, _capacity: float) -> void:
-	_update_resources()
+	_update_energy_display()
 
 
 func _on_wave_started(_wave_number: int) -> void:
@@ -113,5 +133,16 @@ func _on_wave_ended(_wave_number: int) -> void:
 
 
 func _on_build_button_pressed(building_type: String) -> void:
+	_play_sfx_method("play_ui_confirm")
 	build_button_pressed.emit(building_type)
 	BuildManager.start_building(building_type)
+
+
+func _on_build_button_hovered() -> void:
+	_play_sfx_method("play_ui_hover")
+
+
+func _play_sfx_method(method_name: String) -> void:
+	var sfx_manager: Node = get_node_or_null("/root/SfxManager")
+	if sfx_manager and sfx_manager.has_method(method_name):
+		sfx_manager.call(method_name)

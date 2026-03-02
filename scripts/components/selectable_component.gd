@@ -16,6 +16,8 @@ signal selectable_destroyed
 var owner_entity: Node3D = null
 var _is_selected: bool = false
 var _is_hovered: bool = false
+var _last_details_hash: int = 0
+var _has_cached_details: bool = false
 
 
 func _ready() -> void:
@@ -34,10 +36,22 @@ func request_selection() -> void:
 	selection_requested.emit(self)
 
 
+func _process(_delta: float) -> void:
+	if not _is_selected:
+		return
+	_refresh_details_if_changed()
+
+
 func set_selected(value: bool) -> void:
 	if _is_selected == value:
 		return
 	_is_selected = value
+	if _is_selected:
+		# Force one refresh when selected to initialize HUD values.
+		_has_cached_details = false
+		_refresh_details_if_changed()
+	else:
+		_has_cached_details = false
 	selected_changed.emit(_is_selected)
 
 
@@ -92,6 +106,17 @@ func get_selection_details() -> Dictionary:
 
 
 func notify_details_changed() -> void:
+	_has_cached_details = false
+	_refresh_details_if_changed()
+
+
+func _refresh_details_if_changed() -> void:
+	var details: Dictionary = get_selection_details()
+	var details_hash: int = details.hash()
+	if _has_cached_details and details_hash == _last_details_hash:
+		return
+	_last_details_hash = details_hash
+	_has_cached_details = true
 	details_changed.emit()
 
 

@@ -11,8 +11,11 @@ signal restart_requested
 
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_WHEN_PAUSED
 	visible = false
+	mouse_filter = Control.MOUSE_FILTER_STOP
 	restart_button.pressed.connect(_on_restart_pressed)
+	restart_button.mouse_entered.connect(_on_restart_hovered)
 	GameState.game_over.connect(_on_game_over)
 
 
@@ -22,11 +25,13 @@ func _on_game_over() -> void:
 
 func show_game_over() -> void:
 	visible = true
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	restart_button.grab_focus()
 	
 	# Update stats
 	var waves_survived: int = GameState.current_wave
 	var time_survived: float = GameState.game_time
-	var minutes: int = int(time_survived) / 60
+	var minutes: int = int(time_survived / 60.0)
 	var seconds: int = int(time_survived) % 60
 	
 	stats_label.text = "Waves Survived: %d\nTime: %02d:%02d\nMinerals Collected: %d" % [
@@ -38,11 +43,29 @@ func show_game_over() -> void:
 
 
 func _on_restart_pressed() -> void:
+	_play_sfx_method("play_ui_confirm")
 	visible = false
 	restart_requested.emit()
 	
 	# Reset game state
 	GameState.reset()
-	
-	# Reload the main scene
-	get_tree().reload_current_scene()
+	call_deferred("_restart_game")
+
+
+func _on_restart_hovered() -> void:
+	_play_sfx_method("play_ui_hover")
+
+
+func _play_sfx_method(method_name: String) -> void:
+	var sfx_manager: Node = get_node_or_null("/root/SfxManager")
+	if sfx_manager and sfx_manager.has_method(method_name):
+		sfx_manager.call(method_name)
+
+
+func _restart_game() -> void:
+	var tree: SceneTree = get_tree()
+	if tree == null:
+		return
+	var err: Error = tree.change_scene_to_file("res://scenes/game/main.tscn")
+	if err != OK:
+		push_error("Failed to restart game scene. Error code: %d" % err)

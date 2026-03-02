@@ -24,9 +24,19 @@ const BEAM_FADE_SPEED: float = 4.0  # How fast the beam fades out
 
 func _ready() -> void:
 	building_type = "mining_station"
+	_apply_balance_data()
 	super._ready()
 	_setup_power_user()
 	_create_mining_beam()
+
+
+func _apply_balance_data() -> void:
+	var data: Resource = BuildManager.get_building_data(building_type)
+	if data == null:
+		return
+	var configured_range: Variant = data.get("action_range")
+	if configured_range != null:
+		mining_radius = maxf(float(configured_range), 0.0)
 
 
 func _setup_power_user() -> void:
@@ -38,6 +48,7 @@ func _setup_power_user() -> void:
 
 
 func _process(delta: float) -> void:
+	super._process(delta)
 	if not is_built():
 		_update_mining_beam(delta)
 		return
@@ -75,6 +86,7 @@ func _try_mine() -> void:
 			if mined > 0:
 				GameState.add_minerals(mined)
 				minerals_extracted.emit(mined)
+				_play_sfx("mining_pulse", -8.0)
 				
 				# Trigger mining beam burst
 				_fire_mining_beam()
@@ -223,3 +235,9 @@ func _update_mining_beam(delta: float) -> void:
 		up = Vector3.RIGHT
 	_mining_beam.look_at_from_position(midpoint, midpoint + direction, up)
 	_mining_beam.rotate_object_local(Vector3(1, 0, 0), PI / 2)
+
+
+func _play_sfx(sfx_id: String, volume_db: float = -6.0) -> void:
+	var sfx_manager: Node = get_node_or_null("/root/SfxManager")
+	if sfx_manager and sfx_manager.has_method("play_sfx"):
+		sfx_manager.call("play_sfx", sfx_id, volume_db)

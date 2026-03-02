@@ -29,10 +29,19 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	if not _is_gameplay_active():
+		return
+	if GameState.is_game_over:
+		_set_hovered_selectable(null)
+		return
 	_update_hover_from_raycast()
 
 
 func _input(event: InputEvent) -> void:
+	if not _is_gameplay_active():
+		return
+	if GameState.is_game_over:
+		return
 	if event is InputEventMouseButton:
 		var select_mouse: InputEventMouseButton = event as InputEventMouseButton
 		if select_mouse.pressed and select_mouse.button_index == MOUSE_BUTTON_LEFT:
@@ -60,6 +69,10 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not _is_gameplay_active():
+		return
+	if GameState.is_game_over:
+		return
 	# Left-click on empty space to deselect
 	if event is InputEventMouseButton:
 		var mouse_event: InputEventMouseButton = event as InputEventMouseButton
@@ -559,5 +572,15 @@ func _get_legacy_entity_info(entity: Node3D) -> Dictionary:
 		EntityType.ASTEROID:
 			info.merge(_get_asteroid_info(entity))
 	return info
+
+
+func _is_gameplay_active() -> bool:
+	var tree: SceneTree = get_tree()
+	if tree == null:
+		return false
+	var root: Node = tree.root
+	if root == null:
+		return false
+	return root.get_node_or_null("Main") != null
 
 

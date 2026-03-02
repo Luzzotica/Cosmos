@@ -1,0 +1,66 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/ugc_browser_panel.gd" id="1_script"]
+[ext_resource type="Theme" path="res://themes/cosmos_ui_theme.tres" id="2_theme"]
+
+[node name="UGCBrowserPanel" type="Control"]
+layout_mode = 1
+anchors_preset = 0
+offset_left = 420.0
+offset_top = 20.0
+offset_right = 980.0
+offset_bottom = 640.0
+mouse_filter = 1
+theme = ExtResource("2_theme")
+script = ExtResource("1_script")
+
+[node name="Panel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="VBox" type="VBoxContainer" parent="Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="Panel/Margin/VBox"]
+layout_mode = 2
+text = "Community Maps (F8)"
+
+[node name="SearchInput" type="LineEdit" parent="Panel/Margin/VBox"]
+layout_mode = 2
+placeholder_text = "Search maps"
+
+[node name="MapsList" type="ItemList" parent="Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 420)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ButtonRow" type="HBoxContainer" parent="Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="RefreshButton" type="Button" parent="Panel/Margin/VBox/ButtonRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Refresh"
+
+[node name="LoadButton" type="Button" parent="Panel/Margin/VBox/ButtonRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Load Selected"
+
+[node name="StatusLabel" type="Label" parent="Panel/Margin/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+text = "Offline"

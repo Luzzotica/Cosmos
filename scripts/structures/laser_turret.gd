@@ -5,8 +5,10 @@ class_name LaserTurret
 signal target_acquired(target: Node3D)
 signal target_lost
 signal fired(target: Node3D, damage: float)
+const LASER_DURATION: float = 0.12
+const LASER_THICKNESS: float = 0.18
 
-@export var attack_range: float = 100.0
+@export var attack_range: float = 35.0
 @export var fire_rate: float = 1.0  # Shots per second
 @export var damage: float = 10.0
 
@@ -21,24 +23,43 @@ var fire_timer: float = 0.0
 
 func _ready() -> void:
 	building_type = "laser_turret"
+	_apply_balance_data()
 	super._ready()
 	_setup_power_user()
 
 
+func _apply_balance_data() -> void:
+	var data: Resource = BuildManager.get_building_data(building_type)
+	if data == null:
+		return
+	var configured_range: Variant = data.get("action_range")
+	if configured_range != null:
+		attack_range = maxf(float(configured_range), 0.0)
+
+
 func _setup_power_user() -> void:
+	power_user = null
 	if power_node:
 		for child in power_node.get_children():
-			if child is PowerUser:
+			if child is PowerUser and not child.is_construction_user:
 				power_user = child
 				break
 
 
 func _process(delta: float) -> void:
+	super._process(delta)
 	if not is_built():
 		return
 	
 	# Update fire timer
 	fire_timer -= delta
+	
+	# Construction cleanup may change user validity; re-resolve lazily.
+	if not is_instance_valid(power_user):
+		_setup_power_user()
+	
+	if power_user and not power_user.has_power:
+		power_user.draw_power_from_graph()
 	
 	# Only operate if powered
 	if power_user and power_user.has_power:
@@ -122,14 +143,55 @@ func _try_attack() -> void:
 	
 	# Fire!
 	fire_timer = 1.0 / fire_rate
+	var target_pos: Vector3 = target.global_position + Vector3.UP * 0.8
+	_show_laser_beam(_get_muzzle_position(target_pos), target_pos, Color(0.2, 0.9, 1.0, 0.95))
+	_play_sfx("laser_shot", -6.0)
 	
 	# Deal damage to target
 	if target.has_method("take_damage"):
 		target.take_damage(damage)
+		_play_sfx("laser_impact", -8.0)
 	
 	fired.emit(target, damage)
-	
-	# TODO: Create laser beam visual effect
+
+
+func _get_muzzle_position(target_pos: Vector3) -> Vector3:
+	if turret_barrel:
+		# Always offset toward current target so beam starts in front of the barrel.
+		var to_target: Vector3 = target_pos - turret_barrel.global_position
+		if to_target.length() > 0.01:
+			return turret_barrel.global_position + to_target.normalized() * 0.9
+	return global_position + Vector3.UP * 0.8
+
+
+func _show_laser_beam(from_pos: Vector3, to_pos: Vector3, color: Color) -> void:
+	var distance: float = from_pos.distance_to(to_pos)
+	if distance <= 0.05:
+		return
+
+	var beam: MeshInstance3D = MeshInstance3D.new()
+	var beam_mesh: BoxMesh = BoxMesh.new()
+	beam_mesh.size = Vector3(LASER_THICKNESS, LASER_THICKNESS, distance)
+	beam.mesh = beam_mesh
+
+	var beam_material: StandardMaterial3D = StandardMaterial3D.new()
+	beam_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	beam_material.albedo_color = color
+	beam_material.emission_enabled = true
+	beam_material.emission = color
+	beam_material.emission_energy_multiplier = 2.0
+	beam_material.no_depth_test = true
+	beam.material_override = beam_material
+
+	get_tree().root.add_child(beam)
+	beam.global_position = (from_pos + to_pos) * 0.5
+	beam.look_at(to_pos, Vector3.UP)
+
+	var cleanup_timer: SceneTreeTimer = get_tree().create_timer(LASER_DURATION)
+	cleanup_timer.timeout.connect(func() -> void:
+		if is_instance_valid(beam):
+			beam.queue_free()
+	)
 
 
 ## Get current target
@@ -140,3 +202,9 @@ func get_target() -> Node3D:
 ## Check if turret is active and powered
 func is_active() -> bool:
 	return is_built() and power_user and power_user.has_power
+
+
+func _play_sfx(sfx_id: String, volume_db: float = -6.0) -> void:
+	var sfx_manager: Node = get_node_or_null("/root/SfxManager")
+	if sfx_manager and sfx_manager.has_method("play_sfx"):
+		sfx_manager.call("play_sfx", sfx_id, volume_db)
