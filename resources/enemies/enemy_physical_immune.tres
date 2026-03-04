@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_enemy_data"]
+
+[resource]
+script = ExtResource("1_enemy_data")
+enemy_id = "enemy_physical_immune"
+display_name = "Phase Warden"
+max_health = 45.0
+speed = 7.2
+damage = 9.0
+attack_range = 17.0
+attack_cooldown = 2.2
+reward_minerals = 14
+movement_profile = {
+"avoidance_force": 26.0,
+"drag": 1.6,
+"max_acceleration": 12.0,
+"max_turn_rate_deg": 135.0
+}
+targeting_profile = {
+"mode": "nearest"
+}
+attack_profile = {
+"damage_type": "laser"
+}
+resistance_multipliers = {
+"physical": 0.0
+}
+hull_color = Color(0.7, 0.35, 1, 1)
+emission_color = Color(0.9, 0.4, 1, 1)
+emission_energy = 2.3

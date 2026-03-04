@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3 uid="uid://cwp2r8nxg4yqr"]
+[gd_scene load_steps=13 format=3 uid="uid://cwp2r8nxg4yqr"]
 
 [ext_resource type="Script" path="res://scripts/structures/power_node_structure.gd" id="1_power_node"]
 [ext_resource type="PackedScene" path="res://scenes/components/team_component.tscn" id="2_team"]
@@ -25,23 +25,6 @@ bottom_radius = 0.0
 height = 1.0
 radial_segments = 4
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_active"]
-albedo_color = Color(0.48, 0.5, 0.55, 1)
-metallic = 0.8
-roughness = 0.32
-
-[sub_resource type="CylinderMesh" id="CylinderMesh_glow_line"]
-top_radius = 0.04
-bottom_radius = 0.04
-height = 1.6
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_glow_line"]
-albedo_color = Color(0.1, 0.72, 1, 1)
-emission_enabled = true
-emission = Color(0.08, 0.62, 1, 1)
-emission_energy_multiplier = 3.2
-shading_mode = 0
-
 [sub_resource type="SphereMesh" id="SphereMesh_connection_orb"]
 radius = 0.16
 height = 0.32
@@ -58,42 +41,24 @@ radius = 1.44
 [node name="PowerNode" type="Node3D"]
 script = ExtResource("1_power_node")
 building_type = "power_node"
+placement_preview_exclude_mesh_names = PackedStringArray("ActiveConnectionOrb")
 
 [node name="BaseBottom" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.72, 0)
 mesh = SubResource("CylinderMesh_bottom")
 surface_material_override/0 = SubResource("StandardMaterial3D_base")
 
-[node name="ActiveTop" type="MeshInstance3D" parent="."]
+[node name="Top" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.52, 0)
 mesh = SubResource("CylinderMesh_top")
-surface_material_override/0 = SubResource("StandardMaterial3D_active")
-
-[node name="ActiveLineFront" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.12, 0.52)
-mesh = SubResource("CylinderMesh_glow_line")
-surface_material_override/0 = SubResource("StandardMaterial3D_glow_line")
-
-[node name="ActiveLineBack" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.12, -0.52)
-mesh = SubResource("CylinderMesh_glow_line")
-surface_material_override/0 = SubResource("StandardMaterial3D_glow_line")
-
-[node name="ActiveLineLeft" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.52, 1.12, 0)
-mesh = SubResource("CylinderMesh_glow_line")
-surface_material_override/0 = SubResource("StandardMaterial3D_glow_line")
-
-[node name="ActiveLineRight" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.52, 1.12, 0)
-mesh = SubResource("CylinderMesh_glow_line")
-surface_material_override/0 = SubResource("StandardMaterial3D_glow_line")
+surface_material_override/0 = SubResource("StandardMaterial3D_base")
 
 [node name="ConnectionPoint" type="Marker3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.3, 0)
 
 [node name="ActiveConnectionOrb" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.3, 0)
+cast_shadow = 0
 mesh = SubResource("SphereMesh_connection_orb")
 surface_material_override/0 = SubResource("StandardMaterial3D_connection_orb")
 

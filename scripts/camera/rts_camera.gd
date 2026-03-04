@@ -1,6 +1,10 @@
 extends Camera3D
 ## RTS Camera - Handles edge panning and zoom for tilted 3D view
 
+# Zoom limits (distance from look-at point; lower = zoomed in)
+const MIN_ZOOM_DISTANCE: float = 15.0
+const MAX_ZOOM_DISTANCE: float = 80.0
+
 @export_group("Movement")
 @export var pan_speed: float = 20.0
 @export var edge_pan_margin: float = 8.0  # Pixels from screen edge (very close to edge)
@@ -10,8 +14,8 @@ extends Camera3D
 @export var enable_drag_panning: bool = true
 
 @export_group("Zoom")
-@export var min_zoom_distance: float = 20.0
-@export var max_zoom_distance: float = 100.0
+@export var min_zoom_distance: float = MIN_ZOOM_DISTANCE
+@export var max_zoom_distance: float = MAX_ZOOM_DISTANCE
 @export var zoom_speed: float = 5.0
 @export var zoom_smoothing: float = 10.0
 
@@ -48,6 +52,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_handle_edge_panning(delta)
 	_handle_keyboard_panning(delta)
+	_handle_keyboard_zoom(delta)
 	_smooth_movement(delta)
 	_clamp_to_bounds()
 	_update_debug_sphere()
@@ -105,6 +110,32 @@ func _handle_keyboard_panning(delta: float) -> void:
 	if pan_direction != Vector3.ZERO:
 		pan_direction = pan_direction.normalized()
 		_target_look_at += pan_direction * pan_speed * delta * (_target_zoom / 30.0)
+
+
+func _handle_keyboard_zoom(delta: float) -> void:
+	if BuildManager.is_in_build_mode:
+		return
+	var zoom_direction: float = 0.0
+	if Input.is_action_pressed("camera_zoom_in"):
+		zoom_direction = -1.0
+	elif Input.is_action_pressed("camera_zoom_out"):
+		zoom_direction = 1.0
+	if zoom_direction != 0.0:
+		var viewport: Viewport = get_viewport()
+		var center: Vector2 = viewport.get_visible_rect().size / 2.0
+		var old_zoom: float = _target_zoom
+		var zoom_step: float = zoom_direction * zoom_speed * delta * 8.0
+		_target_zoom = clampf(
+			_target_zoom + zoom_step,
+			min_zoom_distance,
+			max_zoom_distance
+		)
+		if _target_zoom != old_zoom:
+			var world_pos: Vector3 = _get_world_position_at_mouse(center)
+			if world_pos:
+				var zoom_factor: float = _target_zoom / old_zoom
+				var offset: Vector3 = _target_look_at - Vector3(world_pos.x, 0, world_pos.z)
+				_target_look_at = Vector3(world_pos.x, 0, world_pos.z) + offset * zoom_factor
 
 
 func _handle_drag_panning(event: InputEvent) -> void:
@@ -204,6 +235,11 @@ func _get_world_position_at_mouse(mouse_pos: Vector2) -> Vector3:
 	var intersection: Variant = plane.intersects_ray(from, to - from)
 	
 	return intersection if intersection else Vector3.ZERO
+
+
+## Get current zoom distance (for star plane scaling etc.)
+func get_zoom_level() -> float:
+	return _target_zoom
 
 
 ## Get the world position under the mouse cursor

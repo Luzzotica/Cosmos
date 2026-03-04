@@ -29,6 +29,10 @@ var _pulsing_edges: Dictionary = {}  # edge_key -> remaining_time
 const PULSE_DURATION: float = 0.3  # How long the pulse lasts
 const RECONNECT_SCAN_INTERVAL: float = 0.5
 const LEAF_RECONNECT_COOLDOWN: float = 1.25
+const POWER_LINE_RENDER_RADIUS: float = 0.15
+const POWER_LINE_MIN_SEGMENT_LENGTH: float = 0.02
+const POWER_LINE_TAPER_LENGTH: float = 0.8
+const DEFAULT_TAPER_RADIUS: float = 1.2
 
 var _known_disrupted_edges: Dictionary = {}  # edge_key -> true
 var _reconnect_queue: Dictionary = {}  # PowerNode -> true
@@ -48,29 +52,29 @@ func _process(delta: float) -> void:
 	_update_reconnect_state(delta)
 
 
-## Get total power capacity across all sources
+## Get total power capacity across all sources (only from built structures)
 func get_power_capacity() -> float:
 	var total: float = 0.0
 	for source in _sources.keys():
-		if is_instance_valid(source):
+		if is_instance_valid(source) and _is_source_from_built_structure(source):
 			total += source.get("max_storage")
 	return total
 
 
-## Get current power stored across all sources
+## Get current power stored across all sources (only from built structures)
 func get_power_current() -> float:
 	var total: float = 0.0
 	for source in _sources.keys():
-		if is_instance_valid(source):
+		if is_instance_valid(source) and _is_source_from_built_structure(source):
 			total += source.get("current_storage")
 	return total
 
 
-## Get total power generation across all generators
+## Get total power generation across all generators (only from built structures)
 func get_power_generation() -> float:
 	var total: float = 0.0
 	for generator in _generators.keys():
-		if is_instance_valid(generator):
+		if is_instance_valid(generator) and _is_generator_from_built_structure(generator):
 			total += generator.get("current_output")
 	return total
 
@@ -425,13 +429,13 @@ func _identify_subgraphs() -> void:
 					subgraph_users.append(user)
 		
 		for source in _sources.keys():
-			if is_instance_valid(source):
+			if is_instance_valid(source) and _is_source_from_built_structure(source):
 				var parent_node: Node3D = _get_power_node_parent(source)
 				if parent_node and subgraph_nodes.has(parent_node):
 					subgraph_sources.append(source)
 		
 		for generator in _generators.keys():
-			if is_instance_valid(generator):
+			if is_instance_valid(generator) and _is_generator_from_built_structure(generator):
 				var parent_node: Node3D = _get_power_node_parent_for_generator(generator)
 				if parent_node and subgraph_nodes.has(parent_node):
 					subgraph_generators.append(generator)
@@ -699,8 +703,9 @@ func find_nearest_source_node(
 				queue.append(neighbor)
 				path_map[neighbor] = current
 		
-		# Check if this node has a source component
-		var has_source: bool = _get_source_from_node(current) != null
+		# Check if this node has a source component from a built structure
+		var source: Node3D = _get_source_from_node(current)
+		var has_source: bool = source != null and _is_source_from_built_structure(source)
 		if has_source:
 			# Reconstruct path from path_map
 			var path: Array = []
@@ -777,6 +782,39 @@ func _get_power_node_parent_for_generator(generator: Node3D) -> Node3D:
 	return null
 
 
+## Check if a PowerSource belongs to a fully built structure (e.g. solar panel)
+## PowerSource -> PowerNode -> Structure; Structure has ConstructionComponent
+func _is_source_from_built_structure(source: Node) -> bool:
+	var power_node: Node = source.get_parent()
+	if not power_node:
+		return true
+	var structure: Node = power_node.get_parent()
+	if not structure:
+		return true
+	var construction: Node = structure.get_node_or_null("ConstructionComponent")
+	if construction == null:
+		return true  # No construction component = assume built
+	return construction.get("is_built") == true
+
+
+## Check if a PowerGenerator belongs to a fully built structure
+## PowerGenerator -> PowerSource -> PowerNode -> Structure
+func _is_generator_from_built_structure(generator: Node) -> bool:
+	var source: Node = generator.get_parent()
+	if not source:
+		return true
+	var power_node: Node = source.get_parent()
+	if not power_node:
+		return true
+	var structure: Node = power_node.get_parent()
+	if not structure:
+		return true
+	var construction: Node = structure.get_node_or_null("ConstructionComponent")
+	if construction == null:
+		return true
+	return construction.get("is_built") == true
+
+
 ## Get source component from a power node
 func _get_source_from_node(node: Node3D) -> Node3D:
 	for child in node.get_children():
@@ -818,17 +856,6 @@ func _create_line_mesh(node1: Node3D, node2: Node3D) -> MeshInstance3D:
 	var pos1: Vector3 = _get_connection_anchor(node1)
 	var pos2: Vector3 = _get_connection_anchor(node2)
 	
-	# Create a cylinder mesh as the line
-	var cylinder: CylinderMesh = CylinderMesh.new()
-	var distance: float = pos1.distance_to(pos2)
-	if distance < 0.1:
-		distance = 0.1  # Minimum distance
-	cylinder.top_radius = 0.15
-	cylinder.bottom_radius = 0.15
-	cylinder.height = distance
-	
-	line_instance.mesh = cylinder
-	
 	# Create glowing material
 	var material: StandardMaterial3D = StandardMaterial3D.new()
 	material.albedo_color = Color(0.3, 0.7, 1.0, 0.8)  # Light blue
@@ -836,23 +863,103 @@ func _create_line_mesh(node1: Node3D, node2: Node3D) -> MeshInstance3D:
 	material.emission = Color(0.2, 0.5, 0.9)
 	material.emission_energy_multiplier = 2.0
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.disable_receive_shadows = true
 	line_instance.material_override = material
+	line_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	line_instance.mesh = null
 	
-	# Position at midpoint
-	var midpoint: Vector3 = (pos1 + pos2) / 2.0
-	line_instance.position = midpoint
+	var delta: Vector3 = pos2 - pos1
+	var distance: float = delta.length()
+	if distance < POWER_LINE_MIN_SEGMENT_LENGTH:
+		delta = Vector3.FORWARD * POWER_LINE_MIN_SEGMENT_LENGTH
+		distance = POWER_LINE_MIN_SEGMENT_LENGTH
+		pos2 = pos1 + delta
+	var direction: Vector3 = delta / distance
 	
-	# Rotate to point from pos1 to pos2
-	var direction: Vector3 = (pos2 - pos1).normalized()
+	var start_stop_radius: float = maxf(_get_taper_radius_for_power_node(node1), 0.0)
+	var end_stop_radius: float = maxf(_get_taper_radius_for_power_node(node2), 0.0)
+	var max_stop_total: float = maxf(distance - POWER_LINE_MIN_SEGMENT_LENGTH, 0.0)
+	var stop_total: float = start_stop_radius + end_stop_radius
+	if stop_total > max_stop_total and stop_total > 0.0:
+		var stop_scale: float = max_stop_total / stop_total
+		start_stop_radius *= stop_scale
+		end_stop_radius *= stop_scale
+	
+	var stop_start: Vector3 = pos1 + direction * start_stop_radius
+	var stop_end: Vector3 = pos2 - direction * end_stop_radius
+	var visible_length: float = stop_start.distance_to(stop_end)
+	if visible_length < POWER_LINE_MIN_SEGMENT_LENGTH:
+		return line_instance
+	
+	var max_taper_each_side: float = maxf((visible_length - POWER_LINE_MIN_SEGMENT_LENGTH) * 0.5, 0.0)
+	var taper_length: float = minf(POWER_LINE_TAPER_LENGTH, max_taper_each_side)
+	var start_taper_end: Vector3 = stop_start + direction * taper_length
+	var end_taper_start: Vector3 = stop_end - direction * taper_length
+	
+	if taper_length >= POWER_LINE_MIN_SEGMENT_LENGTH:
+		_add_tapered_line_segment(line_instance, stop_start, start_taper_end, 0.0, POWER_LINE_RENDER_RADIUS, material)
+		_add_tapered_line_segment(line_instance, end_taper_start, stop_end, POWER_LINE_RENDER_RADIUS, 0.0, material)
+	
+	var center_length: float = start_taper_end.distance_to(end_taper_start)
+	if center_length >= POWER_LINE_MIN_SEGMENT_LENGTH:
+		_add_tapered_line_segment(line_instance, start_taper_end, end_taper_start, POWER_LINE_RENDER_RADIUS, POWER_LINE_RENDER_RADIUS, material)
+	
+	return line_instance
+
+
+func _add_tapered_line_segment(
+	line_parent: MeshInstance3D,
+	start_pos: Vector3,
+	end_pos: Vector3,
+	start_radius: float,
+	end_radius: float,
+	material: StandardMaterial3D
+) -> void:
+	var segment_length: float = start_pos.distance_to(end_pos)
+	if segment_length < POWER_LINE_MIN_SEGMENT_LENGTH:
+		return
+	
+	var segment_instance: MeshInstance3D = MeshInstance3D.new()
+	var segment_mesh: CylinderMesh = CylinderMesh.new()
+	segment_mesh.bottom_radius = end_radius
+	segment_mesh.top_radius = start_radius
+	segment_mesh.height = segment_length
+	segment_instance.mesh = segment_mesh
+	segment_instance.material_override = material
+	segment_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	
+	var midpoint: Vector3 = (start_pos + end_pos) / 2.0
+	segment_instance.position = midpoint
+	
+	var direction: Vector3 = (end_pos - start_pos).normalized()
 	if direction.length() > 0.01:
-		# Calculate rotation to align cylinder (Y-axis) with direction
 		var up: Vector3 = Vector3.UP
 		if abs(direction.dot(up)) > 0.99:
 			up = Vector3.RIGHT
-		line_instance.look_at_from_position(midpoint, midpoint + direction, up)
-		line_instance.rotate_object_local(Vector3(1, 0, 0), PI / 2)
+		segment_instance.look_at_from_position(midpoint, midpoint + direction, up)
+		segment_instance.rotate_object_local(Vector3(1, 0, 0), PI / 2)
 	
-	return line_instance
+	line_parent.add_child(segment_instance)
+
+
+func _get_taper_radius_for_power_node(power_node: Node3D) -> float:
+	if power_node == null:
+		return DEFAULT_TAPER_RADIUS
+	var structure: Node3D = power_node.get_parent() as Node3D
+	if structure == null:
+		return DEFAULT_TAPER_RADIUS
+	var building_type: String = str(structure.get("building_type"))
+	if building_type.is_empty():
+		return DEFAULT_TAPER_RADIUS
+	if BuildManager == null or not BuildManager.has_method("get_building_data"):
+		return DEFAULT_TAPER_RADIUS
+	var data: Resource = BuildManager.get_building_data(building_type)
+	if data == null:
+		return DEFAULT_TAPER_RADIUS
+	var configured_radius: Variant = data.get("placement_sphere_radius")
+	if configured_radius == null:
+		return DEFAULT_TAPER_RADIUS
+	return maxf(float(configured_radius), POWER_LINE_MIN_SEGMENT_LENGTH)
 
 
 func _get_connection_anchor(node: Node3D) -> Vector3:

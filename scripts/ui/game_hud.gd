@@ -14,6 +14,7 @@ const HOTKEY_LABELS: Array[String] = ["Q", "E", "R", "T", "Y", "U"]
 @onready var wave_timer_label: Label = $Margin/VBox/TopBar/WavePanel/MarginContainer/VBoxContainer/WaveTimerLabel
 @onready var build_panel: PanelContainer = $Margin/VBox/BottomBar/BuildPanel
 @onready var build_buttons_container: HBoxContainer = $Margin/VBox/BottomBar/BuildPanel/MarginContainer/BuildButtons
+@onready var menu_button: Button = $Margin/VBox/TopBar/MenuButton
 
 var _building_types: Array[String] = []
 var _build_buttons: Array[Button] = []
@@ -22,6 +23,7 @@ var _build_buttons: Array[Button] = []
 func _ready() -> void:
 	_connect_signals()
 	_setup_build_buttons()
+	_setup_menu_button()
 	_update_resources()
 	_update_wave_info()
 
@@ -70,6 +72,19 @@ func _setup_build_buttons() -> void:
 		button.mouse_entered.connect(_on_build_button_hovered)
 		build_buttons_container.add_child(button)
 		_build_buttons.append(button)
+
+
+func _setup_menu_button() -> void:
+	if menu_button:
+		menu_button.pressed.connect(_on_menu_button_pressed)
+		menu_button.mouse_entered.connect(_on_build_button_hovered)
+
+
+func _on_menu_button_pressed() -> void:
+	if GameState.is_game_over:
+		return
+	_play_sfx_method("play_ui_confirm")
+	GameState.set_paused(true)
 
 
 func _format_building_name(building_type: String) -> String:

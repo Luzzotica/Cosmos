@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_enemy_data"]
+
+[resource]
+script = ExtResource("1_enemy_data")
+enemy_id = "enemy_laser_immune"
+display_name = "Reflector"
+max_health = 70.0
+speed = 4.8
+damage = 12.0
+attack_range = 13.0
+attack_cooldown = 2.6
+reward_minerals = 14
+movement_profile = {
+"avoidance_force": 20.0,
+"drag": 2.8,
+"max_acceleration": 8.0,
+"max_turn_rate_deg": 90.0
+}
+targeting_profile = {
+"mode": "nearest"
+}
+attack_profile = {
+"damage_type": "physical"
+}
+resistance_multipliers = {
+"laser": 0.0
+}
+hull_color = Color(0.35, 0.75, 1, 1)
+emission_color = Color(0.25, 0.85, 1, 1)
+emission_energy = 2.1

@@ -5,6 +5,7 @@ class_name HealthComponent
 
 signal health_changed(current: float, maximum: float)
 signal damaged(amount: float)
+signal damaged_event(payload: Dictionary)
 signal healed(amount: float)
 signal destroyed
 
@@ -28,6 +29,7 @@ var is_destroyed: bool:
 		return health <= 0
 
 var on_health_destroyed: Callable = Callable()
+var _resistance_profile: Dictionary = {}
 
 
 func _ready() -> void:
@@ -37,14 +39,44 @@ func _ready() -> void:
 
 ## Take damage
 func take_damage(amount: float) -> void:
-	if amount <= 0 or is_destroyed:
-		return
-	
-	health -= amount
-	damaged.emit(amount)
-	
+	take_damage_event({
+		"amount": amount,
+		"damage_type": "generic",
+		"source": null,
+		"tags": PackedStringArray()
+	})
+
+
+func take_damage_event(event_payload: Dictionary) -> float:
+	var amount: float = float(event_payload.get("amount", 0.0))
+	if amount <= 0.0 or is_destroyed:
+		return 0.0
+	var damage_type: String = String(event_payload.get("damage_type", "generic"))
+	var multiplier: float = get_damage_multiplier(damage_type)
+	var actual_damage: float = amount * multiplier
+	if actual_damage <= 0.0:
+		damaged_event.emit({
+			"amount": 0.0,
+			"raw_amount": amount,
+			"damage_type": damage_type,
+			"multiplier": multiplier,
+			"was_immune": true
+		})
+		return 0.0
+
+	health -= actual_damage
+	damaged.emit(actual_damage)
+	damaged_event.emit({
+		"amount": actual_damage,
+		"raw_amount": amount,
+		"damage_type": damage_type,
+		"multiplier": multiplier,
+		"was_immune": false
+	})
+
 	if is_destroyed and on_health_destroyed.is_valid():
 		on_health_destroyed.call()
+	return actual_damage
 
 
 ## Heal
@@ -67,3 +99,15 @@ func get_health_percentage() -> float:
 ## Reset health to max
 func reset() -> void:
 	health = max_health
+
+
+func set_resistance_profile(profile: Dictionary) -> void:
+	_resistance_profile = {}
+	for damage_type in profile.keys():
+		_resistance_profile[String(damage_type)] = maxf(float(profile[damage_type]), 0.0)
+
+
+func get_damage_multiplier(damage_type: String) -> float:
+	if _resistance_profile.has(damage_type):
+		return float(_resistance_profile[damage_type])
+	return 1.0

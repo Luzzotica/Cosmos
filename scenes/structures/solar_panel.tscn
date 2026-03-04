@@ -20,10 +20,10 @@ albedo_color = Color(0.44, 0.47, 0.52, 1)
 metallic = 0.75
 roughness = 0.34
 
-[sub_resource type="SphereMesh" id="SphereMesh_panel"]
-radius = 0.95
-height = 1.9
-is_hemisphere = true
+[sub_resource type="CylinderMesh" id="CylinderMesh_panel"]
+top_radius = 0.98
+bottom_radius = 0.98
+height = 0.08
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_panel"]
 albedo_color = Color(0.1, 0.72, 1, 1)
@@ -32,7 +32,6 @@ roughness = 0.2
 emission_enabled = true
 emission = Color(0.08, 0.58, 0.95, 1)
 emission_energy_multiplier = 1.8
-cull_mode = 2
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_collision"]
 radius = 1.5
@@ -47,8 +46,8 @@ mesh = SubResource("CylinderMesh_base")
 surface_material_override/0 = SubResource("StandardMaterial3D_base")
 
 [node name="Panel" type="MeshInstance3D" parent="."]
-transform = Transform3D(1.08, 0, 0, 0, -0.26, 0, 0, 0, 1.08, 0, 1.2, 0)
-mesh = SubResource("SphereMesh_panel")
+transform = Transform3D(1.08, 0, 0, 0, 1, 0, 0, 0, 1.08, 0, 1.1, 0)
+mesh = SubResource("CylinderMesh_panel")
 surface_material_override/0 = SubResource("StandardMaterial3D_panel")
 
 [node name="ConnectionPoint" type="Marker3D" parent="."]

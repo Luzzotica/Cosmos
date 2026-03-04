@@ -45,6 +45,9 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var select_mouse: InputEventMouseButton = event as InputEventMouseButton
 		if select_mouse.pressed and select_mouse.button_index == MOUSE_BUTTON_LEFT:
+			# Don't consume clicks over UI - let buttons, minimap, build bar receive them.
+			if _is_mouse_over_blocking_ui():
+				return
 			if not BuildManager.is_selection_blocked():
 				var selectable: Node = _raycast_selectable_at_mouse(select_mouse.position)
 				if selectable:
@@ -451,6 +454,19 @@ func _raycast_selectable_at_mouse(mouse_pos: Vector2) -> Node:
 	if collider == null:
 		return null
 	return _resolve_selectable_from_node(collider)
+
+
+func _is_mouse_over_blocking_ui() -> bool:
+	## Returns true if the mouse is over a GUI Control that would consume the click.
+	## This prevents SelectionManager from stealing clicks meant for buttons, minimap, etc.
+	var viewport: Viewport = get_viewport()
+	if viewport == null:
+		return false
+	var hovered: Control = viewport.gui_get_hovered_control()
+	if hovered == null:
+		return false
+	# Controls with MOUSE_FILTER_STOP consume clicks - don't steal from them
+	return hovered.mouse_filter == Control.MOUSE_FILTER_STOP
 
 
 func _raycast_collider_at_mouse(mouse_pos: Vector2) -> Node:

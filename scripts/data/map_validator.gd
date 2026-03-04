@@ -148,6 +148,22 @@ static func validate_map_data(map_data: MapData) -> Dictionary:
 			_append_error(result, "%s enemy_health_multiplier must be > 0" % label)
 		if wave.enemy_speed_multiplier <= 0.0:
 			_append_error(result, "%s enemy_speed_multiplier must be > 0" % label)
+		if not wave.enemy_composition.is_empty():
+			var composition_total: int = 0
+			for j in range(wave.enemy_composition.size()):
+				var entry: Resource = wave.enemy_composition[j]
+				if entry == null:
+					_append_error(result, "%s enemy_composition[%d] is null" % [label, j])
+					continue
+				var entry_enemy_id: String = String(entry.get("enemy_id"))
+				var entry_count: int = int(entry.get("count"))
+				if entry_enemy_id.strip_edges().is_empty():
+					_append_error(result, "%s enemy_composition[%d] enemy_id is empty" % [label, j])
+				if entry_count < 0:
+					_append_error(result, "%s enemy_composition[%d] count cannot be negative" % [label, j])
+				composition_total += max(entry_count, 0)
+			if composition_total != wave.enemy_count and composition_total > 0:
+				_append_warning(result, "%s enemy_count differs from enemy_composition total; composition total will be used" % label)
 
 	if map_data.starting_structures.is_empty():
 		_append_warning(result, "Map has no starting_structures")

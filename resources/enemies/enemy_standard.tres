@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_enemy_data"]
+
+[resource]
+script = ExtResource("1_enemy_data")
+enemy_id = "enemy_standard"
+display_name = "Raider"
+max_health = 50.0
+speed = 6.0
+damage = 10.0
+attack_range = 15.0
+attack_cooldown = 3.0
+reward_minerals = 10
+movement_profile = {
+"avoidance_force": 24.0,
+"avoidance_scan_range": 28.0,
+"avoidance_cone_deg": 36.0,
+"separation_radius": 7.0,
+"separation_force": 40.0,
+"drag": 2.0,
+"max_acceleration": 10.0,
+"max_turn_rate_deg": 110.0,
+"orbit_distance": 10.0,
+"swarm_orbit_duration": 2.5,
+"swarm_circle_out_duration": 1.2,
+"swarm_dive_circle": true
+}
+targeting_profile = {
+"mode": "nearest",
+"swarm": true
+}
+attack_profile = {
+"damage_type": "physical"
+}
+hull_color = Color(1, 0.05, 0.15, 1)
+emission_color = Color(1, 0.02, 0.2, 1)
+emission_energy = 2.5

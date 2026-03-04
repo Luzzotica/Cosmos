@@ -5,6 +5,7 @@ class_name MapData
 
 const AsteroidCloudPlacementClass: Script = preload("res://scripts/data/asteroid_cloud_placement.gd")
 const StartingResourcesClass: Script = preload("res://scripts/data/starting_resources.gd")
+const EnemyWaveEntryClass: Script = preload("res://scripts/data/enemy_wave_entry.gd")
 
 const CURRENT_SCHEMA_VERSION: int = 1
 
@@ -142,6 +143,19 @@ static func _create_from_dict(data: Dictionary) -> MapData:
 		wave.spawn_delay = wave_dict.get("delay", 2.0)
 		wave.enemy_health_multiplier = wave_dict.get("health_mult", 1.0)
 		wave.enemy_speed_multiplier = wave_dict.get("speed_mult", 1.0)
+		var composition_data: Array = wave_dict.get("enemy_composition", [])
+		for composition_entry in composition_data:
+			if not (composition_entry is Dictionary):
+				continue
+			var entry_dict: Dictionary = composition_entry
+			var entry: Resource = EnemyWaveEntryClass.new()
+			entry.enemy_id = String(entry_dict.get("enemy_id", "enemy_standard"))
+			entry.count = int(entry_dict.get("count", 0))
+			entry.spawn_weight = float(entry_dict.get("spawn_weight", 1.0))
+			entry.sanitize()
+			wave.enemy_composition.append(entry)
+		if not wave.enemy_composition.is_empty():
+			wave.enemy_count = wave.get_total_enemy_count()
 		map_data.waves.append(wave)
 	
 	return map_data
@@ -223,11 +237,23 @@ func _to_dict() -> Dictionary:
 		})
 	
 	for wave in waves:
-		data.waves.append({
+		var wave_data: Dictionary = {
 			"enemy_count": wave.enemy_count,
 			"delay": wave.spawn_delay,
 			"health_mult": wave.enemy_health_multiplier,
 			"speed_mult": wave.enemy_speed_multiplier
-		})
+		}
+		if not wave.enemy_composition.is_empty():
+			var composition_json: Array[Dictionary] = []
+			for entry in wave.enemy_composition:
+				if entry == null:
+					continue
+				composition_json.append({
+					"enemy_id": String(entry.get("enemy_id")),
+					"count": int(entry.get("count")),
+					"spawn_weight": float(entry.get("spawn_weight"))
+				})
+			wave_data["enemy_composition"] = composition_json
+		data.waves.append(wave_data)
 	
 	return data

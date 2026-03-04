@@ -1,0 +1,37 @@
+name: Build and Publish to itch.io
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Export Godot project
+        id: export
+        uses: firebelley/godot-export@v7.0.0
+        with:
+          godot_executable_download_url: "https://downloads.godotengine.org/?version=4.6&flavor=stable&slug=linux.x86_64.zip&platform=linux.64"
+          godot_export_templates_download_url: "https://downloads.godotengine.org/?version=4.6&flavor=stable&slug=export_templates.tpz&platform=templates"
+          relative_project_path: ./
+          archive_output: true
+
+      - name: Setup Butler
+        uses: remarkablegames/setup-butler@v1
+
+      - name: Push to itch.io
+        run: |
+          ARCHIVE_DIR="${{ steps.export.outputs.archive_directory }}"
+          ZIP_FILE=$(ls "$ARCHIVE_DIR"/*.zip 2>/dev/null | head -1)
+          if [ -n "$ZIP_FILE" ]; then
+            butler push "$ZIP_FILE" ${{ secrets.ITCH_GAME }}:html5
+          else
+            echo "No zip found, pushing build directory"
+            butler push "${{ steps.export.outputs.build_directory }}" ${{ secrets.ITCH_GAME }}:html5
+          fi
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_CREDENTIALS }}

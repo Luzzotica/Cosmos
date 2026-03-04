@@ -6,7 +6,8 @@ extends Node3D
 @onready var enemies_parent: Node3D = $Enemies
 @onready var camera: Camera3D = $RTSCamera
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
-@onready var aurora_layer: MeshInstance3D = $RTSCamera/AuroraLayer
+@onready var aurora_layer: MeshInstance3D = $RTSCamera.get_node_or_null("AuroraLayer") as MeshInstance3D
+@onready var star_plane: MeshInstance3D = $RTSCamera/StarfieldLayer
 
 var _current_map_data: Resource = null
 var _structure_count: int = 0
@@ -159,7 +160,6 @@ func _setup_dynamic_sky() -> void:
 		var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 		rng.randomize()
 
-		# New seed each load so star and galaxy placement changes every run.
 		_sky_material.set_shader_parameter("sky_seed", rng.randf_range(0.0, 10000.0))
 		_sky_material.set_shader_parameter("galaxy_rotation", rng.randf_range(0.0, TAU))
 		_sky_material.set_shader_parameter("galaxy_strength", rng.randf_range(0.16, 0.3))
@@ -168,20 +168,31 @@ func _setup_dynamic_sky() -> void:
 			_aurora_material = aurora_layer.get_active_material(0) as ShaderMaterial
 			_aurora_material.set_shader_parameter("seed", rng.randf_range(0.0, 10000.0))
 
+		if star_plane and star_plane.get_active_material(0) is ShaderMaterial:
+			(star_plane.get_active_material(0) as ShaderMaterial).set_shader_parameter("sky_seed", rng.randf_range(0.0, 10000.0))
 		_update_sky_parallax()
 
 
 func _update_sky_parallax() -> void:
-	if not _sky_material or not camera:
+	if not camera:
 		return
 
-	var pos: Vector3 = camera.global_position
-	_sky_material.set_shader_parameter("parallax_offset", Vector3(pos.x, 0.0, pos.z) * SKY_PARALLAX_SCALE)
+	if _sky_material:
+		var pos: Vector3 = camera.global_position
+		_sky_material.set_shader_parameter("parallax_offset", Vector3(pos.x, 0.0, pos.z) * SKY_PARALLAX_SCALE)
 	if _aurora_material:
+		var pos: Vector3 = camera.global_position
 		_aurora_material.set_shader_parameter(
 			"parallax_offset",
 			Vector2(pos.x, pos.z) * AURORA_PARALLAX_SCALE
 		)
+	if star_plane and camera.has_method("get_zoom_level"):
+		var zoom: float = camera.get_zoom_level()
+		var min_z: float = 15.0
+		var max_z: float = 80.0
+		var t: float = (zoom - min_z) / (max_z - min_z) if max_z > min_z else 0.0
+		var scale_val: float = lerpf(0.7, 2.0, t)
+		star_plane.scale = Vector3(scale_val, scale_val, 1.0)
 
 
 func _check_game_over() -> void:

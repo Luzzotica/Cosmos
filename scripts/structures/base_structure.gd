@@ -8,6 +8,9 @@ signal destroyed
 @export_group("Build FX Tuning")
 @export var build_fx_center_offset: Vector3 = Vector3.ZERO
 @export var build_fx_radius_multiplier: float = 1.15
+@export_group("Placement Preview")
+@export var placement_preview_include_mesh_names: PackedStringArray = PackedStringArray()
+@export var placement_preview_exclude_mesh_names: PackedStringArray = PackedStringArray()
 
 var team_component: TeamComponent
 var health_component: HealthComponent
@@ -20,10 +23,11 @@ var selectable_component: Node
 # Build animation
 var _original_materials: Array[StandardMaterial3D] = []
 var _mesh_instances: Array[MeshInstance3D] = []
-var _build_progress_ring: MeshInstance3D = null
-var _build_ghost_materials: Array[StandardMaterial3D] = []
-var _build_fx_sphere: MeshInstance3D = null
-var _build_fx_material: ShaderMaterial = null
+var _build_shader_materials: Array[ShaderMaterial] = []
+var _build_finalize_tween: Tween = null
+var _build_bounds_center_local: Vector3 = Vector3.ZERO
+var _build_bounds_extents_local: Vector3 = Vector3.ONE
+var _build_bounds_radius_local: float = 1.0
 var _registered_with_render_manager: bool = false
 var _is_powered_visual: bool = true
 const BUILD_START_SCALE: float = 0.3
@@ -63,41 +67,27 @@ func _connect_signals() -> void:
 func _setup_build_animation() -> void:
 	# Find all mesh instances in this structure
 	_find_mesh_instances(self)
+	_compute_build_bounds_local()
 	if _build_shell_shader == null:
 		_build_shell_shader = load(BUILD_SHELL_SHADER_PATH) as Shader
 	
-	# Store original materials and create construction shell shader materials.
+	# Store original materials and apply construction print shader.
 	for mesh_inst in _mesh_instances:
 		var mat: StandardMaterial3D = mesh_inst.get_active_material(0) as StandardMaterial3D
 		if mat:
 			var original_copy: StandardMaterial3D = mat.duplicate() as StandardMaterial3D
 			_original_materials.append(original_copy)
-			
-			# Keep structure as a ghost while a separate build sphere runs the burn/warp effect.
-			var ghost_mat: StandardMaterial3D = mat.duplicate() as StandardMaterial3D
-			ghost_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-			ghost_mat.albedo_color.a = BUILD_TRANSPARENCY
-			ghost_mat.emission_enabled = true
-			if ghost_mat.emission == Color(0, 0, 0, 1):
-				ghost_mat.emission = Color(0.1, 0.45, 0.85, 1.0)
-			ghost_mat.emission_energy_multiplier = 1.4
-			_build_ghost_materials.append(ghost_mat)
-			mesh_inst.set_surface_override_material(0, ghost_mat)
+			var build_mat: ShaderMaterial = _create_build_shader_material(mesh_inst, original_copy)
+			_build_shader_materials.append(build_mat)
+			if build_mat:
+				mesh_inst.set_surface_override_material(0, build_mat)
 		else:
 			_original_materials.append(null)
-			_build_ghost_materials.append(null)
-	
-	# Create the progress ring
-	_create_build_progress_ring()
-	_create_build_fx_sphere()
+			_build_shader_materials.append(null)
 	
 	# Set initial scale if under construction
 	if construction_component and not construction_component.is_built:
 		scale = Vector3.ONE
-		if _build_progress_ring:
-			_build_progress_ring.visible = true
-		if _build_fx_sphere:
-			_build_fx_sphere.visible = true
 	else:
 		_restore_materials()
 		_register_with_render_manager()
@@ -116,31 +106,6 @@ func _find_mesh_instances(node: Node) -> void:
 		_find_mesh_instances(child)
 
 
-func _create_build_progress_ring() -> void:
-	_build_progress_ring = MeshInstance3D.new()
-	
-	var torus: TorusMesh = TorusMesh.new()
-	torus.inner_radius = 1.5
-	torus.outer_radius = 1.8
-	torus.rings = 32
-	torus.ring_segments = 32
-	_build_progress_ring.mesh = torus
-	
-	var material: StandardMaterial3D = StandardMaterial3D.new()
-	material.albedo_color = Color(0.2, 0.8, 1.0, 0.6)  # Cyan
-	material.emission_enabled = true
-	material.emission = Color(0.1, 0.6, 1.0)
-	material.emission_energy_multiplier = 2.0
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_build_progress_ring.material_override = material
-	
-	# Torus is already flat on XZ plane, no rotation needed
-	_build_progress_ring.position.y = 0.1
-	_build_progress_ring.visible = false
-	add_child(_build_progress_ring)
-
-
 func _process(delta: float) -> void:
 	_update_build_animation(delta)
 	if selectable_component and selectable_component.is_selected():
@@ -153,92 +118,123 @@ func _update_build_animation(_delta: float) -> void:
 	
 	var progress: float = construction_component.get_progress()
 	
-	# Keep final scale and fade materials in during construction.
+	# Keep final scale and drive construction print shader.
 	scale = Vector3.ONE
-	
-	# Keep structure ghosted for most of construction, then fade it out near completion.
-	var ghost_fade: float = 1.0 - smoothstep(0.7, 0.97, progress)
-	var ghost_alpha: float = clampf((0.12 + BUILD_TRANSPARENCY * 0.55) * ghost_fade, 0.02, 0.42)
-	for i in range(_mesh_instances.size()):
-		if i >= _build_ghost_materials.size():
-			continue
-		var ghost_mat: StandardMaterial3D = _build_ghost_materials[i]
-		if ghost_mat:
-			ghost_mat.albedo_color.a = ghost_alpha
-			ghost_mat.emission_energy_multiplier = 0.4 + ghost_fade * 1.2
-	
-	# Drive the dedicated construction sphere shader.
-	if _build_fx_material:
-		_build_fx_material.set_shader_parameter("build_progress", progress)
-	if _build_fx_sphere:
-		_build_fx_sphere.visible = true
-	
-	# Update progress ring
-	if _build_progress_ring:
-		_build_progress_ring.visible = true
-		# Rotate the ring
-		_build_progress_ring.rotation_degrees.z += 180 * _delta
-		var mat: StandardMaterial3D = _build_progress_ring.material_override as StandardMaterial3D
-		if mat:
-			var fade: float = clampf(1.0 - progress, 0.0, 1.0)
-			mat.albedo_color.a = 0.6 * fade
-			mat.emission_energy_multiplier = 0.5 + (2.5 * fade)
+	var print_dir_local: Vector3 = _get_build_print_direction_local()
+	var axis_data: Dictionary = _compute_axis_projection_from_bounds(print_dir_local)
+	for i in range(_build_shader_materials.size()):
+		var build_mat: ShaderMaterial = _build_shader_materials[i]
+		if build_mat:
+			build_mat.set_shader_parameter("build_progress", progress)
+			build_mat.set_shader_parameter("print_direction", print_dir_local)
+			build_mat.set_shader_parameter("axis_center", float(axis_data.get("center", 0.0)))
+			build_mat.set_shader_parameter("axis_extent", maxf(float(axis_data.get("extent", 1.0)), 0.01))
+			build_mat.set_shader_parameter("build_radius", maxf(_build_bounds_radius_local * maxf(build_fx_radius_multiplier, 0.1), 0.01))
+			build_mat.set_shader_parameter("finalize_blend", 0.0)
 
 
 func _on_construction_completed() -> void:
-	# Restore original materials
-	_restore_materials()
+	# Smoothly blend construction shader into final material before swapping.
+	_start_build_finalize_tween()
 	scale = Vector3.ONE
-	if _build_progress_ring:
-		_build_progress_ring.visible = false
-	if _build_fx_sphere:
-		_build_fx_sphere.visible = false
-	_register_with_render_manager()
-	set_powered_visual_state(_is_powered_visual)
-	if selectable_component:
-		selectable_component.notify_details_changed()
 
 
 func _restore_materials() -> void:
 	for i in range(_mesh_instances.size()):
 		if i < _original_materials.size() and _original_materials[i]:
 			_mesh_instances[i].set_surface_override_material(0, _original_materials[i].duplicate())
-	_build_ghost_materials.clear()
-	if _build_fx_sphere and is_instance_valid(_build_fx_sphere):
-		_build_fx_sphere.queue_free()
-	_build_fx_sphere = null
-	_build_fx_material = null
+	_build_shader_materials.clear()
 
 
-func _create_build_fx_sphere() -> void:
-	if _build_shell_shader == null:
+func _start_build_finalize_tween() -> void:
+	if _build_finalize_tween:
+		_build_finalize_tween.kill()
+		_build_finalize_tween = null
+	
+	if _build_shader_materials.is_empty():
+		_finish_construction_visuals()
 		return
 	
-	var bounds: Dictionary = _compute_build_fx_bounds()
-	var fx_center: Vector3 = bounds.get("center", Vector3.ZERO) + build_fx_center_offset
-	var fx_radius: float = maxf(float(bounds.get("radius", 1.2)) * maxf(build_fx_radius_multiplier, 0.1), 0.6)
-	
-	_build_fx_sphere = MeshInstance3D.new()
-	_build_fx_sphere.name = "BuildFxSphere"
-	var sphere: SphereMesh = SphereMesh.new()
-	sphere.radius = fx_radius
-	sphere.height = sphere.radius * 2.0
-	_build_fx_sphere.mesh = sphere
-	_build_fx_sphere.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_build_fx_sphere.position = fx_center
-	
-	_build_fx_material = ShaderMaterial.new()
-	_build_fx_material.shader = _build_shell_shader
-	_build_fx_material.set_shader_parameter("build_progress", 0.0)
-	_build_fx_material.set_shader_parameter("final_color", Color(0.16, 0.2, 0.28, 1.0))
-	_build_fx_material.set_shader_parameter("min_local_y", -sphere.radius)
-	_build_fx_material.set_shader_parameter("local_height", sphere.radius * 2.0)
-	_build_fx_sphere.material_override = _build_fx_material
-	_build_fx_sphere.visible = false
-	add_child(_build_fx_sphere)
+	var finalize_duration: float = 0.35
+	_build_finalize_tween = create_tween()
+	_build_finalize_tween.set_trans(Tween.TRANS_SINE)
+	_build_finalize_tween.set_ease(Tween.EASE_OUT)
+	_build_finalize_tween.tween_method(func(v: float) -> void:
+		for mat in _build_shader_materials:
+			if mat:
+				mat.set_shader_parameter("build_progress", 1.0)
+				mat.set_shader_parameter("finalize_blend", v)
+	, 0.0, 1.0, finalize_duration)
+	_build_finalize_tween.tween_callback(func() -> void:
+		_build_finalize_tween = null
+		_finish_construction_visuals()
+	)
 
 
-func _compute_build_fx_bounds() -> Dictionary:
+func _finish_construction_visuals() -> void:
+	_restore_materials()
+	_register_with_render_manager()
+	# Use actual power state at build completion, not cached _is_powered_visual.
+	# Structures with PowerUser may have set _is_powered_visual=false in _ready when
+	# the buffer was empty (during construction). The graph has power now; sync visual.
+	set_powered_visual_state(has_operational_power())
+	_play_construction_finish_animation()
+	if selectable_component:
+		selectable_component.notify_details_changed()
+
+
+func _play_construction_finish_animation() -> void:
+	pass
+
+
+func _create_build_shader_material(mesh_inst: MeshInstance3D, original_mat: StandardMaterial3D) -> ShaderMaterial:
+	if _build_shell_shader == null:
+		return null
+	if mesh_inst == null or mesh_inst.mesh == null:
+		return null
+	
+	var dir_local: Vector3 = _get_build_print_direction_local()
+	var axis_data: Dictionary = _compute_axis_projection_from_bounds(dir_local)
+	var build_mat: ShaderMaterial = ShaderMaterial.new()
+	build_mat.shader = _build_shell_shader
+	build_mat.set_shader_parameter("build_progress", 0.0)
+	build_mat.set_shader_parameter("final_color", original_mat.albedo_color)
+	build_mat.set_shader_parameter("print_direction", dir_local)
+	build_mat.set_shader_parameter("axis_center", float(axis_data.get("center", 0.0)))
+	build_mat.set_shader_parameter("axis_extent", maxf(float(axis_data.get("extent", 1.0)), 0.01))
+	build_mat.set_shader_parameter("build_radius", maxf(_build_bounds_radius_local * maxf(build_fx_radius_multiplier, 0.1), 0.01))
+	build_mat.set_shader_parameter("finalize_blend", 0.0)
+	return build_mat
+
+
+func _get_build_print_direction_local() -> Vector3:
+	if power_node and power_node.connected_nodes.size() > 0:
+		var source_node: Node3D = power_node.connected_nodes[0] as Node3D
+		if source_node:
+			var source_structure: Node3D = source_node.get_parent() as Node3D
+			if source_structure:
+				var world_dir: Vector3 = global_position - source_structure.global_position
+				world_dir.y = 0.0
+				if world_dir.length() > 0.001:
+					var local_dir: Vector3 = global_basis.inverse() * world_dir.normalized()
+					local_dir.y = 0.0
+					if local_dir.length() > 0.001:
+						return local_dir.normalized()
+	return Vector3.UP
+
+
+func _compute_axis_projection_from_bounds(direction: Vector3) -> Dictionary:
+	var dir: Vector3 = direction.normalized()
+	if dir.length() < 0.001:
+		dir = Vector3.UP
+	
+	var axis_center: float = _build_bounds_center_local.dot(dir)
+	var axis_extent: float = absf(dir.x) * _build_bounds_extents_local.x + absf(dir.y) * _build_bounds_extents_local.y + absf(dir.z) * _build_bounds_extents_local.z
+	axis_extent = maxf(axis_extent, _build_bounds_radius_local * 0.55)
+	return {"center": axis_center, "extent": maxf(axis_extent, 0.01)}
+
+
+func _compute_build_bounds_local() -> void:
 	var has_bounds: bool = false
 	var min_pos: Vector3 = Vector3.ZERO
 	var max_pos: Vector3 = Vector3.ZERO
@@ -247,10 +243,9 @@ func _compute_build_fx_bounds() -> Dictionary:
 		if mesh_inst == null or mesh_inst.mesh == null:
 			continue
 		var local_aabb: AABB = mesh_inst.mesh.get_aabb()
-		var mesh_aabb: AABB = local_aabb * mesh_inst.transform
-		var mesh_min: Vector3 = mesh_aabb.position
-		var mesh_max: Vector3 = mesh_aabb.position + mesh_aabb.size
-		
+		var transformed_aabb: AABB = local_aabb * mesh_inst.transform
+		var mesh_min: Vector3 = transformed_aabb.position
+		var mesh_max: Vector3 = transformed_aabb.position + transformed_aabb.size
 		if not has_bounds:
 			min_pos = mesh_min
 			max_pos = mesh_max
@@ -268,12 +263,14 @@ func _compute_build_fx_bounds() -> Dictionary:
 			)
 	
 	if not has_bounds:
-		return {"center": Vector3.ZERO, "radius": 1.2}
+		_build_bounds_center_local = Vector3.ZERO
+		_build_bounds_extents_local = Vector3.ONE
+		_build_bounds_radius_local = 1.0
+		return
 	
-	var center: Vector3 = (min_pos + max_pos) * 0.5
-	var extents: Vector3 = (max_pos - min_pos) * 0.5
-	var radius: float = maxf(extents.length(), 0.6)
-	return {"center": center, "radius": radius}
+	_build_bounds_center_local = (min_pos + max_pos) * 0.5
+	_build_bounds_extents_local = (max_pos - min_pos) * 0.5
+	_build_bounds_radius_local = maxf(_build_bounds_extents_local.length(), 0.6)
 
 
 func _exit_tree() -> void:
@@ -401,6 +398,12 @@ func get_team() -> String:
 func take_damage(amount: float) -> void:
 	if health_component:
 		health_component.take_damage(amount)
+
+
+func take_damage_event(event_payload: Dictionary) -> float:
+	if health_component == null:
+		return 0.0
+	return health_component.take_damage_event(event_payload)
 
 
 ## Check if construction is complete

@@ -3,11 +3,16 @@ render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_sc
 
 uniform float build_progress : hint_range(0.0, 1.0) = 0.0;
 uniform vec4 final_color : source_color = vec4(0.45, 0.48, 0.52, 1.0);
-uniform vec4 steel_color : source_color = vec4(0.62, 0.67, 0.75, 1.0);
-uniform vec4 char_color : source_color = vec4(0.06, 0.08, 0.12, 1.0);
-uniform vec4 burn_glow_color : source_color = vec4(0.12, 0.66, 1.0, 1.0);
-uniform float min_local_y = -0.5;
-uniform float local_height = 1.0;
+uniform vec4 print_color : source_color = vec4(1.0, 0.15, 0.1, 1.0);
+uniform vec4 edge_glow_color : source_color = vec4(1.0, 0.35, 0.2, 1.0);
+uniform vec3 print_direction = vec3(0.0, 1.0, 0.0);
+uniform float axis_center = 0.0;
+uniform float axis_extent = 1.0;
+uniform float build_radius = 1.0;
+uniform float line_density = 26.0;
+uniform float finalize_blend : hint_range(0.0, 1.0) = 0.0;
+
+varying vec3 local_pos;
 
 float hash13(vec3 p) {
 	p = fract(p * 0.1031);
@@ -15,34 +20,39 @@ float hash13(vec3 p) {
 	return fract((p.x + p.y) * p.z);
 }
 
+void vertex() {
+	// Cache object-local position for camera-independent construction effects.
+	local_pos = VERTEX;
+}
+
 void fragment() {
-	float safe_height = max(local_height, 0.001);
-	float local_t = clamp((VERTEX.y - min_local_y) / safe_height, 0.0, 1.0);
-	float grain = hash13(VERTEX * 7.0);
-	float noisy_t = clamp(local_t + (grain - 0.5) * 0.14, 0.0, 1.0);
+	vec3 dir = normalize(print_direction);
+	float safe_extent = max(max(axis_extent, build_radius * 0.55), 0.001);
+	float axis_value = dot(local_pos, dir);
+	float axis_t = clamp((axis_value - (axis_center - safe_extent)) / (safe_extent * 2.0), 0.0, 1.0);
 
-	// Bottom-up completion: completed area becomes final material.
-	float built_mask = 1.0 - smoothstep(build_progress - 0.045, build_progress + 0.035, noisy_t);
+	float grain = hash13(local_pos * 8.0);
+	float axis_noisy = clamp(axis_t + (grain - 0.5) * 0.08, 0.0, 1.0);
 
-	// Blue/black burn band around the transition front.
-	float edge_distance = abs(noisy_t - build_progress);
-	float burn_band = 1.0 - smoothstep(0.0, 0.08, edge_distance);
+	// Reveal from power-line direction into full material.
+	float reveal_mask = 1.0 - smoothstep(build_progress - 0.035, build_progress + 0.03, axis_noisy);
 
-	// Near completion, let remaining shell warp/disintegrate from top downward.
-	float warp_phase = smoothstep(0.72, 1.0, build_progress);
-	float top_cut = 1.0 - warp_phase;
-	float top_dissolve = smoothstep(top_cut - 0.1, top_cut + 0.08, noisy_t);
+	// Red "printed" energy lines.
+	float line_wave = sin((local_pos.y + local_pos.x * 0.45 + local_pos.z * 0.25 + TIME * 1.6) * line_density);
+	float line_mask = pow(abs(line_wave), 10.0);
 
-	vec3 shell_col = mix(steel_color.rgb, char_color.rgb, burn_band * 0.75);
-	vec3 lit_final = final_color.rgb;
-	vec3 albedo = mix(shell_col, lit_final, built_mask);
+	// Bright hot front where matter becomes permanent.
+	float front = 1.0 - smoothstep(0.0, 0.08, abs(axis_noisy - build_progress));
+	vec3 energy_base = mix(print_color.rgb * 0.4, print_color.rgb * 1.3, line_mask);
+	vec3 energy_col = mix(energy_base, edge_glow_color.rgb, front * 0.9);
 
-	float shell_alpha = (1.0 - built_mask) * (1.0 - top_dissolve);
-	float alpha = clamp(shell_alpha * 0.88 + built_mask, 0.0, 1.0);
+	vec3 staged_albedo = mix(energy_col, final_color.rgb, reveal_mask);
+	vec3 albedo = mix(staged_albedo, final_color.rgb, finalize_blend);
+	float alpha = mix(0.78, 1.0, reveal_mask);
 
 	ALBEDO = albedo;
 	ALPHA = alpha;
-	METALLIC = mix(0.82, 0.45, built_mask);
-	ROUGHNESS = mix(0.22, 0.45, built_mask);
-	EMISSION = burn_glow_color.rgb * (burn_band * (1.0 - built_mask) * 2.8);
+	METALLIC = mix(0.08, 0.42, reveal_mask);
+	ROUGHNESS = mix(0.28, 0.45, reveal_mask);
+	EMISSION = energy_col * (1.25 + front * 2.8) * (1.0 - reveal_mask * 0.5) * (1.0 - finalize_blend);
 }

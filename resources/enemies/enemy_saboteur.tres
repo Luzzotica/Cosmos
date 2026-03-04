@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_enemy_data"]
+
+[resource]
+script = ExtResource("1_enemy_data")
+enemy_id = "enemy_saboteur"
+display_name = "Grid Breaker"
+max_health = 38.0
+speed = 7.8
+damage = 7.0
+attack_range = 14.0
+attack_cooldown = 3.2
+reward_minerals = 16
+tags = PackedStringArray("saboteur")
+movement_profile = {
+"avoidance_force": 24.0,
+"drag": 1.7,
+"max_acceleration": 13.0,
+"max_turn_rate_deg": 150.0
+}
+targeting_profile = {
+"mode": "power_priority",
+"power_priority_bias": 30.0
+}
+attack_profile = {
+"damage_type": "emp"
+}
+ability_profile = {
+"disable_duration": 8.0,
+"sabotage_cooldown": 10.0,
+"type": "power_sabotage"
+}
+hull_color = Color(1, 0.65, 0.15, 1)
+emission_color = Color(1, 0.8, 0.2, 1)
+emission_energy = 2.2

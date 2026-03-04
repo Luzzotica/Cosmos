@@ -1,0 +1,40 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_enemy_data"]
+
+[resource]
+script = ExtResource("1_enemy_data")
+enemy_id = "enemy_commander"
+display_name = "Overseer"
+max_health = 140.0
+speed = 4.2
+damage = 16.0
+attack_range = 22.0
+attack_cooldown = 2.0
+reward_minerals = 35
+tags = PackedStringArray("commander")
+movement_profile = {
+"avoidance_force": 18.0,
+"drag": 2.8,
+"max_acceleration": 7.0,
+"max_turn_rate_deg": 75.0
+}
+targeting_profile = {
+"mode": "power_priority",
+"power_priority_bias": 15.0
+}
+attack_profile = {
+"damage_type": "laser"
+}
+ability_profile = {
+"aura_attack_multiplier": 1.25,
+"aura_damage_multiplier": 1.2,
+"aura_radius": 45.0,
+"aura_retarget_interval": 0.2,
+"aura_speed_multiplier": 1.2,
+"type": "commander_aura"
+}
+hull_color = Color(0.95, 0.95, 0.2, 1)
+emission_color = Color(1, 1, 0.35, 1)
+emission_energy = 3.1
+mesh_scale = Vector3(1.4, 1.4, 1.4)

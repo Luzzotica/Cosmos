@@ -1,24 +1,22 @@
-[gd_scene load_steps=16 format=3 uid="uid://dkwt3h8ycvvqm"]
+[gd_scene format=3 uid="uid://dkwt3h8ycvvqm"]
 
-[ext_resource type="Script" path="res://scripts/camera/rts_camera.gd" id="1_camera"]
-[ext_resource type="Script" path="res://scripts/game/main_game.gd" id="2_main"]
+[ext_resource type="Script" uid="uid://cn0nespna7xeb" path="res://scripts/camera/rts_camera.gd" id="1_camera"]
+[ext_resource type="Script" uid="uid://b33a0nilirc6s" path="res://scripts/game/main_game.gd" id="2_main"]
 [ext_resource type="PackedScene" uid="uid://c5yh8m2qxr4wv" path="res://scenes/ui/game_hud.tscn" id="3_hud"]
 [ext_resource type="PackedScene" uid="uid://bxg4k2m8qr5tn" path="res://scenes/ui/game_over_screen.tscn" id="4_gameover"]
 [ext_resource type="PackedScene" uid="uid://dpxs3m2yh8v4w" path="res://scenes/ui/selection_panel.tscn" id="5_selection"]
-[ext_resource type="Shader" path="res://shaders/starfield_sky.gdshader" id="6_starfield"]
+[ext_resource type="Shader" uid="uid://meeqdye3lhop" path="res://shaders/sky_solid.gdshader" id="6_sky"]
 [ext_resource type="PackedScene" path="res://scenes/ui/pause_menu.tscn" id="7_pause"]
-[ext_resource type="Script" path="res://scripts/game/map_editor_controller.gd" id="8_mapeditor"]
+[ext_resource type="Script" uid="uid://7x3sn4qthu7v" path="res://scripts/game/map_editor_controller.gd" id="8_mapeditor"]
 [ext_resource type="PackedScene" path="res://scenes/ui/map_editor_panel.tscn" id="9_mapeditorpanel"]
-[ext_resource type="Shader" path="res://shaders/aurora_layer.gdshader" id="10_aurora"]
+[ext_resource type="Shader" uid="uid://ckxbaiuirtprc" path="res://shaders/starfield_plane.gdshader" id="10_starfield"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_starfield"]
-shader = ExtResource("6_starfield")
-
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_aurora"]
-shader = ExtResource("10_aurora")
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_sky"]
+shader = ExtResource("6_sky")
+shader_parameter/space_color = Color(0.02, 0.02, 0.05, 1)
 
 [sub_resource type="Sky" id="Sky_space"]
-sky_material = SubResource("ShaderMaterial_starfield")
+sky_material = SubResource("ShaderMaterial_sky")
 
 [sub_resource type="Environment" id="Environment_space"]
 background_mode = 2
@@ -27,69 +25,75 @@ ambient_light_source = 2
 ambient_light_color = Color(0.3, 0.3, 0.4, 1)
 ambient_light_energy = 0.5
 
+[sub_resource type="QuadMesh" id="QuadMesh_starfield"]
+size = Vector2(1200, 1200)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_starfield"]
+render_priority = 0
+shader = ExtResource("10_starfield")
+shader_parameter/space_color = Color(0.02, 0.02, 0.05, 1)
+shader_parameter/star_twinkle_speed = 1.2
+shader_parameter/star_twinkle_amount = 0.45
+shader_parameter/star_oscillation_speed = 0.5
+shader_parameter/star_oscillation_strength = 0.12
+shader_parameter/sky_seed = 0.0
+
 [sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
 size = Vector2(500, 500)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ground"]
 albedo_color = Color(0.1, 0.1, 0.15, 1)
 
-[sub_resource type="QuadMesh" id="QuadMesh_aurora"]
-size = Vector2(1400, 920)
-
-[node name="Main" type="Node3D"]
+[node name="Main" type="Node3D" unique_id=802102950]
 script = ExtResource("2_main")
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=2056901364]
 environment = SubResource("Environment_space")
 
-[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=1152171559]
 transform = Transform3D(0.866025, -0.353553, 0.353553, 0, 0.707107, 0.707107, -0.5, -0.612372, 0.612372, 0, 50, 0)
 light_color = Color(0.9, 0.9, 1, 1)
 light_energy = 1.5
 shadow_enabled = true
 
-[node name="RTSCamera" type="Camera3D" parent="."]
+[node name="RTSCamera" type="Camera3D" parent="." unique_id=1092333625]
 transform = Transform3D(1, 0, 0, 0, 0.5, 0.866025, 0, -0.866025, 0.5, 0, 25, 15)
 current = true
 script = ExtResource("1_camera")
 pan_speed = 30.0
-edge_pan_margin = 8.0
 edge_pan_speed = 20.0
-min_zoom_distance = 15.0
-max_zoom_distance = 80.0
 zoom_speed = 3.0
 bounds_min = Vector3(-200, 0, -200)
 bounds_max = Vector3(200, 100, 200)
 
-[node name="AuroraLayer" type="MeshInstance3D" parent="RTSCamera"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -260)
-cast_shadow = 0
-mesh = SubResource("QuadMesh_aurora")
-surface_material_override/0 = SubResource("ShaderMaterial_aurora")
-extra_cull_margin = 600.0
+[node name="StarfieldLayer" type="MeshInstance3D" parent="RTSCamera" unique_id=458901532]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -92.94166, -160.97958)
+mesh = SubResource("QuadMesh_starfield")
+surface_material_override/0 = SubResource("ShaderMaterial_starfield")
 
-[node name="GroundPlane" type="MeshInstance3D" parent="."]
+[node name="GroundPlane" type="MeshInstance3D" parent="." unique_id=417759382]
 visible = false
 mesh = SubResource("PlaneMesh_ground")
 surface_material_override/0 = SubResource("StandardMaterial3D_ground")
 
-[node name="Structures" type="Node3D" parent="."]
+[node name="Structures" type="Node3D" parent="." unique_id=888402941]
 
-[node name="Asteroids" type="Node3D" parent="."]
+[node name="Asteroids" type="Node3D" parent="." unique_id=1758227552]
 
-[node name="Enemies" type="Node3D" parent="."]
+[node name="Enemies" type="Node3D" parent="." unique_id=762956773]
 
-[node name="UI" type="CanvasLayer" parent="."]
+[node name="UI" type="CanvasLayer" parent="." unique_id=1466332981]
 
-[node name="GameHUD" parent="UI" instance=ExtResource("3_hud")]
+[node name="GameHUD" parent="UI" unique_id=160203842 instance=ExtResource("3_hud")]
 
-[node name="GameOverScreen" parent="UI" instance=ExtResource("4_gameover")]
+[node name="GameOverScreen" parent="UI" unique_id=833519042 instance=ExtResource("4_gameover")]
 
-[node name="SelectionPanel" parent="UI" instance=ExtResource("5_selection")]
+[node name="SelectionPanel" parent="UI" unique_id=2060488351 instance=ExtResource("5_selection")]
 
-[node name="PauseMenu" parent="UI" instance=ExtResource("7_pause")]
+[node name="PauseMenu" parent="UI" unique_id=1033988547 instance=ExtResource("7_pause")]
 
-[node name="MapEditorPanel" parent="UI" instance=ExtResource("9_mapeditorpanel")]
+[node name="MapEditorPanel" parent="UI" unique_id=1896559661 instance=ExtResource("9_mapeditorpanel")]
+layout_mode = 3
 
-[node name="MapEditorController" type="Node" parent="."]
+[node name="MapEditorController" type="Node" parent="." unique_id=1586001074]
 script = ExtResource("8_mapeditor")

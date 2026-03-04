@@ -27,6 +27,8 @@ var _preview_mesh_instances: Array[MeshInstance3D] = []
 var _preview_holo_materials: Dictionary = {}  # mesh_instance_id -> ShaderMaterial
 var _preview_collision_radius: float = 1.2
 var _placement_holo_shader: Shader = null
+var _preview_mesh_include_filter: Dictionary = {}
+var _preview_mesh_exclude_filter: Dictionary = {}
 
 # Range indicators
 var _connection_range_indicator: MeshInstance3D = null
@@ -49,6 +51,9 @@ const DEFAULT_PLACEMENT_RADIUS: float = 1.2
 const PLACEMENT_OCCUPANCY_MARGIN: float = 0.1
 const POWER_LINE_RADIUS: float = 0.03
 const POWER_LINE_CLEARANCE: float = 0.03
+const POWER_LINE_RENDER_RADIUS: float = 0.15
+const POWER_LINE_MIN_SEGMENT_LENGTH: float = 0.02
+const POWER_LINE_TAPER_LENGTH: float = 0.4
 const PREVIEW_ALPHA: float = 0.5
 const PREVIEW_VALID_TINT: Color = Color(0.2, 0.72, 1.0, PREVIEW_ALPHA)
 const PREVIEW_INVALID_TINT: Color = Color(1.0, 0.26, 0.22, PREVIEW_ALPHA)
@@ -101,13 +106,9 @@ func _input(event: InputEvent) -> void:
 				update_placement_preview(_last_mouse_world_position)
 		return
 	
-	# Debug: Log mouse clicks
 	if event is InputEventMouseButton:
 		var me: InputEventMouseButton = event as InputEventMouseButton
-		if me.button_index == MOUSE_BUTTON_LEFT:
-			print("[DEBUG] BuildManager saw LEFT click, pressed=", me.pressed, " state=", current_state, " consuming_release=", _is_consuming_release)
-			if not me.pressed and _is_consuming_release:
-				print("[DEBUG] BuildManager CONSUMING release event")
+		if me.button_index == MOUSE_BUTTON_LEFT and not me.pressed and _is_consuming_release:
 				_is_consuming_release = false
 				get_viewport().set_input_as_handled()
 				return
@@ -128,7 +129,6 @@ func _input(event: InputEvent) -> void:
 		var mouse_event: InputEventMouseButton = event as InputEventMouseButton
 		if mouse_event.pressed:
 			if mouse_event.button_index == MOUSE_BUTTON_LEFT:
-				print("[DEBUG] BuildManager confirming placement")
 				confirm_placement()
 				_is_consuming_release = true
 				get_viewport().set_input_as_handled()
@@ -328,8 +328,10 @@ func _create_visual_preview_from_scene(scene: PackedScene) -> Node3D:
 	if not source_root:
 		return _create_default_preview()
 	
+	_configure_preview_mesh_filters(source_root)
 	_copy_meshes_to_preview(source_root, preview_root, Transform3D.IDENTITY)
 	source_root.free()
+	_clear_preview_mesh_filters()
 	
 	# Fallback in case source scene has no mesh content at runtime.
 	if preview_root.get_child_count() == 0:
@@ -348,6 +350,8 @@ func _copy_meshes_to_preview(source: Node, preview_root: Node3D, parent_transfor
 			preview_root.add_child(preview_connection_point)
 	
 	if source is MeshInstance3D:
+		if not _should_copy_preview_mesh(source.name):
+			return
 		var source_mesh: MeshInstance3D = source as MeshInstance3D
 		var preview_mesh: MeshInstance3D = MeshInstance3D.new()
 		preview_mesh.mesh = source_mesh.mesh
@@ -357,6 +361,45 @@ func _copy_meshes_to_preview(source: Node, preview_root: Node3D, parent_transfor
 	
 	for child in source.get_children():
 		_copy_meshes_to_preview(child, preview_root, current_transform)
+
+
+func _configure_preview_mesh_filters(source_root: Node3D) -> void:
+	_clear_preview_mesh_filters()
+	if source_root == null:
+		return
+	
+	var include_data: Variant = source_root.get("placement_preview_include_mesh_names")
+	var exclude_data: Variant = source_root.get("placement_preview_exclude_mesh_names")
+	_register_preview_filter_entries(include_data, _preview_mesh_include_filter)
+	_register_preview_filter_entries(exclude_data, _preview_mesh_exclude_filter)
+
+
+func _register_preview_filter_entries(entries: Variant, target: Dictionary) -> void:
+	if entries == null:
+		return
+	if entries is PackedStringArray:
+		for entry in entries:
+			var entry_name: String = String(entry)
+			if not entry_name.is_empty():
+				target[entry_name] = true
+	elif entries is Array:
+		for entry in entries:
+			var entry_name: String = String(entry)
+			if not entry_name.is_empty():
+				target[entry_name] = true
+
+
+func _should_copy_preview_mesh(mesh_name: String) -> bool:
+	if _preview_mesh_include_filter.size() > 0 and not _preview_mesh_include_filter.has(mesh_name):
+		return false
+	if _preview_mesh_exclude_filter.has(mesh_name):
+		return false
+	return true
+
+
+func _clear_preview_mesh_filters() -> void:
+	_preview_mesh_include_filter.clear()
+	_preview_mesh_exclude_filter.clear()
 
 
 ## Internal: Destroy placement preview
@@ -458,7 +501,10 @@ func _ensure_connection_line_pool(count: int) -> void:
 		line_mat.emission = Color(0.2, 0.8, 0.2)
 		line_mat.emission_energy_multiplier = 2.0
 		line_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		line_mat.disable_receive_shadows = true
 		line.material_override = line_mat
+		line.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		line.mesh = null
 		line.visible = false
 		_connection_lines.append(line)
 		get_tree().root.add_child(line)
@@ -529,25 +575,9 @@ func _update_connection_preview(world_position: Vector3) -> void:
 		# Check line of sight
 		var blocked: bool = not _check_line_of_sight(world_position, parent_structure.global_position, parent_structure)
 		
-		# Create cylinder mesh with the exact distance as height (same as power_graph_manager)
-		var cylinder: CylinderMesh = CylinderMesh.new()
-		cylinder.top_radius = 0.15
-		cylinder.bottom_radius = 0.15
-		cylinder.height = distance
-		preview_line.mesh = cylinder
-		
-		# Position at midpoint
-		var midpoint: Vector3 = (start_pos + end_pos) / 2.0
-		preview_line.global_position = midpoint
-		
-		# Rotate to point from start to end (same logic as power_graph_manager)
-		var direction: Vector3 = (end_pos - start_pos).normalized()
-		if direction.length() > 0.01:
-			var up: Vector3 = Vector3.UP
-			if abs(direction.dot(up)) > 0.99:
-				up = Vector3.RIGHT
-			preview_line.look_at_from_position(midpoint, midpoint + direction, up)
-			preview_line.rotate_object_local(Vector3(1, 0, 0), PI / 2)
+		var start_taper: float = _get_preview_taper_radius()
+		var end_taper: float = _get_structure_taper_radius(parent_structure)
+		_rebuild_preview_tapered_line(preview_line, start_pos, end_pos, start_taper, end_taper)
 		
 		# Update line color:
 		# - red when LOS is blocked OR placement is invalid for any reason
@@ -565,6 +595,145 @@ func _update_connection_preview(world_position: Vector3) -> void:
 				mat.emission = Color(0.2, 0.8, 0.2)
 		else:
 			preview_line.visible = false
+
+
+func _rebuild_preview_tapered_line(
+	line_container: MeshInstance3D,
+	start_pos: Vector3,
+	end_pos: Vector3,
+	start_stop_radius: float,
+	end_stop_radius: float
+) -> void:
+	if line_container == null:
+		return
+	
+	for child in line_container.get_children():
+		line_container.remove_child(child)
+		child.queue_free()
+	
+	var material: StandardMaterial3D = line_container.material_override as StandardMaterial3D
+	if material == null:
+		return
+	
+	var delta: Vector3 = end_pos - start_pos
+	var distance: float = delta.length()
+	if distance < POWER_LINE_MIN_SEGMENT_LENGTH:
+		delta = Vector3.FORWARD * POWER_LINE_MIN_SEGMENT_LENGTH
+		distance = POWER_LINE_MIN_SEGMENT_LENGTH
+		end_pos = start_pos + delta
+	var direction: Vector3 = delta / distance
+	
+	var safe_start_stop_radius: float = maxf(start_stop_radius, 0.0)
+	var safe_end_stop_radius: float = maxf(end_stop_radius, 0.0)
+	var max_stop_total: float = maxf(distance - POWER_LINE_MIN_SEGMENT_LENGTH, 0.0)
+	var stop_total: float = safe_start_stop_radius + safe_end_stop_radius
+	if stop_total > max_stop_total and stop_total > 0.0:
+		var stop_scale: float = max_stop_total / stop_total
+		safe_start_stop_radius *= stop_scale
+		safe_end_stop_radius *= stop_scale
+	
+	var stop_start: Vector3 = start_pos + direction * safe_start_stop_radius
+	var stop_end: Vector3 = end_pos - direction * safe_end_stop_radius
+	var visible_length: float = stop_start.distance_to(stop_end)
+	if visible_length < POWER_LINE_MIN_SEGMENT_LENGTH:
+		return
+	
+	var max_taper_each_side: float = maxf((visible_length - POWER_LINE_MIN_SEGMENT_LENGTH) * 0.5, 0.0)
+	var taper_length: float = minf(POWER_LINE_TAPER_LENGTH, max_taper_each_side)
+	var start_taper_end: Vector3 = stop_start + direction * taper_length
+	var end_taper_start: Vector3 = stop_end - direction * taper_length
+	
+	if taper_length >= POWER_LINE_MIN_SEGMENT_LENGTH:
+		_add_preview_line_segment(
+			line_container,
+			stop_start,
+			start_taper_end,
+			0.0,
+			POWER_LINE_RENDER_RADIUS,
+			material
+		)
+		_add_preview_line_segment(
+			line_container,
+			end_taper_start,
+			stop_end,
+			POWER_LINE_RENDER_RADIUS,
+			0.0,
+			material
+		)
+	
+	var center_length: float = start_taper_end.distance_to(end_taper_start)
+	if center_length >= POWER_LINE_MIN_SEGMENT_LENGTH:
+		_add_preview_line_segment(
+			line_container,
+			start_taper_end,
+			end_taper_start,
+			POWER_LINE_RENDER_RADIUS,
+			POWER_LINE_RENDER_RADIUS,
+			material
+		)
+
+
+func _add_preview_line_segment(
+	line_container: MeshInstance3D,
+	start_pos: Vector3,
+	end_pos: Vector3,
+	start_radius: float,
+	end_radius: float,
+	material: StandardMaterial3D
+) -> void:
+	var segment_length: float = start_pos.distance_to(end_pos)
+	if segment_length < POWER_LINE_MIN_SEGMENT_LENGTH:
+		return
+	
+	var segment: MeshInstance3D = MeshInstance3D.new()
+	var cylinder: CylinderMesh = CylinderMesh.new()
+	cylinder.bottom_radius = end_radius
+	cylinder.top_radius = start_radius
+	cylinder.height = segment_length
+	segment.mesh = cylinder
+	segment.material_override = material
+	segment.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	
+	# Add to tree first — global_position and look_at require is_inside_tree()
+	line_container.add_child(segment)
+	
+	var midpoint: Vector3 = (start_pos + end_pos) / 2.0
+	segment.global_position = midpoint
+	
+	var direction: Vector3 = (end_pos - start_pos).normalized()
+	if direction.length() > 0.01:
+		var up: Vector3 = Vector3.UP
+		if abs(direction.dot(up)) > 0.99:
+			up = Vector3.RIGHT
+		segment.look_at_from_position(midpoint, midpoint + direction, up)
+		segment.rotate_object_local(Vector3(1, 0, 0), PI / 2)
+
+
+func _get_preview_taper_radius() -> float:
+	if _dragging_building_type.is_empty():
+		return _get_placement_collision_radius()
+	return _get_building_taper_radius(_dragging_building_type)
+
+
+func _get_structure_taper_radius(structure_node: Node3D) -> float:
+	if structure_node == null:
+		return DEFAULT_PLACEMENT_RADIUS
+	var building_type: String = str(structure_node.get("building_type"))
+	if building_type.is_empty():
+		return DEFAULT_PLACEMENT_RADIUS
+	return _get_building_taper_radius(building_type)
+
+
+func _get_building_taper_radius(building_type: String) -> float:
+	if building_type.is_empty():
+		return DEFAULT_PLACEMENT_RADIUS
+	var data: Resource = get_building_data(building_type)
+	if data == null:
+		return DEFAULT_PLACEMENT_RADIUS
+	var configured_radius: Variant = data.get("placement_sphere_radius")
+	if configured_radius == null:
+		return DEFAULT_PLACEMENT_RADIUS
+	return maxf(float(configured_radius), POWER_LINE_MIN_SEGMENT_LENGTH)
 
 
 ## Check line of sight between two positions (for power line placement)
