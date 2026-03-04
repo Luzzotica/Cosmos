@@ -1,18 +1,24 @@
 shader_type sky;
 
-// --- STAR UNIFORMS ---
+// SAFEKEEPING: Full nebula + stars sky shader. Use starfield_sky.gdshader for stars-only.
+
+// --- NEBULA UNIFORMS ---
 uniform vec3 space_color : source_color = vec3(0.02, 0.02, 0.05); // Deep background
+
+// --- STAR UNIFORMS ---
 uniform float star_twinkle_speed : hint_range(0.0, 3.0) = 0.6;
 uniform float star_oscillation_speed : hint_range(0.0, 2.0) = 0.35;
 uniform float star_oscillation_strength : hint_range(0.0, 0.3) = 0.08;
 uniform float sky_seed : hint_range(0.0, 10000.0) = 0.0;
 uniform vec3 parallax_offset = vec3(0.0, 0.0, 0.0);
+uniform float star_zoom_scale : hint_range(1.0, 1.25) = 1.0;  // denser grid when zoomed out = more stars
+uniform float parallax_drift_strength : hint_range(0.0, 0.1) = 0.016;  // time-based drift for twinkle when stationary
 
 // Rotate sky to move pole/seams out of view. X = tilt (radians), Y = spin (radians).
-uniform float sky_rotation_x : hint_range(-1.57, 1.57) = 0.35;
+uniform float sky_rotation_x : hint_range(-1.57, 1.57) = 0.35;  // tilt pole away from center (~20°)
 uniform float sky_rotation_y : hint_range(0.0, 6.28318530718) = 0.0;
 
-// --- HASH ---
+// --- HASH & NOISE FUNCTIONS ---
 float hash3(vec3 p) {
 	p = fract(p * vec3(443.897, 441.423, 437.195));
 	p += dot(p, p.yzx + 19.19);
@@ -34,16 +40,33 @@ vec3 rotate_sky_direction(vec3 d) {
 }
 
 // --- STAR GENERATION ---
-// Uses spherical (equirectangular) coords to avoid cube-face seams and hexagonal gaps.
-vec3 stars_3d(vec3 dir, float cell_count, float threshold, float brightness, float seed_offset) {
-	float lon = atan(dir.z, dir.x) / (2.0 * PI) + 0.5;
-	float lat = asin(clamp(dir.y, -1.0, 1.0)) / PI + 0.5;
-	vec2 uv = vec2(fract(lon), lat);  // fract ensures seamless wrap at lon boundary
-	vec2 grid = uv * cell_count;
+vec3 stars_3d(vec3 dir, float cell_count, float threshold, float brightness, float seed_offset, float zoom_scale) {
+	vec3 abs_dir = abs(dir);
+	vec2 face_uv;
+	float face_id;
+
+	if (abs_dir.x >= abs_dir.y && abs_dir.x >= abs_dir.z) {
+		face_uv = dir.yz / abs_dir.x;
+		face_id = step(0.0, dir.x);
+	} else if (abs_dir.y >= abs_dir.x && abs_dir.y >= abs_dir.z) {
+		face_uv = dir.xz / abs_dir.y;
+		face_id = 2.0 + step(0.0, dir.y);
+	} else {
+		face_uv = dir.xy / abs_dir.z;
+		face_id = 4.0 + step(0.0, dir.z);
+	}
+
+	float edge_dist = min(1.0 - abs(face_uv.x), 1.0 - abs(face_uv.y));
+	float edge_fade = smoothstep(0.0, 0.12, edge_dist);
+
+	face_uv = face_uv * 0.5 + 0.5;
+	// Scale UV from center of each face so zoom doesn't slide stars
+	vec2 grid_uv = (face_uv - 0.5) * zoom_scale + 0.5;
+	vec2 grid = grid_uv * cell_count;
 	vec2 cell = floor(grid);
 	vec2 local = fract(grid) - 0.5;
 
-	vec3 seed3 = vec3(cell + vec2(seed_offset * 31.7, 0.0), sky_seed);
+	vec3 seed3 = vec3(cell + vec2(face_id * 73.1, seed_offset), sky_seed);
 	float pick = hash3(seed3);
 	float has_star = step(threshold, pick);
 
@@ -62,12 +85,11 @@ vec3 stars_3d(vec3 dir, float cell_count, float threshold, float brightness, flo
 		TIME * (star_oscillation_speed + pick * 0.5) + dot(dir, vec3(8.0, 11.0, 13.0))
 	);
 
-	// Color temperatures
 	float color_hash = hash3(seed3 + vec3(77.0, 33.0, 11.0));
 	vec3 star_color = mix(vec3(0.5, 0.7, 1.0), vec3(1.0, 0.95, 0.9), smoothstep(0.0, 0.5, color_hash));
 	star_color = mix(star_color, vec3(1.0, 0.4, 0.15), smoothstep(0.5, 1.0, color_hash));
 
-	float intensity = has_star * (core + glow) * twinkle * oscillation * brightness;
+	float intensity = has_star * (core + glow) * twinkle * oscillation * brightness * edge_fade;
 	return star_color * intensity;
 }
 
@@ -76,15 +98,20 @@ void sky() {
 	vec3 dir = rotate_sky_direction(normalize(EYEDIR));
 	vec3 col = space_color;
 
-	vec3 dir_ultra_far = normalize(dir + parallax_offset * 0.08);
-	vec3 dir_far = normalize(dir + parallax_offset * 0.35);
-	vec3 dir_mid = normalize(dir + parallax_offset * 0.65);
-	vec3 dir_near = normalize(dir + parallax_offset * 1.0);
+	// Time-based drift mimics panning parallax for twinkle effect when camera is still
+	vec3 drift = vec3(sin(TIME * 0.18) * parallax_drift_strength, 0.0, cos(TIME * 0.14) * parallax_drift_strength);
+	vec3 effective_parallax = parallax_offset + drift;
 
-	vec3 s1 = stars_3d(dir_ultra_far, 130.0, 0.55, 0.5, 0.0);
-	vec3 s2 = stars_3d(dir_far, 90.0, 0.65, 0.9, 100.0);
-	vec3 s3 = stars_3d(dir_mid, 50.0, 0.75, 1.25, 200.0);
-	vec3 s4 = stars_3d(dir_near, 25.0, 0.85, 1.9, 300.0);
+	// --- FOREGROUND STARS ---
+	vec3 dir_ultra_far = normalize(dir + effective_parallax * 0.08);
+	vec3 dir_far = normalize(dir + effective_parallax * 0.35);
+	vec3 dir_mid = normalize(dir + effective_parallax * 0.65);
+	vec3 dir_near = normalize(dir + effective_parallax * 1.0);
+
+	vec3 s1 = stars_3d(dir_ultra_far, 130.0, 0.55, 0.5, 0.0, star_zoom_scale);
+	vec3 s2 = stars_3d(dir_far, 90.0, 0.65, 0.9, 100.0, star_zoom_scale);
+	vec3 s3 = stars_3d(dir_mid, 50.0, 0.75, 1.25, 200.0, star_zoom_scale);
+	vec3 s4 = stars_3d(dir_near, 25.0, 0.85, 1.9, 300.0, star_zoom_scale);
 
 	col += (s1 + s2 + s3 + s4) * 1.1;
 

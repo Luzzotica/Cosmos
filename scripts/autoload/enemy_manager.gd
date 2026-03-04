@@ -97,11 +97,6 @@ func _spawn_enemy() -> void:
 		push_warning("Enemy data not found for id: %s" % enemy_id)
 		return
 
-	var enemy_scene: PackedScene = _get_enemy_scene(enemy_data.scene_path)
-	if enemy_scene == null:
-		push_warning("Enemy scene not loaded for id: %s" % enemy_id)
-		return
-
 	var wave_number: int = GameState.current_wave
 	var health_multiplier: float = 1.0 + (wave_number * 0.2)
 	var speed_multiplier: float = 1.0 + (wave_number * 0.05)
@@ -113,10 +108,20 @@ func _spawn_enemy() -> void:
 		speed_multiplier = map_wave.enemy_speed_multiplier
 
 	var spawn_position: Vector3 = _get_grouped_spawn_position()
+
+	# ECS path: spawn entity + physics body, add to world
+	if ECS and ECS.world:
+		_spawn_ecs_enemy(enemy_data, enemy_id, spawn_position, health_multiplier, speed_multiplier)
+		return
+
+	# Legacy path
+	var enemy_scene: PackedScene = _get_enemy_scene(enemy_data.scene_path)
+	if enemy_scene == null:
+		push_warning("Enemy scene not loaded for id: %s" % enemy_id)
+		return
 	var enemy: Node3D = enemy_scene.instantiate() as Node3D
 	if enemy == null:
 		return
-
 	var main: Node = get_tree().root.get_node_or_null("Main")
 	if main:
 		var enemies_parent: Node = main.get_node_or_null("Enemies")
@@ -126,17 +131,71 @@ func _spawn_enemy() -> void:
 			main.add_child(enemy)
 	else:
 		get_tree().root.add_child(enemy)
-
 	enemy.global_position = spawn_position
 	if enemy.has_method("set_enemy_data"):
 		enemy.set_enemy_data(enemy_data, health_multiplier, speed_multiplier)
 	elif enemy.has_method("set_stats"):
 		enemy.set_stats(enemy_data.max_health * health_multiplier, enemy_data.speed * speed_multiplier)
-
 	_active_enemies.append(enemy)
 	if enemy.has_signal("destroyed"):
 		enemy.destroyed.connect(_on_enemy_destroyed.bind(enemy))
 	enemy_spawned.emit(enemy)
+
+
+func _spawn_ecs_enemy(enemy_data: Resource, enemy_id: String, spawn_position: Vector3, health_multiplier: float, speed_multiplier: float) -> void:
+	var entity_scene: PackedScene = load("res://scenes/ecs/e_enemy_ship.tscn") as PackedScene
+	var enemy_scene: PackedScene = _get_enemy_scene(enemy_data.scene_path)
+	if entity_scene == null or enemy_scene == null:
+		push_warning("ECS enemy scene or enemy scene not loaded")
+		return
+	var entity: Node = entity_scene.instantiate()
+	var body: CharacterBody3D = enemy_scene.instantiate() as CharacterBody3D
+	if entity == null or body == null:
+		return
+	entity.add_child(body)
+	body.global_position = spawn_position
+	if body.has_method("set_enemy_data"):
+		body.set_enemy_data(enemy_data, health_multiplier, speed_multiplier)
+	elif body.has_method("set_stats"):
+		body.set_stats(enemy_data.max_health * health_multiplier, enemy_data.speed * speed_multiplier)
+	var c_health: C_Health = C_Health.new(enemy_data.max_health * health_multiplier)
+	c_health.current = c_health.maximum
+	var res_profile: Dictionary = {}
+	if enemy_data.resistance_multipliers:
+		for k in enemy_data.resistance_multipliers.keys():
+			res_profile[String(k)] = float(enemy_data.resistance_multipliers[k])
+	c_health.resistance_profile = res_profile
+	var c_team: C_Team = C_Team.new("enemy")
+	var c_transform: C_Transform3D = C_Transform3D.new(spawn_position, body.rotation)
+	var c_state: C_EnemyState = C_EnemyState.new()
+	c_state.speed = enemy_data.speed * speed_multiplier
+	c_state.damage = enemy_data.damage
+	c_state.attack_range = enemy_data.attack_range
+	c_state.attack_cooldown = enemy_data.attack_cooldown
+	c_state.reward_minerals = enemy_data.reward_minerals
+	c_state.display_name = enemy_data.display_name
+	c_state.enemy_id = enemy_id
+	var c_targeting: C_Targeting = C_Targeting.new()
+	c_targeting.fallback_position = spawn_position + Vector3.FORWARD * 8.0
+	c_targeting.forward_direction = -body.global_basis.z
+	var c_body_ref: C_PhysicsBodyRef = C_PhysicsBodyRef.new()
+	c_body_ref.body = body
+	var c_movement: C_MovementProfile = C_MovementProfile.new()
+	c_movement.profile = enemy_data.movement_profile
+	var c_attack: C_AttackProfile = C_AttackProfile.new()
+	c_attack.profile = enemy_data.attack_profile
+	c_attack.ability_profile = enemy_data.ability_profile
+	c_attack.beam_color = enemy_data.attack_profile.get("beam_color", Color(1.0, 0.25, 0.2, 0.95)) if enemy_data.attack_profile else Color(1.0, 0.25, 0.2, 0.95)
+	c_attack.damage_type = enemy_data.attack_profile.get("damage_type", "physical") if enemy_data.attack_profile else "physical"
+	var components: Array = [c_health, c_team, c_transform, c_state, c_targeting, c_body_ref, c_movement, c_attack]
+	ECS.world.add_entity(entity, components)
+	_active_enemies.append(body)
+	enemy_spawned.emit(body)
+
+
+func _on_ecs_enemy_destroyed(body: Node) -> void:
+	_active_enemies.erase(body)
+	enemy_destroyed.emit(body)
 
 
 func _get_grouped_spawn_position() -> Vector3:
@@ -175,6 +234,12 @@ var active_enemies: Array[Node3D]:
 func reset() -> void:
 	for enemy in _active_enemies:
 		if is_instance_valid(enemy):
+			var parent: Node = enemy.get_parent()
+			if ECS and ECS.world and parent != null and parent.get_script():
+				var entity_script: Script = load("res://scripts/ecs/entities/enemy_entity.gd") as Script
+				if parent.get_script() == entity_script:
+					ECS.world.remove_entity(parent)
+					continue
 			enemy.queue_free()
 	_active_enemies.clear()
 	_enemies_spawned_this_wave = 0

@@ -4,10 +4,9 @@ extends Node3D
 @onready var structures_parent: Node3D = $Structures
 @onready var asteroids_parent: Node3D = $Asteroids
 @onready var enemies_parent: Node3D = $Enemies
+@onready var ecs_world: Node = $ECSWorld
 @onready var camera: Camera3D = $RTSCamera
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
-@onready var aurora_layer: MeshInstance3D = $RTSCamera.get_node_or_null("AuroraLayer") as MeshInstance3D
-@onready var star_plane: MeshInstance3D = $RTSCamera/StarfieldLayer
 
 var _current_map_data: Resource = null
 var _structure_count: int = 0
@@ -39,6 +38,8 @@ enum CursorState {
 
 
 func _ready() -> void:
+	# Defer ECS setup so World._ready (initialize) runs first, then we register systems
+	call_deferred("_setup_ecs")
 	# Enable physics object picking for 3D mouse input events
 	get_viewport().physics_object_picking = true
 	print("[DEBUG] Physics object picking enabled: ", get_viewport().physics_object_picking)
@@ -113,6 +114,19 @@ func _configure_story_mode() -> void:
 		EnemyManager.set_process(true)
 
 
+func _setup_ecs() -> void:
+	if not ECS or not ecs_world or not ecs_world.get_script():
+		return
+	var world_script: Script = load("res://addons/gecs/ecs/world.gd") as Script
+	if not world_script or ecs_world.get_script() != world_script:
+		return
+	ECS.world = ecs_world
+	_add_ecs_enemy_systems()
+	if ecs_world.has_method("finalize_system_setup"):
+		ecs_world.finalize_system_setup()
+	set_physics_process(true)
+
+
 func _center_camera_on_spawn() -> void:
 	if not camera:
 		return
@@ -122,6 +136,10 @@ func _center_camera_on_spawn() -> void:
 	if first_structure and first_structure is Node3D and camera.has_method("set_camera_position"):
 		camera.set_camera_position((first_structure as Node3D).global_position)
 
+
+func _physics_process(delta: float) -> void:
+	if ECS and ECS.world:
+		ECS.process(delta)
 
 func _process(_delta: float) -> void:
 	if not _is_editor_mode:
@@ -164,12 +182,6 @@ func _setup_dynamic_sky() -> void:
 		_sky_material.set_shader_parameter("galaxy_rotation", rng.randf_range(0.0, TAU))
 		_sky_material.set_shader_parameter("galaxy_strength", rng.randf_range(0.16, 0.3))
 
-		if aurora_layer and aurora_layer.get_active_material(0) is ShaderMaterial:
-			_aurora_material = aurora_layer.get_active_material(0) as ShaderMaterial
-			_aurora_material.set_shader_parameter("seed", rng.randf_range(0.0, 10000.0))
-
-		if star_plane and star_plane.get_active_material(0) is ShaderMaterial:
-			(star_plane.get_active_material(0) as ShaderMaterial).set_shader_parameter("sky_seed", rng.randf_range(0.0, 10000.0))
 		_update_sky_parallax()
 
 
@@ -180,19 +192,13 @@ func _update_sky_parallax() -> void:
 	if _sky_material:
 		var pos: Vector3 = camera.global_position
 		_sky_material.set_shader_parameter("parallax_offset", Vector3(pos.x, 0.0, pos.z) * SKY_PARALLAX_SCALE)
-	if _aurora_material:
-		var pos: Vector3 = camera.global_position
-		_aurora_material.set_shader_parameter(
-			"parallax_offset",
-			Vector2(pos.x, pos.z) * AURORA_PARALLAX_SCALE
-		)
-	if star_plane and camera.has_method("get_zoom_level"):
-		var zoom: float = camera.get_zoom_level()
-		var min_z: float = 15.0
-		var max_z: float = 80.0
-		var t: float = (zoom - min_z) / (max_z - min_z) if max_z > min_z else 0.0
-		var scale_val: float = lerpf(0.7, 2.0, t)
-		star_plane.scale = Vector3(scale_val, scale_val, 1.0)
+		if camera.has_method("get_zoom_level"):
+			var zoom: float = camera.get_zoom_level()
+			var min_z: float = 15.0
+			var max_z: float = 80.0
+			var t: float = (zoom - min_z) / (max_z - min_z) if max_z > min_z else 0.0
+			var zoom_scale: float = lerpf(1.0, 1.1, t)
+			_sky_material.set_shader_parameter("star_zoom_scale", zoom_scale)
 
 
 func _check_game_over() -> void:
@@ -626,6 +632,20 @@ func _point_in_triangle(p: Vector2, a: Vector2, b: Vector2, c: Vector2) -> bool:
 
 func _sign_2d(p1: Vector2, p2: Vector2, p3: Vector2) -> float:
 	return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y)
+
+
+func _add_ecs_enemy_systems() -> void:
+	if not ECS or not ECS.world:
+		return
+	var targeting: Script = load("res://scripts/ecs/systems/enemy_targeting_system.gd") as Script
+	var movement: Script = load("res://scripts/ecs/systems/enemy_movement_system.gd") as Script
+	var attack: Script = load("res://scripts/ecs/systems/enemy_attack_system.gd") as Script
+	if targeting:
+		ECS.world.add_system(targeting.new(), true)
+	if movement:
+		ECS.world.add_system(movement.new(), true)
+	if attack:
+		ECS.world.add_system(attack.new(), true)
 
 
 func _on_pause_changed(paused: bool) -> void:

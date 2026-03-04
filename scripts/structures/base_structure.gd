@@ -35,13 +35,54 @@ const BUILD_TRANSPARENCY: float = 0.5
 const BUILD_SHELL_SHADER_PATH: String = "res://shaders/structure_build_shell.gdshader"
 var _build_shell_shader: Shader = null
 
+var _ecs_entity: Node = null
+
 func _ready() -> void:
 	print("[DEBUG] BaseStructure _ready called for: ", name)
 	selectable_component = get_node_or_null("SelectableComponent")
 	_setup_components()
 	_connect_signals()
 	_setup_build_animation()
+	_register_ecs_entity()
 	print("[DEBUG] BaseStructure initialization complete for: ", name, " - has Area3D: ", has_node("Area3D"))
+
+
+func _register_ecs_entity() -> void:
+	var ecs_node: Node = get_node_or_null("/root/ECS")
+	if ecs_node == null:
+		return
+	var world = ecs_node.get("world")
+	if world == null:
+		return
+	var entity_script: Script = load("res://addons/gecs/ecs/entity.gd") as Script
+	if entity_script == null:
+		return
+	_ecs_entity = Node.new()
+	_ecs_entity.set_script(entity_script)
+	_ecs_entity.name = "ECSEntity"
+	add_child(_ecs_entity)
+	var c_structure: Resource = load("res://scripts/ecs/components/c_structure.gd").new()
+	c_structure.set("structure_node", self)
+	c_structure.set("building_type", building_type)
+	c_structure.set("is_destroyed", is_destroyed)
+	var c_health: Resource = load("res://scripts/ecs/components/c_health.gd").new()
+	if health_component:
+		c_health.set("maximum", health_component.max_health)
+		c_health.set("current", health_component.health)
+	var c_team: Resource = load("res://scripts/ecs/components/c_team.gd").new()
+	if team_component:
+		c_team.set("team", team_component.get_team_string())
+	else:
+		c_team.set("team", "player")
+	var c_transform: Resource = load("res://scripts/ecs/components/c_transform3d.gd").new()
+	c_transform.set("position", global_position)
+	c_transform.set("rotation", rotation)
+	var c_construction: Resource = load("res://scripts/ecs/components/c_construction.gd").new()
+	if construction_component:
+		c_construction.set("is_built", construction_component.is_built)
+		c_construction.set("build_progress", construction_component.get_progress() if construction_component.has_method("get_progress") else 0.0)
+	var components: Array = [c_structure, c_health, c_team, c_transform, c_construction]
+	world.call("add_entity", _ecs_entity, components, false)
 
 
 func _setup_components() -> void:
@@ -383,6 +424,9 @@ func has_operational_power() -> bool:
 
 func _on_destroyed() -> void:
 	is_destroyed = true
+	if _ecs_entity != null and ECS != null and ECS.world != null:
+		ECS.world.remove_entity(_ecs_entity)
+		_ecs_entity = null
 	destroyed.emit()
 	queue_free()
 

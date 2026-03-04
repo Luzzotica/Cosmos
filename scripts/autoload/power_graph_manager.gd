@@ -44,7 +44,20 @@ func _ready() -> void:
 	_lines_parent = Node3D.new()
 	_lines_parent.name = "PowerLines"
 	add_child(_lines_parent)
+	_ensure_lines_parent_in_scene()
 	set_process(true)
+
+
+func _ensure_lines_parent_in_scene() -> void:
+	var main: Node = get_tree().root.get_node_or_null("Main")
+	if main and main is Node3D and _lines_parent:
+		if _lines_parent.get_parent() != main:
+			if _lines_parent.get_parent():
+				_lines_parent.get_parent().remove_child(_lines_parent)
+			main.add_child(_lines_parent)
+		return
+	if _lines_parent and not _lines_parent.get_parent():
+		add_child(_lines_parent)
 
 
 func _process(delta: float) -> void:
@@ -828,13 +841,14 @@ func _create_edge(node1: Node3D, node2: Node3D) -> void:
 	if _edges.has(node1) and _edges[node1].has(node2):
 		return
 	
-	# Create visual line (only if nodes are in tree)
+	var edge_key: String = _edge_key(node1, node2)
 	var line: MeshInstance3D = null
 	if _lines_parent and node1.is_inside_tree() and node2.is_inside_tree():
+		_ensure_lines_parent_in_scene()
+		# Use legacy mesh path so lines render in the 3D scene (LineBatchManager has visibility issues)
 		line = _create_line_mesh(node1, node2)
 		_lines_parent.add_child(line)
 	
-	# Store edge data with visual reference
 	if not _edges.has(node1):
 		_edges[node1] = {}
 	if not _edges.has(node2):
@@ -843,7 +857,8 @@ func _create_edge(node1: Node3D, node2: Node3D) -> void:
 	var edge_data: Dictionary = {
 		"start": node1,
 		"end": node2,
-		"line": line
+		"line": line,
+		"edge_key": edge_key
 	}
 	_edges[node1][node2] = edge_data
 	_edges[node2][node1] = edge_data
@@ -991,13 +1006,24 @@ func _get_connection_anchor(node: Node3D) -> Vector3:
 	return Vector3(structure.global_position.x, top_y, structure.global_position.z)
 
 
+func _edge_key(node1: Node3D, node2: Node3D) -> String:
+	var a: int = node1.get_instance_id()
+	var b: int = node2.get_instance_id()
+	if a > b:
+		var t: int = a
+		a = b
+		b = t
+	return "e_%d_%d" % [a, b]
+
+
 ## Remove visual edge between two nodes
 func _remove_edge(node1: Node3D, node2: Node3D) -> void:
-	# Remove visual line
 	if _edges.has(node1) and _edges[node1].has(node2):
 		var edge_data: Dictionary = _edges[node1][node2]
 		if edge_data.has("line") and is_instance_valid(edge_data.line):
 			edge_data.line.queue_free()
+		elif edge_data.has("edge_key") and LineBatchManager != null:
+			LineBatchManager.free_line(edge_data.edge_key)
 	
 	if _edges.has(node1):
 		_edges[node1].erase(node2)

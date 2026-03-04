@@ -52,6 +52,8 @@ func set_initial_forward(forward: Vector3) -> void:
 
 
 func step(delta: float, enemy: CharacterBody3D, target: Node3D, fallback_position: Vector3, tactical_modifier: Dictionary = {}) -> Vector3:
+	if target != null and not is_instance_valid(target):
+		target = null
 	var desired_dir: Vector3 = _compute_desired_direction(delta, enemy, target, fallback_position)
 	var avoidance: Vector3 = _compute_obstacle_avoidance(enemy)
 	var separation: Vector3 = _compute_separation(enemy)

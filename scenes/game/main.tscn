@@ -5,15 +5,24 @@
 [ext_resource type="PackedScene" uid="uid://c5yh8m2qxr4wv" path="res://scenes/ui/game_hud.tscn" id="3_hud"]
 [ext_resource type="PackedScene" uid="uid://bxg4k2m8qr5tn" path="res://scenes/ui/game_over_screen.tscn" id="4_gameover"]
 [ext_resource type="PackedScene" uid="uid://dpxs3m2yh8v4w" path="res://scenes/ui/selection_panel.tscn" id="5_selection"]
-[ext_resource type="Shader" uid="uid://meeqdye3lhop" path="res://shaders/sky_solid.gdshader" id="6_sky"]
+[ext_resource type="Shader" uid="uid://ynxw3u8hb23t" path="res://shaders/starfield_sky.gdshader" id="6_starfield"]
 [ext_resource type="PackedScene" path="res://scenes/ui/pause_menu.tscn" id="7_pause"]
 [ext_resource type="Script" uid="uid://7x3sn4qthu7v" path="res://scripts/game/map_editor_controller.gd" id="8_mapeditor"]
 [ext_resource type="PackedScene" path="res://scenes/ui/map_editor_panel.tscn" id="9_mapeditorpanel"]
-[ext_resource type="Shader" uid="uid://ckxbaiuirtprc" path="res://shaders/starfield_plane.gdshader" id="10_starfield"]
+[ext_resource type="Script" uid="uid://cdu5tlyk72uu4" path="res://addons/gecs/ecs/world.gd" id="11_world"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_sky"]
-shader = ExtResource("6_sky")
+shader = ExtResource("6_starfield")
 shader_parameter/space_color = Color(0.02, 0.02, 0.05, 1)
+shader_parameter/star_twinkle_speed = 0.6
+shader_parameter/star_oscillation_speed = 0.35
+shader_parameter/star_oscillation_strength = 0.08
+shader_parameter/sky_seed = 0.0
+shader_parameter/parallax_offset = Vector3(0, 0, 0)
+shader_parameter/star_zoom_scale = 1.0
+shader_parameter/parallax_drift_strength = 0.016
+shader_parameter/sky_rotation_x = -0.53600000333709
+shader_parameter/sky_rotation_y = 1.3690000650275
 
 [sub_resource type="Sky" id="Sky_space"]
 sky_material = SubResource("ShaderMaterial_sky")
@@ -25,19 +34,6 @@ ambient_light_source = 2
 ambient_light_color = Color(0.3, 0.3, 0.4, 1)
 ambient_light_energy = 0.5
 
-[sub_resource type="QuadMesh" id="QuadMesh_starfield"]
-size = Vector2(1200, 1200)
-
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_starfield"]
-render_priority = 0
-shader = ExtResource("10_starfield")
-shader_parameter/space_color = Color(0.02, 0.02, 0.05, 1)
-shader_parameter/star_twinkle_speed = 1.2
-shader_parameter/star_twinkle_amount = 0.45
-shader_parameter/star_oscillation_speed = 0.5
-shader_parameter/star_oscillation_strength = 0.12
-shader_parameter/sky_seed = 0.0
-
 [sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
 size = Vector2(500, 500)
 
@@ -46,6 +42,9 @@ albedo_color = Color(0.1, 0.1, 0.15, 1)
 
 [node name="Main" type="Node3D" unique_id=802102950]
 script = ExtResource("2_main")
+
+[node name="ECSWorld" type="Node" parent="." unique_id=802102951]
+script = ExtResource("11_world")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=2056901364]
 environment = SubResource("Environment_space")
@@ -65,11 +64,6 @@ edge_pan_speed = 20.0
 zoom_speed = 3.0
 bounds_min = Vector3(-200, 0, -200)
 bounds_max = Vector3(200, 100, 200)
-
-[node name="StarfieldLayer" type="MeshInstance3D" parent="RTSCamera" unique_id=458901532]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -92.94166, -160.97958)
-mesh = SubResource("QuadMesh_starfield")
-surface_material_override/0 = SubResource("ShaderMaterial_starfield")
 
 [node name="GroundPlane" type="MeshInstance3D" parent="." unique_id=417759382]
 visible = false
