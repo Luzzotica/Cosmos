@@ -15,7 +15,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 [application]
 
 config/name="Cosmos"
-run/main_scene="res://scenes/ui/main_menu.tscn"
+run/main_scene="res://scenes/game/main.tscn"
 config/features=PackedStringArray("4.6", "Mobile")
 config/icon="res://icon.svg"
 
@@ -24,7 +24,7 @@ config/icon="res://icon.svg"
 GameState="*res://scripts/autoload/game_state.gd"
 MusicManager="*res://scripts/autoload/music_manager.gd"
 SfxManager="*res://scripts/autoload/sfx_manager.gd"
-PowerGraphManager="*res://scripts/autoload/power_graph_manager.gd"
+PowerGraph="*res://scripts/autoload/power_graph.gd"
 BuildManager="*res://scripts/autoload/build_manager.gd"
 StructureRenderManager="*res://scripts/autoload/structure_render_manager.gd"
 EnemyManager="*res://scripts/autoload/enemy_manager.gd"
@@ -34,6 +34,10 @@ StoryCampaignManager="*res://scripts/autoload/story_campaign_manager.gd"
 GameSession="*res://scripts/autoload/game_session.gd"
 ECS="*uid://dfqwl5njvdnmq"
 LineBatchManager="*res://scripts/autoload/line_batch_manager.gd"
+GameWorld="*res://scripts/autoload/game_world.gd"
+SolarPanelSystem="*res://scripts/autoload/solar_panel_system.gd"
+MinimapData="*res://scripts/autoload/minimap_data.gd"
+DebugLog="*res://scripts/autoload/debug_log.gd"
 
 [display]
 
@@ -87,3 +91,4 @@ camera_zoom_out={
 [rendering]
 
 renderer/rendering_method="mobile"
+environment/defaults/default_clear_color=Color(0, 0, 0, 1)

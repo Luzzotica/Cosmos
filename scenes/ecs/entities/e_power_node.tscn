@@ -1,0 +1,109 @@
+[gd_scene format=3 uid="uid://3sj5v3pu14dc"]
+
+[ext_resource type="Script" uid="uid://dh0ijys255qqj" path="res://scripts/ecs/entities/e_power_node.gd" id="1_entity"]
+[ext_resource type="Script" uid="uid://b6k13gc2m4e5s" path="res://addons/gecs/ecs/component.gd" id="2_component"]
+[ext_resource type="Script" uid="uid://18tfurh7vrbn" path="res://scripts/ecs/components/c_structure.gd" id="3_c_struct"]
+[ext_resource type="Script" uid="uid://s0m0va7uhacv" path="res://scripts/ecs/components/c_health.gd" id="4_c_health"]
+[ext_resource type="Script" uid="uid://m4qryo881oo4" path="res://scripts/ecs/components/c_team.gd" id="5_c_team"]
+[ext_resource type="Script" uid="uid://ciuam2tjt75s5" path="res://scripts/ecs/components/c_transform3d.gd" id="6_c_transform"]
+[ext_resource type="Script" uid="uid://854db0cnbpqj" path="res://scripts/ecs/components/c_power_node.gd" id="8_c_power_node"]
+[ext_resource type="Script" uid="uid://c3wjn3wjkgife" path="res://scripts/ecs/components/c_power_user.gd" id="10_c_power_user"]
+[ext_resource type="Script" uid="uid://oehx47aftum4" path="res://scripts/ecs/power_node_behavior.gd" id="11_behavior"]
+[ext_resource type="PackedScene" uid="uid://r1vhglyeysme" path="res://scenes/components/selectable_component.tscn" id="12_selectable"]
+[ext_resource type="PackedScene" path="res://scenes/components/selection_visuals.tscn" id="13_selection_visuals"]
+[ext_resource type="Shader" uid="uid://518h4rttda2r" path="res://shaders/structure_hull.gdshader" id="14_hull"]
+[ext_resource type="Shader" uid="uid://61iftnra5hrq" path="res://shaders/structure_accent.gdshader" id="15_accent"]
+
+[sub_resource type="Resource" id="Resource_c_struct"]
+script = ExtResource("3_c_struct")
+building_type = "power_node"
+
+[sub_resource type="Resource" id="Resource_c_health"]
+script = ExtResource("4_c_health")
+current = 50.0
+maximum = 50.0
+
+[sub_resource type="Resource" id="Resource_c_team"]
+script = ExtResource("5_c_team")
+
+[sub_resource type="Resource" id="Resource_c_transform"]
+script = ExtResource("6_c_transform")
+
+[sub_resource type="Resource" id="Resource_c_power_node"]
+script = ExtResource("8_c_power_node")
+max_connections = 6
+is_enabled = false
+
+[sub_resource type="Resource" id="Resource_c_power_user"]
+script = ExtResource("10_c_power_user")
+use_power_cost = 10.0
+is_construction_user = true
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_bottom"]
+top_radius = 0.8
+bottom_radius = 0.0
+height = 1.0
+radial_segments = 4
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_base"]
+render_priority = 0
+shader = ExtResource("14_hull")
+shader_parameter/base_color = Color(0.72, 0.75, 0.8, 1)
+shader_parameter/metallic = 0.8
+shader_parameter/roughness = 0.35
+shader_parameter/noise_scale = 12.0
+shader_parameter/brushed_strength = 0.12
+shader_parameter/panel_line_strength = 0.06
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_top"]
+top_radius = 0.0
+bottom_radius = 0.8
+height = 1.0
+radial_segments = 4
+
+[sub_resource type="TorusMesh" id="TorusMesh_connection_ring"]
+inner_radius = 1.052
+outer_radius = 1.153
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_connection_orb"]
+render_priority = 0
+shader = ExtResource("15_accent")
+shader_parameter/base_color = Color(0.15, 0.75, 1, 1)
+shader_parameter/emission_color = Color(0.12, 0.68, 1, 1)
+shader_parameter/emission_strength = 4.0
+shader_parameter/fresnel_power = 2.5
+shader_parameter/metallic = 0.8
+shader_parameter/roughness = 0.2
+shader_parameter/crackle_strength = 0.08
+shader_parameter/pulse_amount = 0.05
+
+[node name="E_PowerNode" type="Node3D" unique_id=2058332409]
+script = ExtResource("1_entity")
+component_resources = Array[ExtResource("2_component")]([SubResource("Resource_c_struct"), SubResource("Resource_c_health"), SubResource("Resource_c_team"), SubResource("Resource_c_transform"), SubResource("Resource_c_power_node"), SubResource("Resource_c_power_user")])
+
+[node name="StructureBehavior" type="Node" parent="." unique_id=65860542]
+script = ExtResource("11_behavior")
+
+[node name="BaseBottom" type="MeshInstance3D" parent="." unique_id=108380668]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.72, 0)
+mesh = SubResource("CylinderMesh_bottom")
+surface_material_override/0 = SubResource("ShaderMaterial_base")
+
+[node name="Top" type="MeshInstance3D" parent="." unique_id=1895025559]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7384837, 0)
+mesh = SubResource("CylinderMesh_top")
+surface_material_override/0 = SubResource("ShaderMaterial_base")
+
+[node name="ConnectionPoint" type="Marker3D" parent="." unique_id=475273383]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
+
+[node name="ActiveConnectionRing" type="MeshInstance3D" parent="." unique_id=729850891]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
+cast_shadow = 0
+mesh = SubResource("TorusMesh_connection_ring")
+surface_material_override/0 = SubResource("ShaderMaterial_connection_orb")
+
+[node name="SelectableComponent" parent="." unique_id=1583279685 instance=ExtResource("12_selectable")]
+selection_kind = "structure"
+
+[node name="SelectionVisuals" parent="." unique_id=383705363 instance=ExtResource("13_selection_visuals")]

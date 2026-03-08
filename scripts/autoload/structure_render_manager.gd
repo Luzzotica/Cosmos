@@ -283,25 +283,49 @@ func _ensure_pool(pool_key: String, mesh: Mesh, source_material: Material, role:
 	}
 
 
+func _is_structure_accent_shader(shader_mat: ShaderMaterial) -> bool:
+	var shader_res: Shader = shader_mat.shader
+	if shader_res == null:
+		return false
+	var path_str: String = shader_res.resource_path
+	return "structure_accent" in path_str
+
 func _get_state_material(source_material: Material, role: String, state: String) -> Material:
 	if source_material == null:
 		return null
-	
+
 	var mat_id: int = source_material.get_rid().get_id()
 	var key: String = "%d_%s_%s" % [mat_id, role, state]
 	if _material_cache.has(key):
 		return _material_cache[key]
-	
+
+	var src_shader: ShaderMaterial = source_material as ShaderMaterial
+	if src_shader != null:
+		var shader_out: ShaderMaterial = src_shader.duplicate() as ShaderMaterial
+		if shader_out == null:
+			_material_cache[key] = source_material
+			return source_material
+		if _is_structure_accent_shader(shader_out) and role == ROLE_ACCENT:
+			if state == STATE_OFF:
+				var base_col: Color = shader_out.get_shader_parameter("base_color")
+				shader_out.set_shader_parameter("base_color", base_col.lerp(Color(0.2, 0.22, 0.26, 1.0), 0.75))
+				shader_out.set_shader_parameter("emission_strength", 0.0)
+			elif state == STATE_PULSE:
+				var orig: float = shader_out.get_shader_parameter("emission_strength")
+				shader_out.set_shader_parameter("emission_strength", maxf(orig * 2.2, 3.0))
+		_material_cache[key] = shader_out
+		return shader_out
+
 	var src_standard: StandardMaterial3D = source_material as StandardMaterial3D
 	if src_standard == null:
 		_material_cache[key] = source_material
 		return source_material
-	
+
 	var out_mat: StandardMaterial3D = src_standard.duplicate() as StandardMaterial3D
 	if out_mat == null:
 		_material_cache[key] = source_material
 		return source_material
-	
+
 	if role == ROLE_ACCENT:
 		if state == STATE_OFF:
 			out_mat.albedo_color = out_mat.albedo_color.lerp(Color(0.2, 0.22, 0.26, 1.0), 0.75)
@@ -318,6 +342,6 @@ func _get_state_material(source_material: Material, role: String, state: String)
 			if out_mat.emission == Color(0.0, 0.0, 0.0, 1.0):
 				out_mat.emission = out_mat.albedo_color
 			out_mat.emission_energy_multiplier = maxf(out_mat.emission_energy_multiplier, 1.1)
-	
+
 	_material_cache[key] = out_mat
 	return out_mat

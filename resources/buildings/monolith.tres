@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3 uid="uid://bmonolith001"]
+
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_building_data"]
+[ext_resource type="PackedScene" uid="uid://e_monolith_001" path="res://scenes/ecs/entities/e_monolith.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_building_data")
+id = "monolith"
+display_name = "Monolith"
+description = "Ancient structure that absorbs power. Reaching full charge is extremely difficult."
+scene = ExtResource("2_scene")
+cost = 0
+construction_time = 5.0
+placement_sphere_radius = 1.5
+max_health = 200.0
+power_radius = 100.0
+max_connections = 4

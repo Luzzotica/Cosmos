@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://ch7fvdtrfjx1i"]
+
+[ext_resource type="Script" path="res://scripts/tests/run_power_graph_tests.gd" id="1"]
+
+[node name="RunPowerGraphTests" type="Node"]
+script = ExtResource("1")

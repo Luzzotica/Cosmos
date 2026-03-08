@@ -12,6 +12,7 @@ const HOTKEY_LABELS: Array[String] = ["Q", "E", "R", "T", "Y", "U"]
 @onready var energy_label: Label = $Margin/VBox/TopBar/ResourcesPanel/MarginContainer/VBoxContainer/EnergyLabel
 @onready var wave_label: Label = $Margin/VBox/TopBar/WavePanel/MarginContainer/VBoxContainer/WaveLabel
 @onready var wave_timer_label: Label = $Margin/VBox/TopBar/WavePanel/MarginContainer/VBoxContainer/WaveTimerLabel
+@onready var next_wave_button: Button = $Margin/VBox/TopBar/WavePanel/MarginContainer/VBoxContainer/NextWaveButton
 @onready var build_panel: PanelContainer = $Margin/VBox/BottomBar/BuildPanel
 @onready var build_buttons_container: HBoxContainer = $Margin/VBox/BottomBar/BuildPanel/MarginContainer/BuildButtons
 @onready var menu_button: Button = $Margin/VBox/TopBar/MenuButton
@@ -24,6 +25,7 @@ func _ready() -> void:
 	_connect_signals()
 	_setup_build_buttons()
 	_setup_menu_button()
+	_setup_next_wave_button()
 	_update_resources()
 	_update_wave_info()
 
@@ -80,6 +82,19 @@ func _setup_menu_button() -> void:
 		menu_button.mouse_entered.connect(_on_build_button_hovered)
 
 
+func _setup_next_wave_button() -> void:
+	if next_wave_button:
+		next_wave_button.pressed.connect(_on_next_wave_pressed)
+		next_wave_button.mouse_entered.connect(_on_build_button_hovered)
+
+
+func _on_next_wave_pressed() -> void:
+	if GameState.is_game_over or GameState.is_wave_in_progress:
+		return
+	_play_sfx_method("play_ui_confirm")
+	GameState.start_wave()
+
+
 func _on_menu_button_pressed() -> void:
 	if GameState.is_game_over:
 		return
@@ -107,9 +122,9 @@ func _update_energy_display() -> void:
 	
 	var current_energy: float = 0.0
 	var max_energy: float = 0.0
-	if PowerGraphManager:
-		current_energy = PowerGraphManager.get_power_current()
-		max_energy = PowerGraphManager.get_power_capacity()
+	if PowerGraph:
+		current_energy = PowerGraph.get_power_current()
+		max_energy = PowerGraph.get_power_capacity()
 	
 	var energy_percent: float = (current_energy / max_energy) * 100.0 if max_energy > 0.0 else 0.0
 	energy_label.text = "Energy: %.0f / %.0f (%.0f%%)" % [current_energy, max_energy, energy_percent]
@@ -129,6 +144,9 @@ func _update_wave_timer() -> void:
 			wave_timer_label.text = "Next wave in: %.1fs" % GameState.time_until_next_wave
 		else:
 			wave_timer_label.text = "Wave active!"
+	if next_wave_button:
+		next_wave_button.visible = not GameState.is_game_over
+		next_wave_button.disabled = GameState.is_wave_in_progress
 
 
 func _on_minerals_changed(_amount: int) -> void:

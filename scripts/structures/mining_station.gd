@@ -10,7 +10,6 @@ signal minerals_extracted(amount: int)
 @export var mining_interval: float = 3.0
 @export var mine_amount: float = 5.0
 
-var power_user: PowerUser
 var target_asteroid: Asteroid = null
 var _mining_timer: float = 0.0
 var _is_mining: bool = false
@@ -27,7 +26,9 @@ func _ready() -> void:
 	building_type = "mining_station"
 	_apply_balance_data()
 	super._ready()
-	_setup_power_user()
+	_last_powered_state = _get_has_power()
+	if has_method("set_powered_visual_state"):
+		call("set_powered_visual_state", _last_powered_state)
 	_create_mining_beam()
 
 
@@ -40,17 +41,25 @@ func _apply_balance_data() -> void:
 		mining_radius = maxf(float(configured_range), 0.0)
 
 
-func _setup_power_user() -> void:
-	if power_node:
-		for child in power_node.get_children():
-			if child is PowerUser and not child.is_construction_user:
-				power_user = child
-				if not power_user.power_state_changed.is_connected(_on_power_state_changed):
-					power_user.power_state_changed.connect(_on_power_state_changed)
-				break
-	_last_powered_state = power_user != null and power_user.has_power
-	if has_method("set_powered_visual_state"):
-		call("set_powered_visual_state", _last_powered_state)
+func _get_structure_type_components(c_power_node: C_PowerNode, build_data: Resource) -> Array:
+	c_power_node.node_type = C_PowerNode.NodeType.LEAF
+	var c_mining: C_MiningProfile = C_MiningProfile.new()
+	if build_data:
+		var r: Variant = build_data.get("action_range")
+		if r != null:
+			c_mining.mining_radius = float(r)
+		var amt: Variant = build_data.get("mine_amount")
+		if amt != null:
+			c_mining.mine_amount = float(amt)
+	return [c_mining]
+
+
+func _get_has_power() -> bool:
+	if _ecs_entity:
+		var c_power_user: C_PowerUser = _ecs_entity.get_component(C_PowerUser) as C_PowerUser
+		if c_power_user:
+			return c_power_user.has_power()
+	return false
 
 
 func _process(delta: float) -> void:
@@ -58,64 +67,25 @@ func _process(delta: float) -> void:
 	if not is_built():
 		_update_mining_beam(delta)
 		return
-	
-	# Find target asteroid if we don't have one
-	if target_asteroid == null or target_asteroid.is_depleted:
-		_find_nearest_asteroid()
-	
-	if target_asteroid == null:
-		_is_mining = false
+
+	# ECS mode: MiningSystem handles mining; we sync target from C_MiningProfile for beam visual
+	if _ecs_entity:
+		var c_mining: C_MiningProfile = _ecs_entity.get_component(C_MiningProfile) as C_MiningProfile
+		if c_mining and c_mining.target_asteroid_ref:
+			var ref = c_mining.target_asteroid_ref.get_ref()
+			target_asteroid = ref if ref is Asteroid else null
+		else:
+			target_asteroid = null
+		_is_mining = _get_has_power() and target_asteroid != null and not target_asteroid.is_depleted
+		var powered_now: bool = _get_has_power()
+		if powered_now != _last_powered_state:
+			_last_powered_state = powered_now
+			if has_method("set_powered_visual_state"):
+				call("set_powered_visual_state", powered_now)
 		_update_mining_beam(delta)
 		return
 	
-	if power_user and not power_user.has_power:
-		power_user.draw_power_from_graph()
-	var powered_now: bool = power_user != null and power_user.has_power
-	if powered_now != _last_powered_state:
-		_last_powered_state = powered_now
-		if has_method("set_powered_visual_state"):
-			call("set_powered_visual_state", powered_now)
-	
-	# Update mining timer
-	_mining_timer += delta
-	
-	if _mining_timer >= mining_interval:
-		_mining_timer = 0.0
-		_try_mine()
-	
-	# Update mining beam visual
 	_update_mining_beam(delta)
-
-
-func _try_mine() -> void:
-	if not power_user:
-		_is_mining = false
-		return
-	
-	# Check if we have power
-	if power_user.consume_power():
-		if target_asteroid and not target_asteroid.is_depleted:
-			_is_mining = true
-			var mined: int = target_asteroid.mine_minerals(int(mine_amount))
-			if mined > 0:
-				GameState.add_minerals(mined)
-				minerals_extracted.emit(mined)
-				_play_sfx("mining_pulse", -8.0)
-				
-				# Trigger mining beam burst
-				_fire_mining_beam()
-				
-				# Trigger impact effect on asteroid
-				if target_asteroid.has_method("show_mining_impact"):
-					target_asteroid.show_mining_impact()
-				
-				if target_asteroid.is_depleted:
-					target_asteroid = null
-					_find_nearest_asteroid()
-		else:
-			_is_mining = false
-	else:
-		_is_mining = false
 
 
 ## Fire the mining beam (burst effect)
@@ -133,36 +103,9 @@ func _fire_mining_beam() -> void:
 			mat.albedo_color.a = 1.0
 
 
-func _find_nearest_asteroid() -> void:
-	var main: Node = get_tree().root.get_node_or_null("Main")
-	if not main:
-		return
-	
-	var asteroids_parent: Node = main.get_node_or_null("Asteroids")
-	if not asteroids_parent:
-		return
-	
-	var closest_distance: float = INF
-	var closest_asteroid: Asteroid = null
-	
-	for child in asteroids_parent.get_children():
-		if child is Asteroid and not child.is_depleted:
-			var distance: float = global_position.distance_to(child.global_position)
-			if distance <= mining_radius and distance < closest_distance:
-				closest_distance = distance
-				closest_asteroid = child
-	
-	if closest_asteroid != target_asteroid:
-		target_asteroid = closest_asteroid
-		if target_asteroid:
-			mining_started.emit(target_asteroid)
-		else:
-			mining_stopped.emit()
-
-
 ## Check if currently mining
 func is_mining() -> bool:
-	return _is_mining and power_user and power_user.has_power
+	return _is_mining and _get_has_power()
 
 
 ## Get the target asteroid position for beam rendering
@@ -260,7 +203,3 @@ func _play_sfx(sfx_id: String, volume_db: float = -6.0) -> void:
 		sfx_manager.call("play_sfx", sfx_id, volume_db)
 
 
-func _on_power_state_changed(has_power: bool) -> void:
-	_last_powered_state = has_power
-	if has_method("set_powered_visual_state"):
-		call("set_powered_visual_state", has_power)

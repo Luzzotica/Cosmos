@@ -6,7 +6,7 @@ class_name MinimapPanel
 @export var background_color: Color = Color(0.0, 0.0, 0.0, 0.9) # #000000
 @export var border_color: Color = Color(0.643137, 0.262745, 0.133333, 1.0) # #a44322
 @export var structure_color: Color = Color(0.972549, 0.737255, 0.0156863, 1.0) # #f8bc04
-@export var asteroid_color: Color = Color(0.32549, 0.0588235, 0.117647, 0.95) # #530f1e
+@export var asteroid_color: Color = Color(0.2, 0.75, 0.25, 0.95) # green
 @export var enemy_color: Color = Color(0.643137, 0.262745, 0.133333, 1.0) # #a44322
 @export var edge_color: Color = Color(0.972549, 0.737255, 0.0156863, 0.95) # #f8bc04
 @export var disabled_edge_color: Color = Color(0.0196078, 0.0784314, 0.152941, 0.45) # #051427
@@ -17,9 +17,6 @@ class_name MinimapPanel
 
 var _main: Node3D = null
 var _rts_camera: Camera3D = null
-var _structures_parent: Node3D = null
-var _asteroids_parent: Node3D = null
-var _enemies_parent: Node3D = null
 var _world_bounds: Rect2 = Rect2(Vector2(-200, -200), Vector2(400, 400))
 var _time_since_refresh: float = 0.0
 
@@ -93,9 +90,9 @@ func _refresh_draw_data() -> void:
 	_resolve_scene_references()
 	_world_bounds = _get_world_bounds()
 
-	_structure_points = _collect_world_points(_structures_parent)
-	_asteroid_points = _collect_world_points(_asteroids_parent)
-	_enemy_points = _collect_world_points(_enemies_parent)
+	_structure_points = _positions_to_minimap(MinimapData.structure_positions if MinimapData else [])
+	_asteroid_points = _positions_to_minimap(MinimapData.asteroid_positions if MinimapData else [])
+	_enemy_points = _positions_to_minimap(MinimapData.enemy_positions if MinimapData else [])
 	_collect_edge_segments()
 	_update_camera_marker()
 
@@ -109,24 +106,13 @@ func _resolve_scene_references() -> void:
 
 	if _rts_camera == null or not is_instance_valid(_rts_camera):
 		_rts_camera = _main.get_node_or_null("RTSCamera") as Camera3D
-	if _structures_parent == null or not is_instance_valid(_structures_parent):
-		_structures_parent = _main.get_node_or_null("Structures") as Node3D
-	if _asteroids_parent == null or not is_instance_valid(_asteroids_parent):
-		_asteroids_parent = _main.get_node_or_null("Asteroids") as Node3D
-	if _enemies_parent == null or not is_instance_valid(_enemies_parent):
-		_enemies_parent = _main.get_node_or_null("Enemies") as Node3D
 
 
-func _collect_world_points(parent_node: Node3D) -> Array[Vector2]:
+func _positions_to_minimap(world_positions: Array) -> Array[Vector2]:
 	var points: Array[Vector2] = []
-	if parent_node == null or not is_instance_valid(parent_node):
-		return points
-
-	for child in parent_node.get_children():
-		if child is Node3D and is_instance_valid(child):
-			var node3d: Node3D = child as Node3D
-			points.append(_world_to_minimap(node3d.global_position))
-
+	for pos in world_positions:
+		if pos is Vector3:
+			points.append(_world_to_minimap(pos))
 	return points
 
 
@@ -134,10 +120,10 @@ func _collect_edge_segments() -> void:
 	_edge_segments_enabled.clear()
 	_edge_segments_disabled.clear()
 
-	if not PowerGraphManager or not PowerGraphManager.has_method("get_edges"):
+	if not PowerGraph:
 		return
 
-	var edges: Dictionary = PowerGraphManager.get_edges()
+	var edges: Dictionary = PowerGraph.get_edges()
 	var seen: Dictionary = {}
 
 	for start_node in edges.keys():
@@ -165,8 +151,8 @@ func _collect_edge_segments() -> void:
 			])
 
 			var is_enabled: bool = true
-			if PowerGraphManager.has_method("is_edge_enabled"):
-				is_enabled = PowerGraphManager.is_edge_enabled(start_node, end_node)
+			if PowerGraph and PowerGraph.has_method("is_edge_enabled"):
+				is_enabled = PowerGraph.is_edge_enabled(start_node, end_node)
 
 			if is_enabled:
 				_edge_segments_enabled.append(segment)
@@ -192,14 +178,10 @@ func _get_world_bounds() -> Rect2:
 			var depth: float = maxf(0.001, bounds_max.z - bounds_min.z)
 			return Rect2(Vector2(bounds_min.x, bounds_min.z), Vector2(width, depth))
 
-	if _main != null and is_instance_valid(_main):
-		var map_data: Variant = _main.get("_current_map_data")
-		if map_data != null:
-			var map_size_value: Variant = map_data.get("map_size")
-			if map_size_value is Vector2:
-				var map_size: Vector2 = map_size_value as Vector2
-				var half_size: Vector2 = map_size * 0.5
-				return Rect2(Vector2(-half_size.x, -half_size.y), map_size)
+	if MapLoader and MapLoader.current_map:
+		var map_size: Vector2 = MapLoader.current_map.map_size
+		var half_size: Vector2 = map_size * 0.5
+		return Rect2(Vector2(-half_size.x, -half_size.y), map_size)
 
 	return Rect2(Vector2(-200, -200), Vector2(400, 400))
 

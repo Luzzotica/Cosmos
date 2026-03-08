@@ -47,5 +47,8 @@ func _score_target(enemy: Node3D, target: Node3D, priority_multiplier: float) ->
 func _is_power_critical(target: Node3D) -> bool:
 	if target.get("power_node") != null:
 		return true
+	var entity = target.get("_ecs_entity") if target.get("_ecs_entity") != null else (target if target.has_method("get_component") else null)
+	if entity and entity.has_method("get_component") and entity.get_component(C_PowerNode) != null:
+		return true
 	var building_type: String = String(target.get("building_type"))
 	return building_type == "power_node" or building_type == "solar_panel"

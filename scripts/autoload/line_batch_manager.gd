@@ -30,10 +30,10 @@ func _ensure_mesh_and_material() -> void:
 	_mesh.bottom_radius = POWER_LINE_RENDER_RADIUS
 	_mesh.height = 1.0
 	_material = StandardMaterial3D.new()
-	_material.albedo_color = Color(0.3, 0.7, 1.0, 0.8)
+	_material.albedo_color = Color(0.2, 0.45, 0.9, 0.85)
 	_material.emission_enabled = true
-	_material.emission = Color(0.2, 0.5, 0.9)
-	_material.emission_energy_multiplier = 2.0
+	_material.emission = Color(0.15, 0.5, 0.95)
+	_material.emission_energy_multiplier = 3.0
 	_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_material.disable_receive_shadows = true
 

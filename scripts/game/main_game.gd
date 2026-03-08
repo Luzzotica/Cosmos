@@ -1,30 +1,32 @@
 extends Node3D
 ## Main Game Scene Controller
+## ECS world runs gameplay systems in _process and physics systems in _physics_process (see GECS example).
 
+@onready var world: Node = $ECSWorld
 @onready var structures_parent: Node3D = $Structures
 @onready var asteroids_parent: Node3D = $Asteroids
 @onready var enemies_parent: Node3D = $Enemies
-@onready var ecs_world: Node = $ECSWorld
 @onready var camera: Camera3D = $RTSCamera
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
 
-var _current_map_data: Resource = null
 var _structure_count: int = 0
 var _sky_material: ShaderMaterial = null
-var _aurora_material: ShaderMaterial = null
 var _cursor_layer: CanvasLayer = null
 var _cursor_sprite: TextureRect = null
 var _cursor_textures: Dictionary = {}
 var _cursor_hotspots: Dictionary = {}
 var _cursor_state: int = 0
 var _is_editor_mode: bool = false
+var _is_main_menu_mode: bool = false
 
 const SKY_PARALLAX_SCALE: float = 0.00012
-const AURORA_PARALLAX_SCALE: float = 0.0011
 const CURSOR_TEXTURE_SIZE: int = 32
 const CURSOR_LAYER_ORDER: int = 100
 const DEFAULT_MAP_PATH: String = "res://resources/maps/tutorial_map.json"
-const SESSION_MODE_EDITOR: int = 1
+const MAIN_MENU_PREVIEW_MAP: String = "res://resources/maps/main_menu_preview.json"
+const SESSION_MODE_MAIN_MENU: int = 0
+const SESSION_MODE_EDITOR: int = 2
+const SUN_ROTATION_SPEED: float = 0.08
 
 enum CursorState {
 	NORMAL,
@@ -38,28 +40,68 @@ enum CursorState {
 
 
 func _ready() -> void:
-	# Defer ECS setup so World._ready (initialize) runs first, then we register systems
-	call_deferred("_setup_ecs")
-	# Enable physics object picking for 3D mouse input events
+	ECS.world = world
+
+	GameWorld.set_world($DirectionalLight3D, $PowerLines)
 	get_viewport().physics_object_picking = true
-	print("[DEBUG] Physics object picking enabled: ", get_viewport().physics_object_picking)
 	_setup_space_cursor()
 	GameState.pause_changed.connect(_on_pause_changed)
 
 	_setup_dynamic_sky()
-	
-	# Route all startup map loads through the shared map pipeline.
 	_setup_startup_map()
 
 
+func _process(delta: float) -> void:
+	if ECS.world:
+		ECS.process(delta, "gameplay")
+
+	if _is_main_menu_mode and is_instance_valid(camera):
+		var sun: Node = get_node_or_null("DirectionalLight3D")
+		if sun:
+			sun.rotate_y(SUN_ROTATION_SPEED * delta)
+	if not _is_editor_mode and not _is_main_menu_mode:
+		_check_game_over()
+		_check_win_conditions()
+	_update_sky_parallax()
+	_update_cursor_visual()
+
+
+func _physics_process(delta: float) -> void:
+	if ECS.world:
+		ECS.process(delta, "physics")
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if _is_editor_mode:
+		return
+	if GameState.is_game_over:
+		return
+	if event is InputEventKey:
+		var key_event: InputEventKey = event as InputEventKey
+		if key_event.pressed and not key_event.echo and key_event.keycode == KEY_ESCAPE:
+			GameState.toggle_pause()
+			get_viewport().set_input_as_handled()
+
+
+func _exit_tree() -> void:
+	GameWorld.clear_world()
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+
+
+#region Startup
 func _setup_startup_map() -> void:
 	GameState.reset()
 	_is_editor_mode = false
+	_is_main_menu_mode = false
 	var session: Node = get_node_or_null("/root/GameSession")
 	var story_manager: Node = get_node_or_null("/root/StoryCampaignManager")
 
 	var selected_map_path: String = DEFAULT_MAP_PATH
-	if session and int(session.get("launch_mode")) == SESSION_MODE_EDITOR:
+	if session and int(session.get("launch_mode")) == SESSION_MODE_MAIN_MENU:
+		_is_main_menu_mode = true
+		_configure_main_menu_mode()
+		selected_map_path = MAIN_MENU_PREVIEW_MAP
+	elif session and int(session.get("launch_mode")) == SESSION_MODE_EDITOR:
 		_is_editor_mode = true
 		_configure_editor_mode()
 		var editor_map_path: String = String(session.get("selected_editor_map_path"))
@@ -77,7 +119,7 @@ func _setup_startup_map() -> void:
 		_configure_story_mode()
 
 	if ResourceLoader.exists(selected_map_path):
-		MapLoader.load_map_from_json(selected_map_path)
+		MapLoader.load_map_from_json(selected_map_path, _is_editor_mode)
 		_center_camera_on_spawn()
 		if _is_editor_mode:
 			_open_editor_panel_default()
@@ -89,42 +131,53 @@ func _setup_startup_map() -> void:
 		_open_editor_panel_default()
 
 
-func _configure_editor_mode() -> void:
+func _configure_main_menu_mode() -> void:
+	MusicManager.play_build_music(true)
 	var game_hud: Node = get_node_or_null("UI/GameHUD")
 	if game_hud:
 		game_hud.visible = false
 		game_hud.set_process(false)
 		game_hud.set_process_unhandled_input(false)
 		game_hud.set_process_input(false)
-
-	# Prevent combat systems while editing.
+	var overlay: Node = get_node_or_null("UI/MainMenuOverlay")
+	if overlay:
+		overlay.visible = true
+	if camera and camera.get("enable_edge_panning") != null:
+		camera.set("enable_edge_panning", false)
+		camera.set("enable_keyboard_panning", false)
+		camera.set("enable_drag_panning", false)
 	if EnemyManager:
 		EnemyManager.reset()
 		EnemyManager.set_process(false)
+
+
+func _configure_editor_mode() -> void:
+	var overlay: Node = get_node_or_null("UI/MainMenuOverlay")
+	if overlay:
+		overlay.visible = false
+	var game_hud: Node = get_node_or_null("UI/GameHUD")
+	if game_hud:
+		game_hud.visible = false
+		game_hud.set_process(false)
+		game_hud.set_process_unhandled_input(false)
+		game_hud.set_process_input(false)
+	if EnemyManager:
+		EnemyManager.reset()
+		EnemyManager.set_process(false)
+
+
+func _configure_story_mode() -> void:
+	var overlay: Node = get_node_or_null("UI/MainMenuOverlay")
+	if overlay:
+		overlay.visible = false
+	if EnemyManager:
+		EnemyManager.set_process(true)
 
 
 func _open_editor_panel_default() -> void:
 	var editor_controller: Node = get_node_or_null("MapEditorController")
 	if editor_controller and editor_controller.has_method("set_editor_visible"):
 		editor_controller.call("set_editor_visible", true)
-
-
-func _configure_story_mode() -> void:
-	if EnemyManager:
-		EnemyManager.set_process(true)
-
-
-func _setup_ecs() -> void:
-	if not ECS or not ecs_world or not ecs_world.get_script():
-		return
-	var world_script: Script = load("res://addons/gecs/ecs/world.gd") as Script
-	if not world_script or ecs_world.get_script() != world_script:
-		return
-	ECS.world = ecs_world
-	_add_ecs_enemy_systems()
-	if ecs_world.has_method("finalize_system_setup"):
-		ecs_world.finalize_system_setup()
-	set_physics_process(true)
 
 
 func _center_camera_on_spawn() -> void:
@@ -137,92 +190,8 @@ func _center_camera_on_spawn() -> void:
 		camera.set_camera_position((first_structure as Node3D).global_position)
 
 
-func _physics_process(delta: float) -> void:
-	if ECS and ECS.world:
-		ECS.process(delta)
-
-func _process(_delta: float) -> void:
-	if not _is_editor_mode:
-		_check_game_over()
-	_update_sky_parallax()
-	_update_cursor_visual()
-
-
-func _unhandled_input(event: InputEvent) -> void:
-	if _is_editor_mode:
-		return
-	if GameState.is_game_over:
-		return
-	if event is InputEventKey:
-		var key_event: InputEventKey = event as InputEventKey
-		if key_event.pressed and not key_event.echo and key_event.keycode == KEY_ESCAPE:
-			GameState.toggle_pause()
-			get_viewport().set_input_as_handled()
-
-
-func _exit_tree() -> void:
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-
-
-func _setup_dynamic_sky() -> void:
-	if not world_environment or not world_environment.environment:
-		return
-
-	var sky: Sky = world_environment.environment.sky
-	if not sky:
-		return
-
-	var sky_material: Material = sky.sky_material
-	if sky_material is ShaderMaterial:
-		_sky_material = sky_material as ShaderMaterial
-		var rng: RandomNumberGenerator = RandomNumberGenerator.new()
-		rng.randomize()
-
-		_sky_material.set_shader_parameter("sky_seed", rng.randf_range(0.0, 10000.0))
-		_sky_material.set_shader_parameter("galaxy_rotation", rng.randf_range(0.0, TAU))
-		_sky_material.set_shader_parameter("galaxy_strength", rng.randf_range(0.16, 0.3))
-
-		_update_sky_parallax()
-
-
-func _update_sky_parallax() -> void:
-	if not camera:
-		return
-
-	if _sky_material:
-		var pos: Vector3 = camera.global_position
-		_sky_material.set_shader_parameter("parallax_offset", Vector3(pos.x, 0.0, pos.z) * SKY_PARALLAX_SCALE)
-		if camera.has_method("get_zoom_level"):
-			var zoom: float = camera.get_zoom_level()
-			var min_z: float = 15.0
-			var max_z: float = 80.0
-			var t: float = (zoom - min_z) / (max_z - min_z) if max_z > min_z else 0.0
-			var zoom_scale: float = lerpf(1.0, 1.1, t)
-			_sky_material.set_shader_parameter("star_zoom_scale", zoom_scale)
-
-
-func _check_game_over() -> void:
-	if GameState.is_game_over:
-		return
-	
-	# Count remaining structures
-	var count: int = 0
-	for child in structures_parent.get_children():
-		if child is BaseStructure and not child.is_destroyed:
-			count += 1
-	
-	# If we had structures and now have none, game over
-	if _structure_count > 0 and count == 0:
-		GameState.trigger_game_over()
-	
-	_structure_count = count
-
-
 func _setup_default_game() -> void:
-	# Generate some asteroids for testing - more asteroids, closer to start
 	_generate_asteroids(20)
-	
-	# Add a starter solar panel
 	_add_starter_solar_panel()
 
 
@@ -231,14 +200,11 @@ func _generate_asteroids(count: int) -> void:
 	if not asteroid_scene:
 		push_warning("Asteroid scene not found")
 		return
-	
 	for i in range(count):
 		var asteroid: Node3D = asteroid_scene.instantiate() as Node3D
 		if asteroid:
-			# Distribute asteroids closer to the starting point
-			# Generate in a ring around the center to avoid spawning on the starting panel
-			var angle: float = randf() * TAU  # Random angle
-			var distance: float = randf_range(15, 50)  # Between 15 and 50 units from center
+			var angle: float = randf() * TAU
+			var distance: float = randf_range(15, 50)
 			var x: float = cos(angle) * distance
 			var z: float = sin(angle) * distance
 			asteroids_parent.add_child(asteroid)
@@ -250,88 +216,150 @@ func _add_starter_solar_panel() -> void:
 	if not solar_panel_scene:
 		push_warning("Solar panel scene not found")
 		return
-	
 	var solar_panel: Node3D = solar_panel_scene.instantiate() as Node3D
 	if solar_panel:
-		# Must add to tree FIRST so _ready() runs and sets up components
 		structures_parent.add_child(solar_panel)
 		solar_panel.global_position = Vector3(0, 0, 0)
 		if camera and camera.has_method("set_camera_position"):
 			camera.set_camera_position(solar_panel.global_position)
-		# Then mark as pre-built (skips build animation)
-		if solar_panel.has_method("set_starter_panel"):
-			solar_panel.set_starter_panel(true)
+#endregion
 
 
-## Load a map from map data resource
-func load_map(map_data: Resource) -> void:
-	_current_map_data = map_data
-	_clear_current_map()
-	
-	if map_data.has("asteroids"):
-		for asteroid_data in map_data.asteroids:
-			_spawn_asteroid_from_data(asteroid_data)
-	
-	if map_data.has("starting_structures"):
-		for structure_data in map_data.starting_structures:
-			_spawn_structure_from_data(structure_data)
+#region Game state
+func _is_structure(node: Node) -> bool:
+	return node is BaseStructure or (node.get("building_type") != null and node.has_method("is_built"))
 
 
-func _clear_current_map() -> void:
-	for child in asteroids_parent.get_children():
-		child.queue_free()
+func _check_game_over() -> void:
+	if GameState.is_game_over:
+		return
+	var count: int = 0
 	for child in structures_parent.get_children():
-		child.queue_free()
-	for child in enemies_parent.get_children():
-		child.queue_free()
+		if _is_structure(child) and not child.get("is_destroyed"):
+			count += 1
+	if _structure_count > 0 and count == 0:
+		GameState.trigger_game_over()
+	_structure_count = count
 
 
-func _spawn_asteroid_from_data(data: Dictionary) -> void:
-	var asteroid_scene: PackedScene = load("res://scenes/game/asteroid.tscn") as PackedScene
-	if not asteroid_scene:
+func _check_win_conditions() -> void:
+	if GameState.is_game_over:
 		return
-	
-	var asteroid: Node3D = asteroid_scene.instantiate() as Node3D
-	if asteroid:
-		asteroids_parent.add_child(asteroid)
-		asteroid.global_position = data.get("position", Vector3.ZERO)
-		if data.has("size") and asteroid.has_method("set_size"):
-			asteroid.set_size(data.size)
-		if data.has("minerals") and asteroid.has_method("set_minerals"):
-			asteroid.set_minerals(data.minerals)
-
-
-func _spawn_structure_from_data(data: Dictionary) -> void:
-	var building_type: String = data.get("type", "")
-	var building_data: Resource = BuildManager.get_building_data(building_type)
-	if not building_data or not building_data.scene:
+	var map_data: MapData = MapLoader.current_map if MapLoader else null
+	if not map_data:
 		return
-	
-	var structure: Node3D = building_data.scene.instantiate() as Node3D
-	if structure:
-		# Must add to tree FIRST so _ready() runs and sets up components
-		structures_parent.add_child(structure)
-		structure.global_position = data.get("position", Vector3.ZERO)
-		# Then mark as pre-built if needed
-		if data.get("pre_built", false) and structure.has_method("set_starter_panel"):
-			structure.set_starter_panel(true)
+
+	var win_type: String = map_data.win_condition_type.to_lower()
+	if win_type == "none":
+		return
+
+	var resource_met: bool = false
+	var resource_pct: float = 0.0
+	if map_data.win_minerals_target > 0:
+		resource_pct = clampf(100.0 * float(GameState.minerals) / float(map_data.win_minerals_target), 0.0, 100.0)
+		resource_met = GameState.minerals >= map_data.win_minerals_target
+
+	var monolith_met: bool = false
+	var monolith_pct: float = 0.0
+	if map_data.win_monolith_power_required > 0:
+		for child in structures_parent.get_children():
+			if _is_structure(child) and not child.get("is_destroyed") and str(child.get("building_type")) == "monolith":
+				if child.has_method("get_charge_percentage"):
+					monolith_pct = child.call("get_charge_percentage")
+				if child.has_method("is_fully_charged") and child.call("is_fully_charged"):
+					monolith_met = true
+				break
+
+	var completion_pct: float = 0.0
+	var condition: String = ""
+
+	if win_type == "resource":
+		if resource_met:
+			completion_pct = resource_pct
+			condition = "resource"
+			_trigger_win(completion_pct, condition)
+	elif win_type == "monolith":
+		if monolith_met:
+			completion_pct = monolith_pct
+			condition = "monolith"
+			_trigger_win(completion_pct, condition)
+	elif win_type == "either":
+		if resource_met:
+			completion_pct = resource_pct
+			condition = "resource"
+			_trigger_win(completion_pct, condition)
+		elif monolith_met:
+			completion_pct = monolith_pct
+			condition = "monolith"
+			_trigger_win(completion_pct, condition)
+	elif win_type == "both":
+		if resource_met and monolith_met:
+			completion_pct = (resource_pct + monolith_pct) / 2.0
+			condition = "both"
+			_trigger_win(completion_pct, condition)
 
 
-## Get the structures parent node
+func _trigger_win(completion_pct: float, condition: String) -> void:
+	var tier: int = 0
+	if completion_pct >= GameState.COMPLETION_TIER_GOLD:
+		tier = GameState.COMPLETION_TIER_GOLD
+	elif completion_pct >= GameState.COMPLETION_TIER_SILVER:
+		tier = GameState.COMPLETION_TIER_SILVER
+	elif completion_pct >= GameState.COMPLETION_TIER_BRONZE:
+		tier = GameState.COMPLETION_TIER_BRONZE
+	GameState.trigger_victory(completion_pct, tier, condition)
+#endregion
+
+
+#region Scene helpers
 func get_structures_parent() -> Node3D:
 	return structures_parent
 
 
-## Get the asteroids parent node  
 func get_asteroids_parent() -> Node3D:
 	return asteroids_parent
 
 
-## Get the enemies parent node
 func get_enemies_parent() -> Node3D:
 	return enemies_parent
+#endregion
 
 
+#region Sky
+func _setup_dynamic_sky() -> void:
+	if not world_environment or not world_environment.environment:
+		return
+	var sky: Sky = world_environment.environment.sky
+	if not sky:
+		return
+	var sky_material: Material = sky.sky_material
+	if sky_material is ShaderMaterial:
+		_sky_material = sky_material as ShaderMaterial
+		var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+		rng.randomize()
+		_sky_material.set_shader_parameter("sky_seed", rng.randf_range(0.0, 10000.0))
+		_sky_material.set_shader_parameter("galaxy_rotation", rng.randf_range(0.0, TAU))
+		_sky_material.set_shader_parameter("galaxy_strength", rng.randf_range(0.16, 0.3))
+		_update_sky_parallax()
+
+
+func _update_sky_parallax() -> void:
+	if not camera:
+		return
+	if _sky_material:
+		var pos: Vector3 = camera.global_position
+		_sky_material.set_shader_parameter("parallax_offset", Vector3(pos.x, 0.0, pos.z) * SKY_PARALLAX_SCALE)
+		if camera.has_method("get_zoom_level"):
+			var zoom: float = camera.get_zoom_level()
+			var min_z: float = 15.0
+			var max_z: float = 80.0
+			var t: float = (zoom - min_z) / (max_z - min_z) if max_z > min_z else 0.0
+			var zoom_scale: float = lerpf(1.0, 1.1, t)
+			_sky_material.set_shader_parameter("star_zoom_scale", zoom_scale)
+#endregion
+
+
+#region Cursor
 func _setup_space_cursor() -> void:
 	_cursor_textures = {
 		CursorState.NORMAL: _build_normal_cursor_texture(),
@@ -377,7 +405,6 @@ func _setup_space_cursor() -> void:
 func _update_cursor_visual() -> void:
 	if _cursor_sprite == null:
 		return
-
 	var next_state: int = CursorState.NORMAL
 	if GameState.is_game_over:
 		next_state = CursorState.NORMAL
@@ -401,11 +428,9 @@ func _get_edge_pan_cursor_state() -> int:
 		return CursorState.NORMAL
 	if camera == null:
 		return CursorState.NORMAL
-
 	var edge_enabled: Variant = camera.get("enable_edge_panning")
 	if edge_enabled is bool and not edge_enabled:
 		return CursorState.NORMAL
-
 	var margin_value: Variant = camera.get("edge_pan_margin")
 	var edge_margin: float = float(margin_value) if margin_value != null else 8.0
 	if edge_margin <= 0.0:
@@ -442,7 +467,6 @@ func _get_edge_pan_cursor_state() -> int:
 		if distance_to_edge < best_distance:
 			best_distance = distance_to_edge
 			best_state = int(state)
-
 	return best_state
 
 
@@ -519,7 +543,6 @@ func _build_normal_cursor_texture() -> ImageTexture:
 	var primary: Color = Color(0.76, 0.93, 1.0, 1.0)
 	var secondary: Color = Color(0.52, 0.76, 0.9, 1.0)
 	var glow: Color = Color(0.35, 0.58, 0.74, 0.5)
-
 	var a: Vector2 = Vector2(4, 3)
 	var b: Vector2 = Vector2(7, 24)
 	var c: Vector2 = Vector2(20, 14)
@@ -561,23 +584,19 @@ func _build_hover_cursor_texture() -> ImageTexture:
 
 			if dist > ring_outer and dist <= ring_outer + 2.0:
 				pixel = glow_color
-
 			if dist >= ring_inner and dist <= ring_outer:
 				pixel = ring_color
 			elif (dist >= ring_inner - 1.0 and dist < ring_inner) or (dist > ring_outer and dist <= ring_outer + 0.9):
 				pixel = Color(0.03, 0.03, 0.04, 0.9)
-
 			if absf(delta.x) <= 0.6 or absf(delta.y) <= 0.6:
 				if dist <= 6.0:
 					pixel = core_color
 			elif (absf(delta.x) <= 1.3 or absf(delta.y) <= 1.3) and dist <= 6.4 and pixel.a < 0.01:
 				pixel = Color(0.05, 0.05, 0.06, 0.85)
-
 			if absf(absf(delta.x) - absf(delta.y)) <= 0.55 and dist <= 4.5:
 				pixel = Color(1.0, 0.95, 0.78, 0.82)
 			elif absf(absf(delta.x) - absf(delta.y)) <= 1.1 and dist <= 5.0 and pixel.a < 0.01:
 				pixel = Color(0.05, 0.05, 0.06, 0.78)
-
 			if dist <= 1.2:
 				pixel = Color(1, 1, 1, 1)
 
@@ -634,20 +653,6 @@ func _sign_2d(p1: Vector2, p2: Vector2, p3: Vector2) -> float:
 	return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y)
 
 
-func _add_ecs_enemy_systems() -> void:
-	if not ECS or not ECS.world:
-		return
-	var targeting: Script = load("res://scripts/ecs/systems/enemy_targeting_system.gd") as Script
-	var movement: Script = load("res://scripts/ecs/systems/enemy_movement_system.gd") as Script
-	var attack: Script = load("res://scripts/ecs/systems/enemy_attack_system.gd") as Script
-	if targeting:
-		ECS.world.add_system(targeting.new(), true)
-	if movement:
-		ECS.world.add_system(movement.new(), true)
-	if attack:
-		ECS.world.add_system(attack.new(), true)
-
-
 func _on_pause_changed(paused: bool) -> void:
 	if _cursor_sprite == null:
 		return
@@ -657,3 +662,4 @@ func _on_pause_changed(paused: bool) -> void:
 		return
 	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 	_update_cursor_visual()
+#endregion

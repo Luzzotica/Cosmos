@@ -7,6 +7,11 @@ signal wave_started(wave_number: int, total_enemies: int)
 signal wave_completed(wave_number: int)
 
 const EnemyBlackboardClass: Script = preload("res://scripts/enemies/enemy_blackboard.gd")
+const C_MovementSteeringScript: Script = preload("res://scripts/ecs/components/c_movement_steering.gd")
+const C_MovementStateScript: Script = preload("res://scripts/ecs/components/c_movement_state.gd")
+const C_MovementFlybyScript: Script = preload("res://scripts/ecs/components/c_movement_flyby.gd")
+const C_MovementSwarmScript: Script = preload("res://scripts/ecs/components/c_movement_swarm.gd")
+const C_MovementFighterScript: Script = preload("res://scripts/ecs/components/c_movement_fighter.gd")
 
 const BASE_ENEMIES_PER_WAVE: int = 3
 const SPAWN_DELAY: float = 2.0
@@ -109,37 +114,10 @@ func _spawn_enemy() -> void:
 
 	var spawn_position: Vector3 = _get_grouped_spawn_position()
 
-	# ECS path: spawn entity + physics body, add to world
-	if ECS and ECS.world:
-		_spawn_ecs_enemy(enemy_data, enemy_id, spawn_position, health_multiplier, speed_multiplier)
+	if not ECS or not ECS.world:
+		push_warning("EnemyManager: ECS not ready, cannot spawn enemy")
 		return
-
-	# Legacy path
-	var enemy_scene: PackedScene = _get_enemy_scene(enemy_data.scene_path)
-	if enemy_scene == null:
-		push_warning("Enemy scene not loaded for id: %s" % enemy_id)
-		return
-	var enemy: Node3D = enemy_scene.instantiate() as Node3D
-	if enemy == null:
-		return
-	var main: Node = get_tree().root.get_node_or_null("Main")
-	if main:
-		var enemies_parent: Node = main.get_node_or_null("Enemies")
-		if enemies_parent:
-			enemies_parent.add_child(enemy)
-		else:
-			main.add_child(enemy)
-	else:
-		get_tree().root.add_child(enemy)
-	enemy.global_position = spawn_position
-	if enemy.has_method("set_enemy_data"):
-		enemy.set_enemy_data(enemy_data, health_multiplier, speed_multiplier)
-	elif enemy.has_method("set_stats"):
-		enemy.set_stats(enemy_data.max_health * health_multiplier, enemy_data.speed * speed_multiplier)
-	_active_enemies.append(enemy)
-	if enemy.has_signal("destroyed"):
-		enemy.destroyed.connect(_on_enemy_destroyed.bind(enemy))
-	enemy_spawned.emit(enemy)
+	_spawn_ecs_enemy(enemy_data, enemy_id, spawn_position, health_multiplier, speed_multiplier)
 
 
 func _spawn_ecs_enemy(enemy_data: Resource, enemy_id: String, spawn_position: Vector3, health_multiplier: float, speed_multiplier: float) -> void:
@@ -153,7 +131,7 @@ func _spawn_ecs_enemy(enemy_data: Resource, enemy_id: String, spawn_position: Ve
 	if entity == null or body == null:
 		return
 	entity.add_child(body)
-	body.global_position = spawn_position
+	body.position = spawn_position
 	if body.has_method("set_enemy_data"):
 		body.set_enemy_data(enemy_data, health_multiplier, speed_multiplier)
 	elif body.has_method("set_stats"):
@@ -177,17 +155,25 @@ func _spawn_ecs_enemy(enemy_data: Resource, enemy_id: String, spawn_position: Ve
 	c_state.enemy_id = enemy_id
 	var c_targeting: C_Targeting = C_Targeting.new()
 	c_targeting.fallback_position = spawn_position + Vector3.FORWARD * 8.0
-	c_targeting.forward_direction = -body.global_basis.z
+	c_targeting.forward_direction = -body.basis.z
 	var c_body_ref: C_PhysicsBodyRef = C_PhysicsBodyRef.new()
 	c_body_ref.body = body
-	var c_movement: C_MovementProfile = C_MovementProfile.new()
-	c_movement.profile = enemy_data.movement_profile
+	var movement_components: Array = _build_movement_components(enemy_data.movement_profile, body)
 	var c_attack: C_AttackProfile = C_AttackProfile.new()
 	c_attack.profile = enemy_data.attack_profile
 	c_attack.ability_profile = enemy_data.ability_profile
 	c_attack.beam_color = enemy_data.attack_profile.get("beam_color", Color(1.0, 0.25, 0.2, 0.95)) if enemy_data.attack_profile else Color(1.0, 0.25, 0.2, 0.95)
 	c_attack.damage_type = enemy_data.attack_profile.get("damage_type", "physical") if enemy_data.attack_profile else "physical"
-	var components: Array = [c_health, c_team, c_transform, c_state, c_targeting, c_body_ref, c_movement, c_attack]
+	var components: Array = [c_health, c_team, c_transform, c_state, c_targeting, c_body_ref]
+	components.append_array(movement_components)
+	components.append(c_attack)
+	# Add entity to Main/Enemies so laser turrets and other systems can find it (ECS expects
+	# entities in tree; add_entity won't reparent since entity is already in tree)
+	var main: Node = get_tree().root.get_node_or_null("Main")
+	if main:
+		var enemies_parent: Node = main.get_node_or_null("Enemies")
+		if enemies_parent:
+			enemies_parent.add_child(entity)
 	ECS.world.add_entity(entity, components)
 	_active_enemies.append(body)
 	enemy_spawned.emit(body)
@@ -196,6 +182,54 @@ func _spawn_ecs_enemy(enemy_data: Resource, enemy_id: String, spawn_position: Ve
 func _on_ecs_enemy_destroyed(body: Node) -> void:
 	_active_enemies.erase(body)
 	enemy_destroyed.emit(body)
+
+
+func _build_movement_components(profile: Dictionary, body: CharacterBody3D) -> Array:
+	var result: Array = []
+	var p: Dictionary = profile if profile else {}
+
+	var c_steering = C_MovementSteeringScript.new()
+	c_steering.max_turn_rate_deg = float(p.get("max_turn_rate_deg", 110.0))
+	c_steering.avoidance_range = float(p.get("avoidance_range", 18.0))
+	c_steering.avoidance_force = float(p.get("avoidance_force", 22.0))
+	c_steering.avoidance_scan_range = float(p.get("avoidance_scan_range", 25.0))
+	c_steering.avoidance_cone_deg = float(p.get("avoidance_cone_deg", 32.0))
+	c_steering.separation_radius = float(p.get("separation_radius", 6.0))
+	c_steering.separation_force = float(p.get("separation_force", 35.0))
+	result.append(c_steering)
+
+	var initial_forward: Vector3 = Vector3.FORWARD
+	if body:
+		var flat: Vector3 = Vector3(-body.global_basis.z.x, 0.0, -body.global_basis.z.z)
+		if flat.length() > 0.01:
+			initial_forward = flat.normalized()
+	var c_state = C_MovementStateScript.new()
+	c_state.forward_dir = initial_forward
+	result.append(c_state)
+
+	var behavior_type: String = String(p.get("behavior_type", "swarm"))
+	match behavior_type:
+		"flyby":
+			var c_flyby = C_MovementFlybyScript.new()
+			c_flyby.min_speed = float(p.get("min_speed", 0.5))
+			result.append(c_flyby)
+		"fighter":
+			var c_fighter = C_MovementFighterScript.new()
+			c_fighter.applies_collision_damage = bool(p.get("applies_collision_damage", true))
+			result.append(c_fighter)
+		"swarm", _:
+			var c_swarm = C_MovementSwarmScript.new()
+			c_swarm.max_acceleration = float(p.get("max_acceleration", 10.0))
+			c_swarm.drag = float(p.get("drag", 2.0))
+			c_swarm.orbit_distance = float(p.get("orbit_distance", 10.0))
+			c_swarm.orbit_error_radius = float(p.get("orbit_error_radius", 2.5))
+			c_swarm.swarm_orbit_duration = float(p.get("swarm_orbit_duration", 2.5))
+			c_swarm.swarm_circle_out_duration = float(p.get("swarm_circle_out_duration", 1.2))
+			c_swarm.swarm_circle_out_speed_mult = float(p.get("swarm_circle_out_speed_mult", 1.15))
+			c_swarm.swarm_enabled = bool(p.get("swarm_dive_circle", p.get("swarm_enabled", true)))
+			result.append(c_swarm)
+
+	return result
 
 
 func _get_grouped_spawn_position() -> Vector3:
@@ -312,7 +346,7 @@ func get_player_structures() -> Array[Node3D]:
 	if not structures_parent:
 		return structures
 	for child in structures_parent.get_children():
-		if child is BaseStructure and not child.is_destroyed:
+		if (child is BaseStructure or (child.get("building_type") != null and child.has_method("is_built"))) and not child.get("is_destroyed"):
 			structures.append(child)
 	return structures
 

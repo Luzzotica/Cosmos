@@ -1,0 +1,79 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/main_menu_overlay.gd" id="1_script"]
+[ext_resource type="Theme" path="res://themes/cosmos_ui_theme.tres" id="2_theme"]
+[ext_resource type="Shader" path="res://shaders/menu_gradient.gdshader" id="3_gradient_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_menu"]
+shader = ExtResource("3_gradient_shader")
+
+[node name="MainMenuOverlay" type="CanvasLayer"]
+layer = 10
+script = ExtResource("1_script")
+
+[node name="GradientOverlay" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 1)
+material = SubResource("ShaderMaterial_menu")
+
+[node name="LeftPanel" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.0
+anchor_right = 0.333333
+anchor_bottom = 1.0
+theme = ExtResource("2_theme")
+
+[node name="CenterV" type="CenterContainer" parent="LeftPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = 48.0
+offset_right = -24.0
+offset_bottom = -48.0
+
+[node name="VBox" type="VBoxContainer" parent="LeftPanel/CenterV"]
+layout_mode = 2
+theme_override_constants/separation = 28
+
+[node name="Title" type="Label" parent="LeftPanel/CenterV/VBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 72
+text = "COSMOS"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="LeftPanel/CenterV/VBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.643137, 0.262745, 0.133333, 1)
+theme_override_font_sizes/font_size = 26
+text = "The Scholar's Dilemma"
+horizontal_alignment = 1
+
+[node name="Spacer" type="Control" parent="LeftPanel/CenterV/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 36)
+
+[node name="StoryLevelsButton" type="Button" parent="LeftPanel/CenterV/VBox"]
+custom_minimum_size = Vector2(400, 64)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Story Levels"
+
+[node name="MapEditorButton" type="Button" parent="LeftPanel/CenterV/VBox"]
+custom_minimum_size = Vector2(400, 64)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Map Editor"
+
+[node name="QuitButton" type="Button" parent="LeftPanel/CenterV/VBox"]
+custom_minimum_size = Vector2(400, 64)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Quit"

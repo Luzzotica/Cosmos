@@ -22,6 +22,9 @@ const _ALLOWED_TOP_LEVEL_KEYS: Array[String] = [
 	"allow_partial_extraction",
 	"procedural_seed",
 	"allow_procedural_fill",
+	"win_condition_type",
+	"win_minerals_target",
+	"win_monolith_power_required",
 	"asteroids",
 	"asteroid_clouds",
 	"starting_structures",
@@ -33,7 +36,8 @@ const _ALLOWED_STRUCTURE_TYPES: Array[String] = [
 	"solar_panel",
 	"power_node",
 	"mining_station",
-	"laser_turret"
+	"laser_turret",
+	"monolith"
 ]
 
 
@@ -82,6 +86,10 @@ static func validate_map_data(map_data: MapData) -> Dictionary:
 		_append_error(result, "target_carryover_minerals cannot be negative")
 	if map_data.target_carryover_energy < 0.0:
 		_append_error(result, "target_carryover_energy cannot be negative")
+	if map_data.win_minerals_target < 0:
+		_append_error(result, "win_minerals_target cannot be negative")
+	if map_data.win_monolith_power_required < 0.0:
+		_append_error(result, "win_monolith_power_required cannot be negative")
 
 	if map_data.starting_resources:
 		if map_data.starting_resources.minerals < 0:

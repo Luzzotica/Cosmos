@@ -23,7 +23,7 @@ var _has_cached_details: bool = false
 func _ready() -> void:
 	owner_entity = get_parent() as Node3D
 	input_ray_pickable = true
-	monitorable = false
+	monitorable = true  # Required for enemy collision/impact detection (intersect_shape)
 	collision_layer = 1 << 1
 	collision_mask = 0
 	SelectionManager.register_selectable(self)
@@ -85,10 +85,11 @@ func get_faction() -> String:
 		return faction_override
 	if owner_entity and owner_entity.has_method("get_team"):
 		return owner_entity.call("get_team")
-	if owner_entity:
-		for child in owner_entity.get_children():
-			if child is TeamComponent:
-				return (child as TeamComponent).get_team_string()
+	# ECS enemies: owner is body, parent is entity - get team from selection details
+	if owner_entity and owner_entity.has_method("get_selection_details"):
+		var details: Dictionary = owner_entity.call("get_selection_details")
+		if details.has("faction"):
+			return details.faction
 	return "neutral"
 
 

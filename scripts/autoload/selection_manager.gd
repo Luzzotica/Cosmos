@@ -31,6 +31,8 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if not _is_gameplay_active():
 		return
+	if _is_map_editor_active():
+		return
 	if GameState.is_game_over:
 		_set_hovered_selectable(null)
 		return
@@ -39,6 +41,8 @@ func _process(_delta: float) -> void:
 
 func _input(event: InputEvent) -> void:
 	if not _is_gameplay_active():
+		return
+	if _is_map_editor_active():
 		return
 	if GameState.is_game_over:
 		return
@@ -73,6 +77,8 @@ func _input(event: InputEvent) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not _is_gameplay_active():
+		return
+	if _is_map_editor_active():
 		return
 	if GameState.is_game_over:
 		return
@@ -272,6 +278,10 @@ func _get_entity_name(entity: Node3D) -> String:
 		var structure: BaseStructure = entity as BaseStructure
 		if structure.building_type != "":
 			return structure.building_type.replace("_", " ").capitalize()
+	if entity.get("building_type") != null:
+		var bt: String = str(entity.building_type)
+		if bt != "":
+			return bt.replace("_", " ").capitalize()
 	if entity is EnemyShip:
 		return "Enemy Ship"
 	if entity is Asteroid:
@@ -281,32 +291,26 @@ func _get_entity_name(entity: Node3D) -> String:
 
 func _get_structure_info(entity: Node3D) -> Dictionary:
 	var info: Dictionary = {}
-	
-	if entity is BaseStructure:
-		var structure: BaseStructure = entity as BaseStructure
-		
-		# Health
-		if structure.health_component:
-			info["health"] = structure.health_component.health
-			info["max_health"] = structure.health_component.max_health
-			info["health_percent"] = structure.health_component.get_health_percentage() * 100.0
-		
-		# Construction status
-		if structure.construction_component:
-			info["is_built"] = structure.construction_component.is_built
-			if not structure.construction_component.is_built:
-				info["build_progress"] = structure.construction_component.get_progress() * 100.0
-		else:
-			info["is_built"] = true
-		
-		# Power info
-		if structure.power_node:
-			info["is_powered"] = structure.power_node.is_enabled
-			info["connection_count"] = structure.power_node.connected_nodes.size()
-		
-		# Building type specific info
-		info["building_type"] = structure.building_type
-	
+	var structure = entity as BaseStructure if entity is BaseStructure else entity
+	if structure and structure.has_method("get_selection_details"):
+		var details: Dictionary = structure.get_selection_details()
+		if details.has("health_current"):
+			info["health"] = details.health_current
+		if details.has("health_max"):
+			info["max_health"] = details.health_max
+		if details.has("health_current") and details.has("health_max") and details.health_max > 0:
+			info["health_percent"] = 100.0 * details.health_current / details.health_max
+		if details.has("is_built"):
+			info["is_built"] = details.is_built
+		if details.has("build_progress"):
+			info["build_progress"] = details.build_progress
+		if details.has("is_powered"):
+			info["is_powered"] = details.is_powered
+		if details.has("connection_count"):
+			info["connection_count"] = details.connection_count
+		if structure.get("building_type") != null:
+			info["building_type"] = structure.building_type
+
 	return info
 
 
@@ -598,5 +602,10 @@ func _is_gameplay_active() -> bool:
 	if root == null:
 		return false
 	return root.get_node_or_null("Main") != null
+
+
+func _is_map_editor_active() -> bool:
+	var ctrl: Node = get_tree().root.get_node_or_null("Main/MapEditorController")
+	return ctrl != null and ctrl.get("editor_enabled") == true
 
 

@@ -42,6 +42,11 @@ const CURRENT_SCHEMA_VERSION: int = 1
 @export var procedural_seed: int = 0
 @export var allow_procedural_fill: bool = false
 
+@export_group("Win Conditions")
+@export var win_condition_type: String = "none"  # none, resource, monolith, either, both
+@export var win_minerals_target: int = 0
+@export var win_monolith_power_required: float = 0.0
+
 
 ## Load map from JSON file
 static func load_from_json(path: String) -> MapData:
@@ -90,6 +95,9 @@ static func _create_from_dict(data: Dictionary) -> MapData:
 	map_data.allow_partial_extraction = bool(data.get("allow_partial_extraction", true))
 	map_data.procedural_seed = int(data.get("procedural_seed", 0))
 	map_data.allow_procedural_fill = bool(data.get("allow_procedural_fill", false))
+	map_data.win_condition_type = String(data.get("win_condition_type", "none")).to_lower()
+	map_data.win_minerals_target = int(data.get("win_minerals_target", 0))
+	map_data.win_monolith_power_required = float(data.get("win_monolith_power_required", 0.0))
 	
 	# Parse asteroids
 	var asteroids_data: Array = data.get("asteroids", [])
@@ -123,7 +131,6 @@ static func _create_from_dict(data: Dictionary) -> MapData:
 		structure.building_type = structure_dict.get("type", "solar_panel")
 		var pos_array: Array = structure_dict.get("position", [0, 0, 0])
 		structure.position = Vector3(pos_array[0], pos_array[1], pos_array[2])
-		structure.is_pre_built = structure_dict.get("pre_built", true)
 		map_data.starting_structures.append(structure)
 
 	# Parse starting resources
@@ -198,6 +205,9 @@ func _to_dict() -> Dictionary:
 		"allow_partial_extraction": allow_partial_extraction,
 		"procedural_seed": procedural_seed,
 		"allow_procedural_fill": allow_procedural_fill,
+		"win_condition_type": win_condition_type,
+		"win_minerals_target": win_minerals_target,
+		"win_monolith_power_required": win_monolith_power_required,
 		"asteroids": [],
 		"asteroid_clouds": [],
 		"starting_structures": [],
@@ -233,7 +243,6 @@ func _to_dict() -> Dictionary:
 		data.starting_structures.append({
 			"type": structure.building_type,
 			"position": [structure.position.x, structure.position.y, structure.position.z],
-			"pre_built": structure.is_pre_built
 		})
 	
 	for wave in waves:

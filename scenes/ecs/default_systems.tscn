@@ -1,0 +1,123 @@
+[gd_scene format=3 uid="uid://djn88mn5fmk3r"]
+
+[ext_resource type="Script" uid="uid://b3vi2ingux88g" path="res://addons/gecs/lib/system_group.gd" id="1_sysgroup"]
+[ext_resource type="Script" uid="uid://obw6med6403u" path="res://scripts/ecs/systems/power_generator_system.gd" id="2_power_gen"]
+[ext_resource type="Script" uid="uid://b2xv5dyden2bh" path="res://scripts/ecs/systems/power_edge_visual_system.gd" id="3_power_edge"]
+[ext_resource type="Script" uid="uid://b7ou5hkwfifih" path="res://scripts/ecs/systems/construction_system.gd" id="4_construction"]
+[ext_resource type="Script" uid="uid://dtr5fnyxe8kpn" path="res://scripts/ecs/systems/health_destruction_system.gd" id="5_health"]
+[ext_resource type="Script" uid="uid://bearpqilsj75d" path="res://scripts/ecs/systems/mining_system.gd" id="6_mining"]
+[ext_resource type="Script" uid="uid://dnx557fwji2m2" path="res://scripts/ecs/systems/monolith_charge_system.gd" id="7_monolith"]
+[ext_resource type="Script" uid="uid://dhhopxmttehnw" path="res://scripts/ecs/systems/enemy_targeting_system.gd" id="8_enemy_target"]
+[ext_resource type="Script" uid="uid://lp8mhlbyxr5l" path="res://scripts/ecs/systems/enemy_movement_flyby_system.gd" id="9_flyby"]
+[ext_resource type="Script" uid="uid://boqe06b4t0kyw" path="res://scripts/ecs/systems/enemy_movement_swarm_system.gd" id="10_swarm"]
+[ext_resource type="Script" uid="uid://cue4xd4vycmox" path="res://scripts/ecs/systems/enemy_movement_fighter_system.gd" id="11_fighter"]
+[ext_resource type="Script" uid="uid://c5myjmdr0ce3w" path="res://scripts/ecs/systems/enemy_attack_system.gd" id="12_attack"]
+[ext_resource type="Script" uid="uid://7ywya6kehdy4" path="res://scripts/ecs/systems/enemy_ability_system.gd" id="13_ability"]
+[ext_resource type="Script" uid="uid://g3w4gixydk71" path="res://scripts/ecs/systems/enemy_destruction_system.gd" id="14_destruction"]
+[ext_resource type="Script" uid="uid://dpdppfomu6p8y" path="res://scripts/ecs/systems/laser_turret_targeting_system.gd" id="15_turret_target"]
+[ext_resource type="Script" uid="uid://t5qblpyirsuc" path="res://scripts/ecs/systems/laser_turret_attack_system.gd" id="16_turret_attack"]
+[ext_resource type="Script" uid="uid://c6kta7fml07hf" path="res://scripts/ecs/systems/minimap_system.gd" id="17_minimap"]
+[ext_resource type="Script" uid="uid://dax6uq3obhte5" path="res://scripts/observers/o_power_graph.gd" id="18_o_power"]
+[ext_resource type="Script" uid="uid://c626xp82y01i1" path="res://scripts/observers/o_construction_built.gd" id="19_o_built"]
+[ext_resource type="Script" uid="uid://dl306mk72t8xw" path="res://scripts/observers/o_construction_power_node.gd" id="20_o_cpn"]
+[ext_resource type="Script" uid="uid://ddxmni0ta4l47" path="res://scripts/observers/o_power_edge_blocked.gd" id="21_o_blocked"]
+[ext_resource type="Script" path="res://scripts/ecs/systems/construction_power_preview_system.gd" id="22_preview"]
+[ext_resource type="Script" path="res://scripts/ecs/systems/structure_visual_system.gd" id="23_structure_visual"]
+
+[node name="Content" type="Node" unique_id=1916737804]
+
+[node name="Entities" type="Node3D" parent="." unique_id=187286876]
+
+[node name="Systems" type="Node" parent="." unique_id=1337802403]
+
+[node name="physics" type="Node" parent="Systems" unique_id=914485544]
+script = ExtResource("1_sysgroup")
+
+[node name="EnemyMovementFlybySystem" type="Node" parent="Systems/physics" unique_id=1692982133]
+script = ExtResource("9_flyby")
+group = &"physics"
+
+[node name="EnemyMovementSwarmSystem" type="Node" parent="Systems/physics" unique_id=1718113213]
+script = ExtResource("10_swarm")
+group = &"physics"
+
+[node name="EnemyMovementFighterSystem" type="Node" parent="Systems/physics" unique_id=1728264036]
+script = ExtResource("11_fighter")
+group = &"physics"
+
+[node name="gameplay" type="Node" parent="Systems" unique_id=706612067]
+script = ExtResource("1_sysgroup")
+
+[node name="PowerGeneratorSystem" type="Node" parent="Systems/gameplay" unique_id=837407203]
+script = ExtResource("2_power_gen")
+group = &"gameplay"
+
+[node name="PowerEdgeVisualSystem" type="Node" parent="Systems/gameplay" unique_id=1374906472]
+script = ExtResource("3_power_edge")
+group = &"gameplay"
+
+[node name="ConstructionPowerPreviewSystem" type="Node" parent="Systems/gameplay" unique_id=1735189012]
+script = ExtResource("22_preview")
+group = &"gameplay"
+
+[node name="ConstructionSystem" type="Node" parent="Systems/gameplay" unique_id=1624088803]
+script = ExtResource("4_construction")
+group = &"gameplay"
+
+[node name="StructureVisualSystem" type="Node" parent="Systems/gameplay" unique_id=1836293847]
+script = ExtResource("23_structure_visual")
+group = &"gameplay"
+
+[node name="HealthDestructionSystem" type="Node" parent="Systems/gameplay" unique_id=1670588026]
+script = ExtResource("5_health")
+group = &"gameplay"
+
+[node name="MiningSystem" type="Node" parent="Systems/gameplay" unique_id=1845164938]
+script = ExtResource("6_mining")
+group = &"gameplay"
+
+[node name="MonolithChargeSystem" type="Node" parent="Systems/gameplay" unique_id=793737250]
+script = ExtResource("7_monolith")
+group = &"gameplay"
+
+[node name="EnemyTargetingSystem" type="Node" parent="Systems/gameplay" unique_id=1807431897]
+script = ExtResource("8_enemy_target")
+group = &"gameplay"
+
+[node name="EnemyAttackSystem" type="Node" parent="Systems/gameplay" unique_id=255478150]
+script = ExtResource("12_attack")
+group = &"gameplay"
+
+[node name="EnemyAbilitySystem" type="Node" parent="Systems/gameplay" unique_id=1605921371]
+script = ExtResource("13_ability")
+group = &"gameplay"
+
+[node name="EnemyDestructionSystem" type="Node" parent="Systems/gameplay" unique_id=1150037091]
+script = ExtResource("14_destruction")
+group = &"gameplay"
+
+[node name="LaserTurretTargetingSystem" type="Node" parent="Systems/gameplay" unique_id=1326944217]
+script = ExtResource("15_turret_target")
+group = &"gameplay"
+
+[node name="LaserTurretAttackSystem" type="Node" parent="Systems/gameplay" unique_id=1845745253]
+script = ExtResource("16_turret_attack")
+group = &"gameplay"
+
+[node name="MinimapSystem" type="Node" parent="Systems/gameplay" unique_id=605736933]
+script = ExtResource("17_minimap")
+group = &"gameplay"
+
+[node name="observers" type="Node" parent="Systems" unique_id=909462049]
+
+[node name="PowerGraphObserver" type="Node" parent="Systems/observers" unique_id=1079896084]
+script = ExtResource("18_o_power")
+
+[node name="ConstructionBuiltObserver" type="Node" parent="Systems/observers" unique_id=957109685]
+script = ExtResource("19_o_built")
+
+[node name="ConstructionPowerNodeObserver" type="Node" parent="Systems/observers" unique_id=1000303365]
+script = ExtResource("20_o_cpn")
+
+[node name="PowerEdgeBlockedObserver" type="Node" parent="Systems/observers" unique_id=2132291962]
+script = ExtResource("21_o_blocked")

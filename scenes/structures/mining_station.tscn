@@ -1,80 +1,122 @@
-[gd_scene load_steps=14 format=3 uid="uid://dpnx7w2lqeqmx"]
+[gd_scene load_steps=22 format=3 uid="uid://dpnx7w2lqeqmx"]
 
-[ext_resource type="Script" path="res://scripts/structures/mining_station.gd" id="1_mining"]
-[ext_resource type="PackedScene" path="res://scenes/components/team_component.tscn" id="2_team"]
-[ext_resource type="PackedScene" path="res://scenes/components/health_component.tscn" id="3_health"]
-[ext_resource type="PackedScene" path="res://scenes/components/construction_component.tscn" id="4_construct"]
-[ext_resource type="PackedScene" path="res://scenes/components/power_node_component.tscn" id="5_power_node"]
-[ext_resource type="Script" path="res://scripts/components/power_user.gd" id="6_power_user"]
-[ext_resource type="PackedScene" path="res://scenes/components/selectable_component.tscn" id="7_selectable"]
-[ext_resource type="PackedScene" path="res://scenes/components/selection_visuals.tscn" id="8_selection_visuals"]
+[ext_resource type="Script" path="res://scripts/ecs/entities/e_mining_station.gd" id="1_entity"]
+[ext_resource type="Script" path="res://addons/gecs/ecs/component.gd" id="2_component"]
+[ext_resource type="Script" path="res://scripts/ecs/components/c_structure.gd" id="3_c_struct"]
+[ext_resource type="Script" path="res://scripts/ecs/components/c_health.gd" id="4_c_health"]
+[ext_resource type="Script" path="res://scripts/ecs/components/c_team.gd" id="5_c_team"]
+[ext_resource type="Script" path="res://scripts/ecs/components/c_transform3d.gd" id="6_c_transform"]
+[ext_resource type="Script" path="res://scripts/ecs/components/c_construction.gd" id="7_c_construction"]
+[ext_resource type="Script" path="res://scripts/ecs/components/c_power_node.gd" id="8_c_power_node"]
+[ext_resource type="Script" path="res://scripts/ecs/components/c_construction_power_node.gd" id="9_c_build_node"]
+[ext_resource type="Script" path="res://scripts/ecs/components/c_power_user.gd" id="10_c_power_user"]
+[ext_resource type="Script" path="res://scripts/ecs/components/c_mining_profile.gd" id="11_c_mining"]
+[ext_resource type="Script" path="res://scripts/ecs/mining_station_behavior.gd" id="12_behavior"]
+[ext_resource type="PackedScene" path="res://scenes/components/selectable_component.tscn" id="13_selectable"]
+[ext_resource type="PackedScene" path="res://scenes/components/selection_visuals.tscn" id="14_selection_visuals"]
+[ext_resource type="Shader" path="res://shaders/structure_hull.gdshader" id="15_hull"]
+[ext_resource type="Shader" path="res://shaders/structure_accent.gdshader" id="16_accent"]
+
+[sub_resource type="Resource" id="Resource_c_struct"]
+script = ExtResource("3_c_struct")
+building_type = "mining_station"
+
+[sub_resource type="Resource" id="Resource_c_health"]
+script = ExtResource("4_c_health")
+current = 100.0
+maximum = 100.0
+
+[sub_resource type="Resource" id="Resource_c_team"]
+script = ExtResource("5_c_team")
+team = "player"
+
+[sub_resource type="Resource" id="Resource_c_transform"]
+script = ExtResource("6_c_transform")
+
+[sub_resource type="Resource" id="Resource_c_construction"]
+script = ExtResource("7_c_construction")
+construction_time = 3.0
+requires_power = true
+build_power_cost = 10.0
+instant_build = false
+is_built = false
+build_progress = 0.0
+
+[sub_resource type="Resource" id="Resource_c_power_node"]
+script = ExtResource("8_c_power_node")
+node_type = 2
+max_connections = 1
+max_connection_distance = 15.0
+is_enabled = false
+
+[sub_resource type="Resource" id="Resource_c_build_node"]
+script = ExtResource("9_c_build_node")
+max_connection_distance = 15.0
+max_connections = 1
+
+[sub_resource type="Resource" id="Resource_c_power_user"]
+script = ExtResource("10_c_power_user")
+use_power_cost = 10.0
+buffer_capacity = 15.0
+is_construction_user = true
+
+[sub_resource type="Resource" id="Resource_c_mining"]
+script = ExtResource("11_c_mining")
+mining_radius = 12.5
+mining_interval = 3.0
+mine_amount = 5.0
 
 [sub_resource type="SphereMesh" id="SphereMesh_base"]
 radius = 1.2
 height = 2.4
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_base"]
-albedo_color = Color(0.42, 0.45, 0.5, 1)
-metallic = 0.75
-roughness = 0.32
-emission_enabled = true
-emission = Color(0.1, 0.5, 1, 1)
-emission_energy_multiplier = 1.5
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_base"]
+shader = ExtResource("15_hull")
+shader_parameter/base_color = Color(0.72, 0.75, 0.8, 1)
+shader_parameter/metallic = 0.75
+shader_parameter/roughness = 0.32
 
 [sub_resource type="SphereMesh" id="SphereMesh_core"]
 radius = 0.42
 height = 0.84
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_core"]
-albedo_color = Color(0.12, 0.68, 1, 1)
-emission_enabled = true
-emission = Color(0.08, 0.62, 1, 1)
-emission_energy_multiplier = 2.1
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_core"]
+shader = ExtResource("16_accent")
+shader_parameter/base_color = Color(0.12, 0.68, 1, 1)
+shader_parameter/emission_color = Color(0.08, 0.62, 1, 1)
+shader_parameter/emission_strength = 2.1
+shader_parameter/metallic = 0.7
+shader_parameter/roughness = 0.2
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_collision"]
 radius = 2.0
 
 [node name="MiningStation" type="Node3D"]
-script = ExtResource("1_mining")
+script = ExtResource("1_entity")
 building_type = "mining_station"
-mining_radius = 12.5
-mining_interval = 3.0
-mine_amount = 5.0
+component_resources = Array[ExtResource("2_component")]([SubResource("Resource_c_struct"), SubResource("Resource_c_health"), SubResource("Resource_c_team"), SubResource("Resource_c_transform"), SubResource("Resource_c_construction"), SubResource("Resource_c_power_node"), SubResource("Resource_c_build_node"), SubResource("Resource_c_power_user"), SubResource("Resource_c_mining")])
+
+[node name="StructureBehavior" type="Node" parent="."]
+script = ExtResource("12_behavior")
 
 [node name="Base" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
 mesh = SubResource("SphereMesh_base")
-surface_material_override/0 = SubResource("StandardMaterial3D_base")
+surface_material_override/0 = SubResource("ShaderMaterial_base")
 
 [node name="ActiveCore" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
 mesh = SubResource("SphereMesh_core")
-surface_material_override/0 = SubResource("StandardMaterial3D_core")
+surface_material_override/0 = SubResource("ShaderMaterial_core")
 
-[node name="TeamComponent" parent="." instance=ExtResource("2_team")]
-team = 0
+[node name="ConnectionPoint" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, 0)
 
-[node name="HealthComponent" parent="." instance=ExtResource("3_health")]
-max_health = 100.0
-health = 100.0
-
-[node name="ConstructionComponent" parent="." instance=ExtResource("4_construct")]
-construction_time = 3.0
-
-[node name="PowerNode" parent="." instance=ExtResource("5_power_node")]
-max_connections = 1
-is_enabled = false
-
-[node name="PowerUser" type="Node3D" parent="PowerNode"]
-script = ExtResource("6_power_user")
-use_power_cost = 2.0
-power_buffer_capacity = 6.0
-
-[node name="SelectableComponent" parent="." instance=ExtResource("7_selectable")]
+[node name="SelectableComponent" parent="." instance=ExtResource("13_selectable")]
 selection_kind = "structure"
 
 [node name="CollisionShape3D" parent="SelectableComponent" index="0"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
 shape = SubResource("SphereShape3D_collision")
 
-[node name="SelectionVisuals" parent="." instance=ExtResource("8_selection_visuals")]
+[node name="SelectionVisuals" parent="." instance=ExtResource("14_selection_visuals")]

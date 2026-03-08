@@ -17,29 +17,48 @@ func _ready() -> void:
 	restart_button.pressed.connect(_on_restart_pressed)
 	restart_button.mouse_entered.connect(_on_restart_hovered)
 	GameState.game_over.connect(_on_game_over)
+	GameState.victory.connect(_on_victory)
 
 
 func _on_game_over() -> void:
-	show_game_over()
+	if not GameState.is_victory:
+		_show_result(false)
 
 
-func show_game_over() -> void:
+func _on_victory() -> void:
+	_show_result(true)
+
+
+func _show_result(is_victory: bool) -> void:
 	visible = true
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	restart_button.grab_focus()
-	
-	# Update stats
+
 	var waves_survived: int = GameState.current_wave
 	var time_survived: float = GameState.game_time
 	var minutes: int = int(time_survived / 60.0)
 	var seconds: int = int(time_survived) % 60
-	
-	stats_label.text = "Waves Survived: %d\nTime: %02d:%02d\nMinerals Collected: %d" % [
-		waves_survived,
-		minutes,
-		seconds,
-		GameState.minerals
-	]
+
+	if is_victory:
+		title_label.text = "VICTORY"
+		message_label.text = "Mission complete!"
+		stats_label.text = "Waves Survived: %d\nTime: %02d:%02d\nMinerals: %d\nCompletion: %.1f%% (Tier: %d%%)" % [
+			waves_survived,
+			minutes,
+			seconds,
+			GameState.minerals,
+			GameState.completion_percent,
+			GameState.highest_tier_reached
+		]
+	else:
+		title_label.text = "GAME OVER"
+		message_label.text = "All structures have been destroyed!"
+		stats_label.text = "Waves Survived: %d\nTime: %02d:%02d\nMinerals Collected: %d" % [
+			waves_survived,
+			minutes,
+			seconds,
+			GameState.minerals
+		]
 
 
 func _on_restart_pressed() -> void:

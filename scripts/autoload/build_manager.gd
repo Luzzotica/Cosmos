@@ -1,8 +1,13 @@
 extends Node
 ## BuildManager Singleton - Handles building placement and construction
 
-# Preload PowerNode to ensure type is available
-const PowerNodeClass: GDScript = preload("res://scripts/components/power_node.gd")
+# Preload to register classes before building data loads entity scenes
+const _PowerConstants: GDScript = preload("res://scripts/ecs/power_constants.gd")
+const _E_Structure: GDScript = preload("res://scripts/ecs/entities/e_structure.gd")
+const _C_Structure: GDScript = preload("res://scripts/ecs/components/c_structure.gd")
+const _C_PowerNode: GDScript = preload("res://scripts/ecs/components/c_power_node.gd")
+const _C_ConstructionPowerNode: GDScript = preload("res://scripts/ecs/components/c_construction_power_node.gd")
+const _C_Construction: GDScript = preload("res://scripts/ecs/components/c_construction.gd")
 const PLACEMENT_HOLO_SHADER_PATH: String = "res://shaders/placement_holo.gdshader"
 
 signal build_started(building_type: String)
@@ -63,6 +68,7 @@ const PREVIEW_INVALID_EMISSION: Color = Color(0.95, 0.2, 0.2, 1.0)
 # Cooldown after placing to prevent auto-selection
 var _placement_cooldown: float = 0.0
 const PLACEMENT_COOLDOWN_DURATION: float = 0.2
+var _editor_placement: bool = false
 
 
 func _ready() -> void:
@@ -171,11 +177,36 @@ func get_building_data(building_type: String) -> Resource:
 	return _building_data.get(building_type)
 
 
-## Start dragging a building for placement
-func start_building(building_type: String, position: Vector3 = Vector3.ZERO) -> void:
-	if not can_place_building(building_type):
+## Get all available building type IDs (for map editor, MapLoader, etc.)
+func get_available_building_types() -> PackedStringArray:
+	return PackedStringArray(_building_data.keys())
+
+
+## Map editor: same UX as in-game placement but no resources, instant build
+func start_building_editor(building_type: String) -> void:
+	start_building(building_type, Vector3.ZERO, true)
+
+
+## Map editor / tests: place building directly at position without drag/validity flow.
+## Use when position is known-valid (e.g. map load, tests). Sets spawned_structure for instant build.
+## Pass custom_parent to override Main/Structures lookup (for tests).
+func place_building_editor_at(building_type: String, position: Vector3, custom_parent: Node = null) -> void:
+	var was_editor: bool = _editor_placement
+	_editor_placement = true
+	_place_building(building_type, position, custom_parent)
+	_editor_placement = was_editor
+	build_completed.emit(building_type, position)
+
+
+## Start dragging a building for placement (map editor: skips resources, places instantly)
+func start_building(building_type: String, position: Vector3 = Vector3.ZERO, editor_mode: bool = false) -> void:
+	_editor_placement = editor_mode
+	if not editor_mode and not can_place_building(building_type):
 		return
-	
+	var data: Resource = get_building_data(building_type)
+	if not data:
+		return
+
 	_dragging_building_type = building_type
 	current_state = BuildState.DRAGGING
 	
@@ -251,14 +282,14 @@ func confirm_placement() -> void:
 	if not data:
 		_reset_build_state()
 		return
-	
-	# Consume resources
-	if not GameState.consume_minerals(data.cost):
+
+	# Consume resources (skip in editor)
+	if not _editor_placement and not GameState.consume_minerals(data.cost):
 		_reset_build_state()
 		return
-	
+
 	# Place the building
-	_place_building(_dragging_building_type, _drag_position)
+	_place_building(_dragging_building_type, _drag_position, null)
 	
 	# Start cooldown to prevent auto-selection
 	_placement_cooldown = PLACEMENT_COOLDOWN_DURATION
@@ -441,7 +472,7 @@ func _destroy_placement_preview() -> void:
 ## Create range indicator showing connection radius
 func _create_range_indicator(building_type: String) -> void:
 	# Connection range indicator (for all buildings) - uses PowerNode's constant
-	_connection_range_indicator = _create_ring_mesh(PowerNodeClass.CONNECTION_RANGE, Color(0.2, 0.72, 1.0, 0.42))
+	_connection_range_indicator = _create_ring_mesh(PowerConstants.CONNECTION_RANGE, Color(0.2, 0.72, 1.0, 0.42))
 	get_tree().root.add_child(_connection_range_indicator)
 	_connection_range_indicator.global_position = Vector3(_drag_position.x, 0.2, _drag_position.z)
 	
@@ -465,19 +496,22 @@ func _create_range_indicator(building_type: String) -> void:
 
 func _get_preview_max_connections(building_type: String) -> int:
 	var data: Resource = get_building_data(building_type)
-	if not data or not data.scene:
+	if not data:
 		return 0
-	
+	var from_data: Variant = data.get("max_connections")
+	if from_data != null:
+		return maxi(int(from_data), 0)
+	if not data.scene:
+		return 4
 	var temp_structure: Node = data.scene.instantiate()
 	if not temp_structure:
-		return 0
-	
+		return 4
 	var max_connections: int = 0
 	if temp_structure is Node3D:
 		var power_node: Node3D = _find_power_node_in_structure(temp_structure as Node3D)
 		if power_node:
-			max_connections = int(power_node.get("max_connections"))
-	
+			var mc: Variant = power_node.get("max_connections")
+			max_connections = int(mc) if mc != null else 4
 	temp_structure.queue_free()
 	return maxi(max_connections, 0)
 
@@ -557,7 +591,7 @@ func _update_connection_preview(world_position: Vector3) -> void:
 		
 		var candidate: Dictionary = candidates[i]
 		var power_node: Node3D = candidate.node
-		var parent_structure: Node3D = power_node.get_parent() as Node3D
+		var parent_structure: Node3D = power_node if power_node.get("building_type") != null else power_node.get_parent() as Node3D
 		if not parent_structure:
 			continue
 		
@@ -877,10 +911,10 @@ func _on_placement_detector_body_exited(body: Node3D) -> void:
 
 ## Check if placement point intersects an existing power-line segment footprint.
 func _is_position_blocked_by_power_line(position: Vector3) -> bool:
-	if not PowerGraphManager or not PowerGraphManager.has_method("get_edges"):
+	if not PowerGraph:
 		return false
-	
-	var edges: Dictionary = PowerGraphManager.get_edges()
+
+	var edges: Dictionary = PowerGraph.get_edges()
 	if edges.is_empty():
 		return false
 	
@@ -1034,9 +1068,10 @@ func _get_or_create_preview_holo_material(mesh_instance: MeshInstance3D) -> Shad
 func _get_power_node_world_position(node: Node3D) -> Vector3:
 	if node == null:
 		return Vector3.ZERO
-	var parent_node: Node3D = node.get_parent() as Node3D
-	if parent_node and parent_node.is_inside_tree():
-		return _get_structure_top_anchor(parent_node, parent_node.global_position)
+	# When node is structure itself (ECS mode), use it
+	var structure_node: Node3D = node if node.get("building_type") != null else node.get_parent() as Node3D
+	if structure_node and structure_node.is_inside_tree():
+		return _get_structure_top_anchor(structure_node, structure_node.global_position)
 	return node.global_position
 
 
@@ -1094,79 +1129,119 @@ func _distance_to_segment_2d(point: Vector2, a: Vector2, b: Vector2) -> float:
 
 ## Find nearest power node candidates within connection range.
 ## Returns nearest candidates up to max_preview_count.
+## Uses ECS queries when ECS.world is available; falls back to node traversal for editor/main menu.
 func _find_power_nodes_for_preview(position: Vector3, max_preview_count: int) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if max_preview_count <= 0:
 		return result
-	
+
+	# ECS path: query entities with C_Structure and (C_PowerNode or C_ConstructionPowerNode)
+	if ECS and ECS.world:
+		var q = ECS.world.get("query")
+		if q:
+			var entities: Array = q.with_all([_C_Structure]).with_any([_C_PowerNode, _C_ConstructionPowerNode]).execute()
+			var all_nodes: Array = []
+			for entity in entities:
+				var c_struct: C_Structure = entity.get_component(_C_Structure) as C_Structure
+				if c_struct == null or c_struct.structure_node == null:
+					continue
+				var struct_node: Node3D = c_struct.structure_node as Node3D
+				if not is_instance_valid(struct_node):
+					continue
+				var distance: float = position.distance_to(struct_node.global_position)
+				if distance > PowerConstants.CONNECTION_RANGE:
+					continue
+				if not PowerGraph.is_entity_valid_connection_target(entity):
+					continue
+				if not PowerGraph.can_entity_accept_more_connections_for_preview(entity):
+					continue
+				var other_max: int = PowerGraph._get_preview_max_connections_for_entity(entity)
+				if _preview_max_connections == 1 and other_max == 1:
+					continue
+				all_nodes.append({
+					"node": struct_node,
+					"structure": struct_node,
+					"distance": distance
+				})
+			all_nodes.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+				return a.distance < b.distance
+			)
+			var preview_count: int = mini(max_preview_count, all_nodes.size())
+			for i in range(preview_count):
+				result.append(all_nodes[i])
+			return result
+
+	# Fallback: node traversal for editor/main menu when ECS.world is null
 	var main: Node = get_tree().root.get_node_or_null("Main")
 	if not main:
 		return result
-	
+
 	var structures_parent: Node = main.get_node_or_null("Structures")
 	if not structures_parent:
 		return result
-	
-	# Collect all nodes with their distances
+
 	var all_nodes: Array = []
-	
 	for structure in structures_parent.get_children():
 		if not structure is Node3D:
 			continue
-		
-		# Find power node component
+
 		var power_node: Node3D = _find_power_node_in_structure(structure)
 		if power_node:
 			if power_node.has_method("is_valid_connection_target") and not power_node.is_valid_connection_target():
-				# Allow previewing connections to structures still under construction.
-				# They can receive links before they become valid relay/target nodes.
 				if not _is_structure_under_construction(structure):
 					continue
-			
-			# Check if this node can accept more connections
+
 			if power_node.has_method("can_accept_more_connections"):
 				if not power_node.can_accept_more_connections():
 					continue
-			
-			# Keep existing leaf-to-leaf exclusion behavior in preview.
+
 			var other_max_connections: int = int(power_node.get("max_connections"))
 			if _preview_max_connections == 1 and other_max_connections == 1:
 				continue
-			
+
 			var distance: float = position.distance_to(structure.global_position)
-			# Use the PowerNode's constant for range check
-			if distance <= PowerNodeClass.CONNECTION_RANGE:
+			if distance <= PowerConstants.CONNECTION_RANGE:
 				all_nodes.append({
 					"node": power_node,
 					"structure": structure,
 					"distance": distance
 				})
-	
-	# Sort by distance
+
 	all_nodes.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		return a.distance < b.distance
 	)
-	
+
 	var preview_count: int = mini(max_preview_count, all_nodes.size())
 	for i in range(preview_count):
 		result.append(all_nodes[i])
-	
+
 	return result
 
 
-## Find power node component in a structure
+## Find power node component in a structure. Returns structure itself when using ECS (structure acts as proxy).
 func _find_power_node_in_structure(structure: Node3D) -> Node3D:
+	# ECS mode: structure has can_accept_more_connections/is_valid_connection_target
+	if structure.has_method("can_accept_more_connections") and structure.has_method("is_valid_connection_target"):
+		return structure
 	for child in structure.get_children():
-		# Check if this is a PowerNode by its methods
 		if child.has_method("can_accept_more_connections") and child.has_method("is_valid_connection_target"):
 			return child as Node3D
 	return null
 
 
 func _is_structure_under_construction(structure: Node3D) -> bool:
-	for child in structure.get_children():
-		if child.has_method("get_progress") and child.get("is_built") == false:
+	# ECS: entity has C_Construction and not is_built
+	var ecs_entity = structure.get("_ecs_entity") if structure.get("_ecs_entity") != null else null
+	if ecs_entity == null and structure.has_method("get_component"):
+		ecs_entity = structure
+	if ecs_entity and ECS and ECS.world:
+		var c_const: C_Construction = ecs_entity.get_component(_C_Construction) as C_Construction
+		if c_const and not c_const.is_built:
 			return true
+		return false
+	# Fallback: node-based check
+	if structure.has_method("is_built"):
+		return not structure.is_built()
 	return false
 
 
@@ -1319,8 +1394,8 @@ func _update_placement_validity() -> void:
 
 ## Internal: Check if placement position is valid
 func _check_placement_validity(position: Vector3) -> bool:
-	# Check if we have enough resources
-	if not can_place_building(_dragging_building_type):
+	# Check if we have enough resources (skip in editor mode)
+	if not _editor_placement and not can_place_building(_dragging_building_type):
 		return false
 	
 	# Check if position is within bounds (basic check)
@@ -1341,7 +1416,7 @@ func _check_placement_validity(position: Vector3) -> bool:
 
 
 ## Internal: Place the actual building
-func _place_building(building_type: String, position: Vector3) -> void:
+func _place_building(building_type: String, position: Vector3, structures_parent_override: Node = null) -> void:
 	var data: Resource = get_building_data(building_type)
 	if not data or not data.scene:
 		push_error("No scene found for building type: " + building_type)
@@ -1350,15 +1425,18 @@ func _place_building(building_type: String, position: Vector3) -> void:
 	var building: Node3D = data.scene.instantiate() as Node3D
 	if building:
 		# Add to tree first, then set global_position
-		var main: Node = get_tree().root.get_node_or_null("Main")
-		if main:
-			var structures_parent: Node = main.get_node_or_null("Structures")
-			if structures_parent:
-				structures_parent.add_child(building)
-			else:
-				main.add_child(building)
+		var parent: Node = null
+		if structures_parent_override != null:
+			parent = structures_parent_override
 		else:
-			get_tree().root.add_child(building)
+			var main: Node = get_tree().root.get_node_or_null("Main")
+			if main:
+				parent = main.get_node_or_null("Structures")
+				if not parent:
+					parent = main
+			if not parent:
+				parent = get_tree().root
+		parent.add_child(building)
 		
 		# Now safe to set global_position
 		building.global_position = position
@@ -1366,11 +1444,11 @@ func _place_building(building_type: String, position: Vector3) -> void:
 
 ## Internal: Reset build state
 func _reset_build_state() -> void:
-	print("[DEBUG] Resetting build state from ", current_state, " to IDLE")
 	current_state = BuildState.IDLE
 	_dragging_building_type = ""
 	_drag_position = Vector3.ZERO
 	_is_placement_valid = false
+	_editor_placement = false
 	_destroy_placement_preview()
 
 

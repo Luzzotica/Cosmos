@@ -63,6 +63,8 @@ func _preload_streams() -> void:
 		"structure_place": load("res://assets/generated/audio/sfx/structure_place.mp3"),
 		"structure_invalid_place": load("res://assets/generated/audio/sfx/structure_invalid_place.mp3"),
 		"mining_pulse": load("res://assets/generated/audio/sfx/mining_pulse.mp3"),
+		"enemy_spawn": load("res://assets/generated/audio/sfx/enemy_spawn.mp3"),
+		"enemy_death": load("res://assets/generated/audio/sfx/enemy_death.wav"),
 		"power_disconnect": load("res://assets/generated/audio/sfx/power_disconnect.mp3"),
 		"ui_select": load("res://assets/generated/audio/sfx/ui_select.mp3"),
 		"ui_confirm": load("res://assets/generated/audio/sfx/ui_confirm.mp3"),
@@ -83,7 +85,7 @@ func _connect_global_events() -> void:
 	BuildManager.build_completed.connect(_on_build_completed)
 	BuildManager.build_cancelled.connect(_on_build_cancelled)
 	SelectionManager.primary_selection_changed.connect(_on_primary_selection_changed)
-	PowerGraphManager.node_removed.connect(_on_power_node_removed)
+	GameState.wave_started.connect(_on_wave_started)
 
 
 func _on_build_completed(_building_type: String, _position: Vector3) -> void:
@@ -98,7 +100,5 @@ func _on_primary_selection_changed(_selectable: Node, _details: Dictionary) -> v
 	play_ui_select()
 
 
-func _on_power_node_removed(_node: Node3D) -> void:
-	if Time.get_ticks_msec() < _ignore_power_events_until_ms:
-		return
-	play_sfx("power_disconnect", SFX_VOLUME_DB - 1.0)
+func _on_wave_started(_wave_number: int) -> void:
+	play_sfx("enemy_spawn", SFX_VOLUME_DB - 2.0)

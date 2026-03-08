@@ -13,18 +13,13 @@ attack_range = 15.0
 attack_cooldown = 3.0
 reward_minerals = 10
 movement_profile = {
+"behavior_type": "flyby",
 "avoidance_force": 24.0,
-"avoidance_scan_range": 28.0,
-"avoidance_cone_deg": 36.0,
+"avoidance_scan_range": 32.0,
+"avoidance_cone_deg": 40.0,
 "separation_radius": 7.0,
 "separation_force": 40.0,
-"drag": 2.0,
-"max_acceleration": 10.0,
-"max_turn_rate_deg": 110.0,
-"orbit_distance": 10.0,
-"swarm_orbit_duration": 2.5,
-"swarm_circle_out_duration": 1.2,
-"swarm_dive_circle": true
+"max_turn_rate_deg": 120.0
 }
 targeting_profile = {
 "mode": "nearest",

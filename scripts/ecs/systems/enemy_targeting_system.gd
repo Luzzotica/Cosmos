@@ -2,10 +2,8 @@ extends System
 class_name EnemyTargetingSystem
 ## Batch targeting: fetches player structures once per frame, assigns targets to enemies.
 
-const MovementBehaviorClass: Script = preload("res://scripts/enemies/behaviors/movement_behavior.gd")
 const TargetingBehaviorClass: Script = preload("res://scripts/enemies/behaviors/targeting_behavior.gd")
 
-var _movement_behavior: RefCounted
 var _targeting_behavior: RefCounted
 var _player_structures_cache: Array[Node3D] = []
 var _cache_valid: bool = false
@@ -16,7 +14,6 @@ func query() -> QueryBuilder:
 
 
 func setup() -> void:
-	_movement_behavior = MovementBehaviorClass.new()
 	_targeting_behavior = TargetingBehaviorClass.new()
 
 
@@ -51,7 +48,7 @@ func _refresh_structures_cache() -> void:
 	if not structures_parent:
 		return
 	for child in structures_parent.get_children():
-		if child is BaseStructure and not child.is_destroyed:
+		if (child is BaseStructure or (child.get("building_type") != null and child.has_method("is_built"))) and not child.get("is_destroyed"):
 			_player_structures_cache.append(child as Node3D)
 
 

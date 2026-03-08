@@ -65,6 +65,8 @@ func _on_play_pressed() -> void:
 
 
 func _on_back_pressed() -> void:
+	if GameSession:
+		GameSession.start_main_menu()
 	var tree: SceneTree = get_tree()
 	if tree:
-		tree.change_scene_to_file("res://scenes/ui/main_menu.tscn")
+		tree.change_scene_to_file("res://scenes/game/main.tscn")

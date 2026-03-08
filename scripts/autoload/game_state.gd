@@ -6,6 +6,7 @@ signal energy_changed(current: float, capacity: float)
 signal wave_started(wave_number: int)
 signal wave_ended(wave_number: int)
 signal game_over
+signal victory(completion_percent: float, tier: int, condition: String)
 signal pause_changed(paused: bool)
 
 # Resources
@@ -34,6 +35,15 @@ var map_wave_interval: float = 60.0
 var game_time: float = 0.0
 var is_paused: bool = false
 var is_game_over: bool = false
+var is_victory: bool = false
+var completion_percent: float = 0.0
+var highest_tier_reached: int = 0
+var win_condition_met: String = ""
+
+# Completion tier constants
+const COMPLETION_TIER_BRONZE: int = 70
+const COMPLETION_TIER_SILVER: int = 80
+const COMPLETION_TIER_GOLD: int = 100
 
 # Config
 const DEFAULT_INITIAL_DELAY: float = 20.0  # 20 seconds before first wave
@@ -94,21 +104,59 @@ func end_wave() -> void:
 
 
 func _update_wave_timer(delta: float) -> void:
+	if not _is_in_gameplay():
+		return
+	if _is_map_editor_active():
+		return
+	if not _has_wave_controller():
+		return
 	if not is_wave_in_progress:
 		time_until_next_wave -= delta
 		if time_until_next_wave <= 0:
 			start_wave()
 
 
+func _is_in_gameplay() -> bool:
+	var tree: SceneTree = get_tree()
+	if not tree or not tree.root:
+		return false
+	return tree.root.get_node_or_null("Main") != null
+
+
+func _is_map_editor_active() -> bool:
+	var ctrl: Node = get_tree().root.get_node_or_null("Main/MapEditorController")
+	return ctrl != null and ctrl.get("editor_enabled") == true
+
+
+func _has_wave_controller() -> bool:
+	var tree: SceneTree = get_tree()
+	if not tree:
+		return false
+	return tree.get_nodes_in_group("wave_controller").size() > 0
+
+
 func _update_energy_balance(delta: float) -> void:
+	if not _is_in_gameplay():
+		return
 	var net_energy: float = (energy_production - energy_consumption) * delta
 	add_energy(net_energy)
 
 
 func trigger_game_over() -> void:
 	is_game_over = true
+	is_victory = false
 	set_paused(true)
 	game_over.emit()
+
+
+func trigger_victory(completion_pct: float, tier: int, condition: String) -> void:
+	is_game_over = true
+	is_victory = true
+	completion_percent = completion_pct
+	highest_tier_reached = tier
+	win_condition_met = condition
+	set_paused(true)
+	victory.emit(completion_percent, highest_tier_reached, win_condition_met)
 
 
 func reset() -> void:
@@ -124,6 +172,10 @@ func reset() -> void:
 	time_until_next_wave = map_initial_wave_delay
 	game_time = 0.0
 	is_game_over = false
+	is_victory = false
+	completion_percent = 0.0
+	highest_tier_reached = 0
+	win_condition_met = ""
 	set_paused(false)
 
 
@@ -149,6 +201,10 @@ func apply_map_settings(map_data: MapData) -> void:
 
 	game_time = 0.0
 	is_game_over = false
+	is_victory = false
+	completion_percent = 0.0
+	highest_tier_reached = 0
+	win_condition_met = ""
 	set_paused(false)
 
 

@@ -11,7 +11,7 @@ var current_map: MapData = null
 
 # Scene references
 var asteroid_scene: PackedScene
-var _structure_scenes: Dictionary = {}
+var _cloud_marker_scene: PackedScene
 
 
 func _ready() -> void:
@@ -20,17 +20,21 @@ func _ready() -> void:
 
 func _load_scenes() -> void:
 	asteroid_scene = load("res://scenes/game/asteroid.tscn")
-	
-	_structure_scenes = {
-		"solar_panel": load("res://scenes/structures/solar_panel.tscn"),
-		"power_node": load("res://scenes/structures/power_node.tscn"),
-		"mining_station": load("res://scenes/structures/mining_station.tscn"),
-		"laser_turret": load("res://scenes/structures/laser_turret.tscn")
-	}
+	_cloud_marker_scene = load("res://scenes/editor/cloud_marker.tscn")
 
 
-## Load a map from a MapData resource
-func load_map(map_data: MapData) -> void:
+func _get_structure_scene(building_type: String) -> PackedScene:
+	## Uses BuildManager's BuildingData as single source of truth for structure scenes.
+	if BuildManager:
+		var data: Resource = BuildManager.get_building_data(building_type)
+		if data and data.get("scene") is PackedScene:
+			return data.scene
+	return null
+
+
+## Load a map from a MapData resource.
+## When for_editor is true, asteroid clouds are spawned as CloudMarker nodes instead of expanded asteroids.
+func load_map(map_data: MapData, for_editor: bool = false) -> void:
 	if not map_data:
 		push_error("Cannot load null map data")
 		return
@@ -46,38 +50,63 @@ func load_map(map_data: MapData) -> void:
 	clear_current_map()
 	current_map = map_data
 	
-	var main: Node = get_tree().root.get_node_or_null("Main")
+	var root: Node = get_tree().root
+	var main: Node = root.get_node_or_null("Main")
 	if not main:
 		push_error("Main scene not found")
 		return
 	
-	# Spawn asteroids
 	var asteroids_parent: Node = main.get_node_or_null("Asteroids")
+	var structures_parent: Node = main.get_node_or_null("Structures")
+	_load_map_into(structures_parent, asteroids_parent, map_data, true, for_editor)
+	map_loaded.emit(map_data)
+
+
+## Load map into custom containers (e.g. main menu preview). Skips GameState/EnemyManager.
+func load_map_into_containers(map_data: MapData, structures_parent: Node3D, asteroids_parent: Node3D, apply_game_state: bool = false, for_editor: bool = false) -> void:
+	if not map_data:
+		push_error("Cannot load null map data")
+		return
+
+	var validation: Dictionary = MapValidatorClass.validate_map_data(map_data)
+	if not bool(validation.get("is_valid", false)):
+		var errors: PackedStringArray = validation.get("errors", PackedStringArray())
+		for err in errors:
+			push_error("Map validation failed: %s" % err)
+		map_load_failed.emit(errors)
+		return
+
+	_load_map_into(structures_parent, asteroids_parent, map_data, apply_game_state, for_editor)
+	map_loaded.emit(map_data)
+
+
+func _load_map_into(structures_parent: Node3D, asteroids_parent: Node3D, map_data: MapData, apply_game_state: bool, for_editor: bool = false) -> void:
 	if asteroids_parent:
 		for asteroid_data in map_data.asteroids:
 			_spawn_asteroid(asteroids_parent, asteroid_data)
 		for cloud_data in map_data.asteroid_clouds:
-			_spawn_asteroid_cloud(asteroids_parent, cloud_data)
-	
-	# Spawn starting structures
-	var structures_parent: Node = main.get_node_or_null("Structures")
+			if for_editor and _cloud_marker_scene:
+				_spawn_cloud_marker(asteroids_parent, cloud_data)
+			else:
+				_spawn_asteroid_cloud(asteroids_parent, cloud_data)
+
 	if structures_parent:
 		for structure_data in map_data.starting_structures:
 			_spawn_structure(structures_parent, structure_data)
-	
-	# Configure game state
-	GameState.apply_map_settings(map_data)
-	if EnemyManager and EnemyManager.has_method("apply_map_wave_settings"):
-		EnemyManager.apply_map_wave_settings(map_data)
-	
-	map_loaded.emit(map_data)
+
+	if apply_game_state:
+		current_map = map_data
+		GameState.apply_map_settings(map_data)
+		if EnemyManager and EnemyManager.has_method("apply_map_wave_settings"):
+			EnemyManager.apply_map_wave_settings(map_data)
 
 
-## Load a map from a JSON file
-func load_map_from_json(path: String) -> void:
+## Load a map from a JSON file.
+## When for_editor is true, asteroid clouds are spawned as CloudMarker nodes.
+func load_map_from_json(path: String, for_editor: bool = false) -> void:
 	var map_data: MapData = MapData.load_from_json(path)
 	if map_data:
-		load_map(map_data)
+		load_map(map_data, for_editor)
 
 
 ## Load map from dictionary data (used by online map payloads)
@@ -134,6 +163,18 @@ func _spawn_asteroid(parent: Node3D, data: AsteroidPlacement) -> void:
 		asteroid.set_minerals(data.minerals)
 
 
+## Spawn a CloudMarker in editor mode (cloud region representation, no asteroids)
+func _spawn_cloud_marker(parent: Node3D, data: Resource) -> void:
+	if not _cloud_marker_scene:
+		return
+	var marker: Node3D = _cloud_marker_scene.instantiate() as Node3D
+	if marker:
+		parent.add_child(marker)
+		marker.global_position = data.center
+		if marker.get("cloud_data") != null:
+			marker.set("cloud_data", data)
+
+
 ## Spawn a deterministic asteroid cloud from placement data
 func _spawn_asteroid_cloud(parent: Node3D, data: Resource) -> void:
 	if data.count <= 0:
@@ -174,20 +215,50 @@ func spawn_asteroid_cloud_for_editor(parent: Node3D, cloud_data: Resource) -> vo
 	_spawn_asteroid_cloud(parent, cloud_data)
 
 
+## Spawn non-interactive preview spheres for an asteroid cloud (editor Test Generate)
+func spawn_cloud_preview(parent: Node3D, data: Resource) -> void:
+	for child in parent.get_children():
+		child.queue_free()
+	if data.count <= 0:
+		return
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	if data.seed != 0:
+		rng.seed = data.seed
+	else:
+		rng.randomize()
+	var sphere_mesh: SphereMesh = SphereMesh.new()
+	var mat: StandardMaterial3D = StandardMaterial3D.new()
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = Color(0.4, 0.85, 0.5, 0.6)
+	for _i in range(data.count):
+		var angle: float = rng.randf_range(0.0, TAU)
+		var dist: float = rng.randf_range(0.0, data.radius)
+		var spawn_pos: Vector3 = data.center + Vector3(cos(angle) * dist, 0.0, sin(angle) * dist)
+		var size: float = rng.randf_range(data.min_size, data.max_size)
+		var mi: MeshInstance3D = MeshInstance3D.new()
+		mi.mesh = sphere_mesh
+		mi.set_surface_override_material(0, mat.duplicate())
+		mi.global_position = spawn_pos
+		mi.scale = Vector3(size * 0.5, size * 0.5, size * 0.5)
+		parent.add_child(mi)
+
+
 ## Spawn a structure from placement data
 func _spawn_structure(parent: Node3D, data: StructurePlacement) -> void:
-	var scene: PackedScene = _structure_scenes.get(data.building_type)
+	var scene: PackedScene = _get_structure_scene(data.building_type)
 	if not scene:
 		push_warning("Unknown structure type: " + data.building_type)
 		return
 	
 	var structure: Node3D = scene.instantiate() as Node3D
 	if structure:
+		if structure.get("spawned_structure") != null:
+			structure.set("spawned_structure", true)
 		parent.add_child(structure)
 		structure.global_position = data.position
-		# Must run after add_child so structure _ready() has initialized components.
-		if data.is_pre_built and structure.has_method("set_starter_panel"):
-			structure.set_starter_panel(true)
+		# Configure monolith power target from map if set
+		if data.building_type == "monolith" and current_map and current_map.win_monolith_power_required > 0:
+			structure.set("_pending_monolith_power_required", float(current_map.win_monolith_power_required))
 
 
 ## Runtime helper for map editor placement.
@@ -195,7 +266,6 @@ func spawn_structure_for_editor(parent: Node3D, building_type: String, world_pos
 	var data: StructurePlacement = StructurePlacement.new()
 	data.building_type = building_type
 	data.position = world_position
-	data.is_pre_built = pre_built
 	_spawn_structure(parent, data)
 	var children: Array = parent.get_children()
 	if children.is_empty():
@@ -204,7 +274,10 @@ func spawn_structure_for_editor(parent: Node3D, building_type: String, world_pos
 
 
 func get_available_structure_types() -> PackedStringArray:
-	return PackedStringArray(_structure_scenes.keys())
+	## Returns structure types from BuildManager's BuildingData (single source of truth).
+	if BuildManager:
+		return BuildManager.get_available_building_types()
+	return PackedStringArray(["solar_panel", "power_node", "mining_station", "laser_turret", "monolith"])
 
 
 ## Get wave data for a specific wave number

@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="BuildingData" load_steps=3 format=3 uid="uid://dnx4v8xr2hqey"]
 
 [ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_building_data"]
-[ext_resource type="PackedScene" uid="uid://bvxk8wn2hqtgc" path="res://scenes/structures/solar_panel.tscn" id="2_scene"]
+[ext_resource type="PackedScene" uid="uid://e_solar_panel_001" path="res://scenes/ecs/entities/e_solar_panel.tscn" id="2_scene"]
 
 [resource]
 script = ExtResource("1_building_data")

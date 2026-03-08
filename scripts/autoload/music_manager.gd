@@ -12,7 +12,8 @@ const STING_CROSSFADE_SECONDS: float = 1.2
 const MUSIC_VOLUME_DB: float = -8.0
 const SILENCE_DB: float = -80.0
 
-const TRACK_BUILD: String = "res://assets/generated/audio/music/main_loop_build_phase.mp3"
+# const TRACK_BUILD: String = "res://assets/generated/audio/music/main_loop_build_phase.mp3"
+const TRACK_BUILD: String = "res://assets/audio/music/main_loop_build.mp3"
 const TRACK_COMBAT_LIGHT: String = "res://assets/generated/audio/music/combat_loop_light.mp3"
 const TRACK_COMBAT_HEAVY: String = "res://assets/generated/audio/music/combat_loop_heavy.mp3"
 const STING_VICTORY: String = "res://assets/generated/audio/music/victory_sting.mp3"

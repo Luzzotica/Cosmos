@@ -41,23 +41,48 @@ func tick(delta: float, enemy: Node3D, target: Node3D) -> void:
 func _try_sabotage(enemy: Node3D, target: Node3D) -> void:
 	if _cooldown_remaining > 0.0 or target == null:
 		return
-	var power_node: Node = target.get("power_node")
-	if power_node == null:
+	var node_to_disable: Node = target.get("power_node")
+	if node_to_disable == null:
+		node_to_disable = target
+	if not _has_power_node(node_to_disable):
 		return
-	if not power_node.get("is_enabled"):
+	if not _is_node_enabled(node_to_disable):
 		return
-	var graph: Node = enemy.get_node_or_null("/root/PowerGraphManager")
-	if graph == null or not graph.has_method("disable_node"):
+	if not PowerGraph or not PowerGraph.has_method("set_node_enabled"):
 		return
-	graph.call("disable_node", power_node)
+	var struct: Node3D = node_to_disable if node_to_disable.get("building_type") != null else node_to_disable.get_parent() as Node3D
+	if struct == null:
+		return
+	PowerGraph.set_node_enabled(struct, false)
 	var timer: SceneTreeTimer = enemy.get_tree().create_timer(maxf(disable_duration, 0.1))
 	timer.timeout.connect(func() -> void:
-		if not is_instance_valid(power_node):
+		if not is_instance_valid(target):
 			return
-		if graph and is_instance_valid(graph) and graph.has_method("enable_node"):
-			graph.call("enable_node", power_node)
+		var n: Node = target.get("power_node") if target.get("power_node") != null else target
+		var s: Node3D = n as Node3D if n and n.get("building_type") != null else (n.get_parent() as Node3D) if n else null
+		if PowerGraph and s:
+			PowerGraph.set_node_enabled(s, true)
 	)
 	_cooldown_remaining = maxf(sabotage_cooldown, 0.25)
+
+
+func _has_power_node(node: Node) -> bool:
+	if node == null:
+		return false
+	if node.get("building_type") != null:
+		return true
+	return node.get("is_enabled") != null or node.get("can_accept_more_connections") != null
+
+
+func _is_node_enabled(node: Node) -> bool:
+	if node.get("is_enabled") != null:
+		return node.is_enabled
+	if node.get("building_type") != null:
+		var entity = node.get("_ecs_entity") if node.get("_ecs_entity") != null else (node if node.has_method("get_component") else null)
+		if entity and entity.has_method("get_component"):
+			var c_node = entity.get_component(C_PowerNode)
+			return c_node.is_enabled if c_node else true
+	return true
 
 
 func _apply_commander_aura(enemy: Node3D) -> void:
