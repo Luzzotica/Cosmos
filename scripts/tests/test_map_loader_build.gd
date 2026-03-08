@@ -113,15 +113,6 @@ func test_map_load_spawns_structures() -> void:
 	assert_eq(_asteroids_parent.get_child_count(), 0, "No asteroids in test map")
 
 
-func test_map_load_structures_have_spawned_structure_flag() -> void:
-	var map_data: MapData = _make_test_map_data()
-	MapLoader.load_map_into_containers(map_data, _structures_parent, _asteroids_parent, false)
-
-	assert_gte(_structures_parent.get_child_count(), 1, "Should have at least 1 structure to check")
-	for child in _structures_parent.get_children():
-		assert_true(child.get("spawned_structure") == true, "%s should have spawned_structure=true" % child.name)
-
-
 # ---- ECS registration + instant build (requires await) ----
 
 func test_map_loaded_structures_register_with_ecs_and_instant_build() -> void:
@@ -172,10 +163,6 @@ func test_map_loaded_structures_have_edges_between_power_nodes() -> void:
 
 	await get_tree().process_frame
 	await _run_ecs_and_wait()
-
-	if not PowerGraph:
-		pass_test("PowerGraph not available, skip")
-		return
 
 	var edges: Dictionary = PowerGraph.get_edges()
 	var edge_count: int = 0

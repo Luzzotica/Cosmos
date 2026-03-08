@@ -2,7 +2,7 @@ extends Node
 ## Debug log utility for Cursor debug mode.
 ## Writes NDJSON lines to .cursor/debug.log for runtime inspection.
 
-const LOG_PATH: String = "res://.cursor/debug.log"
+const LOG_PATH: String = "/Users/sterlinglong/NonCloud/PAZA/Projects/cosmos-root/.cursor/debug.log"
 
 
 func _ready() -> void:
@@ -14,7 +14,7 @@ func _ready() -> void:
 	if user_file:
 		user_file.store_line(JSON.stringify({"message": "DebugLog ready", "project_root": project_root}))
 		user_file.close()
-	print("[DebugLog] Autoload ready. Logs: .cursor/debug.log (workspace) and user://debug_cursor.log = ", user_path)
+	print("[DebugLog] Autoload ready. Logs: ", LOG_PATH, " and user://debug_cursor.log = ", user_path)
 	#endregion
 
 
@@ -30,12 +30,7 @@ static func write_inner(location: String, message: String, data: Dictionary) -> 
 		"data": data
 	}
 	var line: String = JSON.stringify(payload)
-	var project_root: String = ProjectSettings.globalize_path("res://")
-	var abs_path: String = project_root.path_join(".cursor/debug.log")
-	if "/Cosmos" in project_root or project_root.ends_with("Cosmos"):
-		var base: String = project_root.get_base_dir()
-		if base != project_root:
-			abs_path = base.path_join(".cursor/debug.log")
+	var abs_path: String = LOG_PATH
 	var dir: String = abs_path.get_base_dir()
 	if not DirAccess.dir_exists_absolute(dir):
 		DirAccess.make_dir_recursive_absolute(dir)

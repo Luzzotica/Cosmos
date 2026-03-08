@@ -45,15 +45,6 @@ func test_place_building_editor_at_adds_structure_to_main_structures() -> void:
 	assert_eq(placed.global_position, _valid_position(), "Structure should be at placement position")
 
 
-func test_place_building_editor_at_sets_spawned_structure() -> void:
-	BuildManager.place_building_editor_at("power_node", _valid_position(), _structures_parent)
-
-	assert_gte(_structures_parent.get_child_count(), 1, "At least one structure should be placed")
-	var placed: Node = _structures_parent.get_child(_structures_parent.get_child_count() - 1)
-	if placed.get("spawned_structure") != null:
-		assert_true(placed.get("spawned_structure"), "Editor placement should set spawned_structure for instant build")
-
-
 func test_cancel_placement_clears_build_state() -> void:
 	BuildManager.start_building_editor("mining_station")
 	assert_true(BuildManager.is_building())

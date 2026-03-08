@@ -16,32 +16,33 @@ func query() -> QueryBuilder:
 
 
 func process(entities: Array[Entity], _components: Array, _delta: float) -> void:
-	if not PowerGraph or not GameWorld or not GameWorld.power_lines_parent:
-		return
+	pass
+	# if not PowerGraph or not GameWorld or not GameWorld.power_lines_parent:
+	# 	return
 
-	var entity_by_id: Dictionary = _build_entity_by_id()
-	var active_pairs: Dictionary = {}  # "lo_hi" -> true
+	# var entity_by_id: Dictionary = _build_entity_by_id()
+	# var active_pairs: Dictionary = {}  # "lo_hi" -> true
 
-	for entity in entities:
-		var c_cpn: C_ConstructionPowerNode = entity.get_component(C_ConstructionPowerNode) as C_ConstructionPowerNode
-		var c_struct: C_Structure = entity.get_component(C_Structure) as C_Structure
-		if c_cpn == null or c_struct == null or c_struct.structure_node == null:
-			continue
+	# for entity in entities:
+	# 	var c_pn: C_PowerNode = entity.get_component(C_PowerNode) as C_PowerNode
+	# 	var c_struct: C_Structure = entity.get_component(C_Structure) as C_Structure
+	# 	if c_pn == null or c_struct == null or c_struct.structure_node == null:
+	# 		continue
 
-		var preview_ids: Array[int] = PowerGraph.compute_preview_connections(entity, c_cpn.saved_max_connections)
-		c_cpn.preview_connected_entity_ids = preview_ids
+	# 	var preview_ids: Array[int] = PowerGraph.compute_preview_connections(entity, c_cpn.saved_max_connections)
+	# 	c_cpn.preview_connected_entity_ids = preview_ids
 
-		var struct_a: Node3D = c_struct.structure_node as Node3D
-		var id_a: int = entity.get_instance_id()
+	# 	var struct_a: Node3D = c_struct.structure_node as Node3D
+	# 	var id_a: int = entity.get_instance_id()
 
-		for other_id in preview_ids:
-			var key: String = _pair_key(id_a, other_id)
-			active_pairs[key] = true
-			if not _preview_lines.has(key):
-				_create_preview_line(entity_by_id, id_a, other_id, struct_a)
+	# 	for other_id in preview_ids:
+	# 		var key: String = _pair_key(id_a, other_id)
+	# 		active_pairs[key] = true
+	# 		if not _preview_lines.has(key):
+	# 			_create_preview_line(entity_by_id, id_a, other_id, struct_a)
 
-	_update_preview_line_positions(entity_by_id, active_pairs)
-	_remove_stale_preview_lines(active_pairs)
+	# _update_preview_line_positions(entity_by_id, active_pairs)
+	# _remove_stale_preview_lines(active_pairs)
 
 
 func _build_entity_by_id() -> Dictionary:

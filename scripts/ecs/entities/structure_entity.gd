@@ -57,13 +57,11 @@ func _build_power_components(structure: BaseStructure, build_data: Resource) -> 
 	c_power_node.max_connections = 4
 	if build_data and build_data.get("max_connections") != null:
 		c_power_node.max_connections = int(build_data.max_connections)
-	c_power_node.is_enabled = true  # Enabled so graph sees it; C_ConstructionPowerNode overrides max_connections to 1
+	c_power_node.is_enabled = false  # Disabled during construction; C_ConstructionPowerNode is the active node. Set true in _complete_construction.
 
 	var c_build_node: C_ConstructionPowerNode = C_ConstructionPowerNode.new()
 	c_build_node.structure_node = structure
 	c_build_node.max_connection_distance = PowerConstants.CONNECTION_RANGE
-	c_build_node.saved_max_connections = c_power_node.max_connections
-	c_build_node._apply_construction_mode(c_power_node)
 	arr.append(c_build_node)
 	var c_user: C_PowerUser = C_PowerUser.new()
 	c_user.structure_node = structure

@@ -6,7 +6,9 @@
 [ext_resource type="Script" uid="uid://s0m0va7uhacv" path="res://scripts/ecs/components/c_health.gd" id="4_c_health"]
 [ext_resource type="Script" uid="uid://m4qryo881oo4" path="res://scripts/ecs/components/c_team.gd" id="5_c_team"]
 [ext_resource type="Script" uid="uid://ciuam2tjt75s5" path="res://scripts/ecs/components/c_transform3d.gd" id="6_c_transform"]
+[ext_resource type="Script" uid="uid://dfuymw5sjlu1e" path="res://scripts/ecs/components/c_construction.gd" id="7_c_construction"]
 [ext_resource type="Script" uid="uid://854db0cnbpqj" path="res://scripts/ecs/components/c_power_node.gd" id="8_c_power_node"]
+[ext_resource type="Script" uid="uid://deycyluq3vofg" path="res://scripts/ecs/components/c_construction_power_node.gd" id="9_c_build_node"]
 [ext_resource type="Script" uid="uid://c3wjn3wjkgife" path="res://scripts/ecs/components/c_power_user.gd" id="10_c_power_user"]
 [ext_resource type="Script" uid="uid://oehx47aftum4" path="res://scripts/ecs/power_node_behavior.gd" id="11_behavior"]
 [ext_resource type="PackedScene" uid="uid://r1vhglyeysme" path="res://scenes/components/selectable_component.tscn" id="12_selectable"]
@@ -32,12 +34,19 @@ script = ExtResource("6_c_transform")
 [sub_resource type="Resource" id="Resource_c_power_node"]
 script = ExtResource("8_c_power_node")
 max_connections = 6
-is_enabled = false
 
 [sub_resource type="Resource" id="Resource_c_power_user"]
 script = ExtResource("10_c_power_user")
 use_power_cost = 10.0
 is_construction_user = true
+
+[sub_resource type="Resource" id="Resource_ivwt2"]
+script = ExtResource("7_c_construction")
+metadata/_custom_type_script = "uid://dfuymw5sjlu1e"
+
+[sub_resource type="Resource" id="Resource_28efo"]
+script = ExtResource("9_c_build_node")
+metadata/_custom_type_script = "uid://deycyluq3vofg"
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_bottom"]
 top_radius = 0.8
@@ -79,7 +88,7 @@ shader_parameter/pulse_amount = 0.05
 
 [node name="E_PowerNode" type="Node3D" unique_id=2058332409]
 script = ExtResource("1_entity")
-component_resources = Array[ExtResource("2_component")]([SubResource("Resource_c_struct"), SubResource("Resource_c_health"), SubResource("Resource_c_team"), SubResource("Resource_c_transform"), SubResource("Resource_c_power_node"), SubResource("Resource_c_power_user")])
+component_resources = Array[ExtResource("2_component")]([SubResource("Resource_c_struct"), SubResource("Resource_c_health"), SubResource("Resource_c_team"), SubResource("Resource_c_transform"), SubResource("Resource_c_power_node"), SubResource("Resource_c_power_user"), SubResource("Resource_ivwt2"), SubResource("Resource_28efo")])
 
 [node name="StructureBehavior" type="Node" parent="." unique_id=65860542]
 script = ExtResource("11_behavior")

@@ -1,10 +1,14 @@
 class_name C_PowerEdge
 extends Component
-## ECS component for a power line edge between two node entities.
+## ECS component for a power line edge between two power nodes.
+## Edges connect nodes (node_id), not entities. entity_id_a/b kept for backward compat / lookup.
 ## Per PERFORMANCE_OPTIMIZATION: use bool properties for is_blocked, is_flashing (frequently changing).
 
 var entity_id_a: int = 0
 var entity_id_b: int = 0
+## Node IDs for composite graph (e.g. "12345:PowerNode", "67890:ConstructionPowerNode")
+var node_id_a: String = ""
+var node_id_b: String = ""
 var _is_blocked: bool = false
 var is_blocked: bool:
 	get:

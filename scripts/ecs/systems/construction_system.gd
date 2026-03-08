@@ -38,7 +38,7 @@ func _process_entity(entity: Entity, delta: float) -> void:
 		return
 	
 	if c_construction.requires_power:
-		if c_power_node.connected_entity_ids.size() > 0:
+		if c_build_node.connected_entity_ids.size() > 0:
 			# Need to pay power cost - draw on demand, then consume
 			var _drawn: float = PowerGraph.draw_power_for_user_entity(entity, c_construction.build_power_cost)
 			if _drawn >= c_construction.build_power_cost:
@@ -54,17 +54,16 @@ func _complete_construction(entity: Entity, c_construction: C_Construction, c_st
 	c_construction.is_built = true
 	c_power_node.is_enabled = true
 
-	# Restore max_connections so refresh_graph will compute and create the preview connections as real edges
-	c_power_node.max_connections = c_construction_node.saved_max_connections
+	# Copy connections from construction node to operational node
+	c_power_node.connected_entity_ids = c_construction_node.connected_entity_ids.duplicate()
 
 	# Remove construction components
 	entity.remove_component(C_Construction)
 	entity.remove_component(C_ConstructionPowerNode)
 
-	# Full refresh recomputes connections from geometry and creates C_PowerEdge entities for new connections
-	var world: Node = ECS.world if ECS else null
-	if PowerGraph and world:
-		PowerGraph.refresh_graph(world)
+	# Explicitly refresh PowerGraph so node/edge state is updated (observer may not fire is_enabled in time)
+	if PowerGraph:
+		PowerGraph.call_deferred("_deferred_refresh_entity_cache", entity.get_instance_id())
 
 	# Notify structure for visuals
 	if c_structure and c_structure.structure_node:

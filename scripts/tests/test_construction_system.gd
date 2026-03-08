@@ -101,7 +101,6 @@ func _add_construction_entity(
 	var c_build_node: Resource = _C_CONSTRUCTION_POWER_NODE.new() as Resource
 	c_build_node.set("structure_node", struct)
 	c_build_node.set("max_connection_distance", opts.get("max_connection_distance", 100.0))
-	c_build_node.set("saved_max_connections", opts.get("max_connections", 4))
 
 	var c_power_node: Resource = _C_POWER_NODE.new() as Resource
 	c_power_node.set("structure_node", struct)
