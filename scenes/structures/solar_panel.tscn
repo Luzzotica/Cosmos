@@ -9,16 +9,18 @@
 [ext_resource type="PackedScene" path="res://scenes/components/power_generator_component.tscn" id="7_power_gen"]
 [ext_resource type="PackedScene" path="res://scenes/components/selectable_component.tscn" id="8_selectable"]
 [ext_resource type="PackedScene" path="res://scenes/components/selection_visuals.tscn" id="9_selection_visuals"]
+[ext_resource type="Shader" path="res://shaders/structure_hull.gdshader" id="10_hull"]
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_base"]
 top_radius = 1.0
 bottom_radius = 1.1
 height = 0.6
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_base"]
-albedo_color = Color(0.44, 0.47, 0.52, 1)
-metallic = 0.75
-roughness = 0.34
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_base"]
+shader = ExtResource("10_hull")
+shader_parameter/base_color = Color(0.44, 0.47, 0.52, 1)
+shader_parameter/metallic = 0.75
+shader_parameter/roughness = 0.34
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_panel"]
 top_radius = 0.98
@@ -43,7 +45,7 @@ building_type = "solar_panel"
 [node name="Base" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
 mesh = SubResource("CylinderMesh_base")
-surface_material_override/0 = SubResource("StandardMaterial3D_base")
+surface_material_override/0 = SubResource("ShaderMaterial_base")
 
 [node name="Panel" type="MeshInstance3D" parent="."]
 transform = Transform3D(1.08, 0, 0, 0, 1, 0, 0, 0, 1.08, 0, 1.1, 0)

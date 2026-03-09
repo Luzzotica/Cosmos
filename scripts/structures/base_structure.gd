@@ -21,7 +21,7 @@ var is_destroyed: bool = false
 var selectable_component: Node
 
 # Build animation
-var _original_materials: Array[StandardMaterial3D] = []
+var _original_materials: Array = []  # Material (StandardMaterial3D or ShaderMaterial)
 var _mesh_instances: Array[MeshInstance3D] = []
 var _build_shader_materials: Array[ShaderMaterial] = []
 var _build_finalize_tween: Tween = null
@@ -33,6 +33,7 @@ var _is_powered_visual: bool = true
 const BUILD_START_SCALE: float = 0.3
 const BUILD_TRANSPARENCY: float = 0.5
 const BUILD_SHELL_SHADER_PATH: String = "res://shaders/structure_build_shell.gdshader"
+const STRUCTURE_HULL_SHADER_PATH: String = "res://shaders/structure_hull.gdshader"
 var _build_shell_shader: Shader = null
 
 var _ecs_entity: Node = null
@@ -114,9 +115,10 @@ func _setup_build_animation() -> void:
 	
 	# Store original materials and apply construction print shader.
 	for mesh_inst in _mesh_instances:
-		var mat: StandardMaterial3D = mesh_inst.get_active_material(0) as StandardMaterial3D
+		var mat: Material = mesh_inst.get_active_material(0)
 		if mat:
-			var original_copy: StandardMaterial3D = mat.duplicate() as StandardMaterial3D
+			var original_copy: Material = mat.duplicate()
+			_apply_hull_params(original_copy)
 			_original_materials.append(original_copy)
 			var build_mat: ShaderMaterial = _create_build_shader_material(mesh_inst, original_copy)
 			_build_shader_materials.append(build_mat)
@@ -183,7 +185,9 @@ func _on_construction_completed() -> void:
 func _restore_materials() -> void:
 	for i in range(_mesh_instances.size()):
 		if i < _original_materials.size() and _original_materials[i]:
-			_mesh_instances[i].set_surface_override_material(0, _original_materials[i].duplicate())
+			var mat_to_set: Material = _original_materials[i].duplicate()
+			_apply_hull_params(mat_to_set)
+			_mesh_instances[i].set_surface_override_material(0, mat_to_set)
 	_build_shader_materials.clear()
 
 
@@ -228,24 +232,50 @@ func _play_construction_finish_animation() -> void:
 	pass
 
 
-func _create_build_shader_material(mesh_inst: MeshInstance3D, original_mat: StandardMaterial3D) -> ShaderMaterial:
+func _create_build_shader_material(mesh_inst: MeshInstance3D, original_mat: Material) -> ShaderMaterial:
 	if _build_shell_shader == null:
 		return null
 	if mesh_inst == null or mesh_inst.mesh == null:
 		return null
+	
+	var final_color_val: Color = Color(0.45, 0.48, 0.52, 1.0)
+	if original_mat is StandardMaterial3D:
+		final_color_val = (original_mat as StandardMaterial3D).albedo_color
+	elif original_mat is ShaderMaterial:
+		var shader_mat: ShaderMaterial = original_mat as ShaderMaterial
+		if shader_mat.shader and shader_mat.shader.resource_path == STRUCTURE_HULL_SHADER_PATH:
+			var base: Variant = shader_mat.get_shader_parameter("base_color")
+			if base is Color:
+				final_color_val = base
 	
 	var dir_local: Vector3 = _get_build_print_direction_local()
 	var axis_data: Dictionary = _compute_axis_projection_from_bounds(dir_local)
 	var build_mat: ShaderMaterial = ShaderMaterial.new()
 	build_mat.shader = _build_shell_shader
 	build_mat.set_shader_parameter("build_progress", 0.0)
-	build_mat.set_shader_parameter("final_color", original_mat.albedo_color)
+	build_mat.set_shader_parameter("final_color", final_color_val)
 	build_mat.set_shader_parameter("print_direction", dir_local)
 	build_mat.set_shader_parameter("axis_center", float(axis_data.get("center", 0.0)))
 	build_mat.set_shader_parameter("axis_extent", maxf(float(axis_data.get("extent", 1.0)), 0.01))
 	build_mat.set_shader_parameter("build_radius", maxf(_build_bounds_radius_local * maxf(build_fx_radius_multiplier, 0.1), 0.01))
 	build_mat.set_shader_parameter("finalize_blend", 0.0)
 	return build_mat
+
+
+func _apply_hull_params(mat: Material) -> void:
+	if not mat is ShaderMaterial:
+		return
+	var shader_mat: ShaderMaterial = mat as ShaderMaterial
+	if shader_mat.shader == null:
+		return
+	if shader_mat.shader.resource_path != STRUCTURE_HULL_SHADER_PATH:
+		return
+	var dir_local: Vector3 = _get_build_print_direction_local()
+	var axis_data: Dictionary = _compute_axis_projection_from_bounds(dir_local)
+	shader_mat.set_shader_parameter("print_direction", dir_local)
+	shader_mat.set_shader_parameter("axis_center", float(axis_data.get("center", 0.0)))
+	shader_mat.set_shader_parameter("axis_extent", maxf(float(axis_data.get("extent", 1.0)), 0.01))
+	shader_mat.set_shader_parameter("build_radius", maxf(_build_bounds_radius_local * maxf(build_fx_radius_multiplier, 0.1), 0.01))
 
 
 func _get_build_print_direction_local() -> Vector3:

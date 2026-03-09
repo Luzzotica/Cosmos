@@ -8,16 +8,18 @@
 [ext_resource type="Script" path="res://scripts/components/power_user.gd" id="6_power_user"]
 [ext_resource type="PackedScene" path="res://scenes/components/selectable_component.tscn" id="7_selectable"]
 [ext_resource type="PackedScene" path="res://scenes/components/selection_visuals.tscn" id="8_selection_visuals"]
+[ext_resource type="Shader" path="res://shaders/structure_hull.gdshader" id="9_hull"]
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_base"]
 top_radius = 1.05
 bottom_radius = 1.05
 height = 0.45
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_base"]
-albedo_color = Color(0.45, 0.48, 0.52, 1)
-metallic = 0.8
-roughness = 0.35
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_base"]
+shader = ExtResource("9_hull")
+shader_parameter/base_color = Color(0.45, 0.48, 0.52, 1)
+shader_parameter/metallic = 0.8
+shader_parameter/roughness = 0.35
 
 [sub_resource type="SphereMesh" id="SphereMesh_orb"]
 radius = 0.32
@@ -43,7 +45,7 @@ damage = 10.0
 [node name="TurretBase" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.225, 0)
 mesh = SubResource("CylinderMesh_base")
-surface_material_override/0 = SubResource("StandardMaterial3D_base")
+surface_material_override/0 = SubResource("ShaderMaterial_base")
 
 [node name="ActiveOrb" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.45, 0)

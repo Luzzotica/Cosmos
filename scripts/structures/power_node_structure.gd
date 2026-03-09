@@ -7,7 +7,6 @@ class_name PowerNodeStructure
 
 var _orb_intro_tween: Tween = null
 var _orb_rest_local_pos: Vector3 = Vector3.ZERO
-var _orb_hidden_local_pos: Vector3 = Vector3.ZERO
 
 
 func _ready() -> void:
@@ -16,10 +15,8 @@ func _ready() -> void:
 	if active_connection_orb:
 		active_connection_orb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_orb_rest_local_pos = active_connection_orb.position
-		_orb_hidden_local_pos = Vector3(0.0, 0.95, 0.0)
 		if not is_built():
-			active_connection_orb.visible = false
-			active_connection_orb.position = _orb_hidden_local_pos
+			active_connection_orb.scale = Vector3.ZERO
 
 
 func _process(delta: float) -> void:
@@ -39,22 +36,21 @@ func _play_construction_finish_animation() -> void:
 		_orb_intro_tween.kill()
 		_orb_intro_tween = null
 	
-	active_connection_orb.visible = true
-	active_connection_orb.position = _orb_hidden_local_pos
-	active_connection_orb.scale = Vector3.ONE * 0.7
-	var mat: StandardMaterial3D = active_connection_orb.get_active_material(0) as StandardMaterial3D
-	if mat:
-		mat.emission_energy_multiplier = 5.0
-	
 	var target_pos: Vector3 = _orb_rest_local_pos
 	if connection_point:
 		target_pos = connection_point.position
 	
+	active_connection_orb.visible = true
+	active_connection_orb.position = target_pos
+	active_connection_orb.scale = Vector3.ZERO
+	var mat: StandardMaterial3D = active_connection_orb.get_active_material(0) as StandardMaterial3D
+	if mat:
+		mat.emission_energy_multiplier = 5.0
+	
 	_orb_intro_tween = create_tween()
 	_orb_intro_tween.set_trans(Tween.TRANS_BACK)
 	_orb_intro_tween.set_ease(Tween.EASE_OUT)
-	_orb_intro_tween.tween_property(active_connection_orb, "position", target_pos, 0.38)
-	_orb_intro_tween.parallel().tween_property(active_connection_orb, "scale", Vector3.ONE, 0.38)
+	_orb_intro_tween.tween_property(active_connection_orb, "scale", Vector3.ONE, 0.38)
 	_orb_intro_tween.tween_callback(func() -> void:
 		_orb_intro_tween = null
 	)
