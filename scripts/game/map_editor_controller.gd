@@ -10,17 +10,31 @@ const TOGGLE_KEY: Key = KEY_F9
 const DRAFT_DIR: String = "user://maps"
 const PREVIEW_MAP_PATH: String = "user://maps/editor_preview.json"
 
-@onready var main_game: Node3D = get_parent()
-@onready var camera: Camera3D = main_game.get_node_or_null("RTSCamera")
-@onready var asteroids_parent: Node3D = main_game.get_node_or_null("Asteroids")
-@onready var structures_parent: Node3D = main_game.get_node_or_null("Structures")
-@onready var panel = main_game.get_node_or_null("UI/MapEditorPanel")
+var main_game: Node3D
+var camera: Camera3D
+var asteroids_parent: Node3D
+var structures_parent: Node3D
+var panel: Control
 
 var editor_enabled: bool = false
 var _clouds: Array[Resource] = []
 
 
 func _ready() -> void:
+	main_game = get_parent()
+	camera = main_game.get_node_or_null("RTSCamera")
+	asteroids_parent = main_game.get_node_or_null("Asteroids")
+	structures_parent = main_game.get_node_or_null("Structures")
+
+	# Panel may be our child (when loaded from map_editor.tscn) or already under UI
+	panel = get_node_or_null("MapEditorPanel") as Control
+	if panel:
+		var ui: CanvasLayer = main_game.get_node_or_null("UI")
+		if ui:
+			panel.reparent(ui)
+	if panel == null:
+		panel = main_game.get_node_or_null("UI/MapEditorPanel") as Control
+
 	if panel:
 		panel.configure_structure_types(MapLoader.get_available_structure_types())
 		panel.save_requested.connect(_save_current_map_draft)

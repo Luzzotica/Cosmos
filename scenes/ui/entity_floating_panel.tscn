@@ -1,0 +1,34 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/entity_floating_panel.gd" id="1_script"]
+[ext_resource type="Theme" path="res://themes/cosmos_ui_theme.tres" id="2_theme"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.0196078, 0.0784314, 0.152941, 0.95)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.643137, 0.262745, 0.133333, 0.95)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[node name="EntityFloatingPanel" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+theme = ExtResource("2_theme")
+script = ExtResource("1_script")
+
+[node name="Panel" type="PanelContainer" parent="."]
+layout_mode = 1
+custom_minimum_size = Vector2(260, 0)
+offset_right = 280.0
+offset_bottom = 140.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")

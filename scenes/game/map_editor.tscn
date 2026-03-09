@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://b2m8k4qxr7vne"]
+
+[ext_resource type="Script" path="res://scripts/game/map_editor_controller.gd" id="1_controller"]
+[ext_resource type="PackedScene" path="res://scenes/ui/map_editor_panel.tscn" id="2_panel"]
+
+[node name="MapEditor" type="Node"]
+script = ExtResource("1_controller")
+
+[node name="MapEditorPanel" parent="." instance=ExtResource("2_panel")]

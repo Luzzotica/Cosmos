@@ -1,63 +1,96 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/main_menu.gd" id="1_script"]
 [ext_resource type="Theme" path="res://themes/cosmos_ui_theme.tres" id="2_theme"]
+[ext_resource type="PackedScene" uid="uid://c2xk8m4oaqpwr" path="res://scenes/ui/main_menu_background.tscn" id="3_background"]
+[ext_resource type="Shader" path="res://shaders/menu_gradient.gdshader" id="4_gradient_shader"]
 
-[node name="MainMenu" type="Control"]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme = ExtResource("2_theme")
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_menu"]
+shader = ExtResource("4_gradient_shader")
+
+[node name="MainMenu" type="Node3D"]
 script = ExtResource("1_script")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="MainMenuWorld" parent="." instance=ExtResource("3_background")]
+
+[node name="UILayer" type="CanvasLayer" parent="."]
+layer = 10
+
+[node name="GradientOverlay" type="ColorRect" parent="UILayer"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 0.0
+offset_bottom = 0.0
 grow_horizontal = 2
 grow_vertical = 2
 color = Color(0, 0, 0, 1)
+material = SubResource("ShaderMaterial_menu")
 
-[node name="Center" type="CenterContainer" parent="."]
+[node name="LeftPanel" type="Control" parent="UILayer"]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.0
+anchor_right = 0.333333
+anchor_bottom = 1.0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 0.0
+offset_bottom = 0.0
+grow_horizontal = 0
+grow_vertical = 2
+theme = ExtResource("2_theme")
+
+[node name="CenterV" type="CenterContainer" parent="UILayer/LeftPanel"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+offset_left = 24.0
+offset_top = 48.0
+offset_right = -24.0
+offset_bottom = -48.0
 
-[node name="VBox" type="VBoxContainer" parent="Center"]
+[node name="VBox" type="VBoxContainer" parent="UILayer/LeftPanel/CenterV"]
 layout_mode = 2
-theme_override_constants/separation = 16
+theme_override_constants/separation = 28
 
-[node name="Title" type="Label" parent="Center/VBox"]
+[node name="Title" type="Label" parent="UILayer/LeftPanel/CenterV/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 56
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 72
 text = "COSMOS"
 horizontal_alignment = 1
 
-[node name="Subtitle" type="Label" parent="Center/VBox"]
+[node name="Subtitle" type="Label" parent="UILayer/LeftPanel/CenterV/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.643137, 0.262745, 0.133333, 1)
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 26
 text = "The Scholar's Dilemma"
 horizontal_alignment = 1
 
-[node name="StoryLevelsButton" type="Button" parent="Center/VBox"]
-custom_minimum_size = Vector2(360, 56)
+[node name="Spacer" type="Control" parent="UILayer/LeftPanel/CenterV/VBox"]
 layout_mode = 2
+custom_minimum_size = Vector2(0, 36)
+
+[node name="StoryLevelsButton" type="Button" parent="UILayer/LeftPanel/CenterV/VBox"]
+custom_minimum_size = Vector2(400, 64)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
 text = "Story Levels"
 
-[node name="MapEditorButton" type="Button" parent="Center/VBox"]
-custom_minimum_size = Vector2(360, 56)
+[node name="MapEditorButton" type="Button" parent="UILayer/LeftPanel/CenterV/VBox"]
+custom_minimum_size = Vector2(400, 64)
 layout_mode = 2
+theme_override_font_sizes/font_size = 22
 text = "Map Editor"
 
-[node name="QuitButton" type="Button" parent="Center/VBox"]
-custom_minimum_size = Vector2(360, 56)
+[node name="QuitButton" type="Button" parent="UILayer/LeftPanel/CenterV/VBox"]
+custom_minimum_size = Vector2(400, 64)
 layout_mode = 2
+theme_override_font_sizes/font_size = 22
 text = "Quit"

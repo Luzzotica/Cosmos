@@ -1,0 +1,89 @@
+[gd_scene format=3 uid="uid://c2xk8m4oaqpwr"]
+
+[ext_resource type="Script" uid="uid://bcj78o7vloii" path="res://scripts/ui/main_menu_background.gd" id="1_script"]
+[ext_resource type="Shader" uid="uid://t6rxxtupsr6f" path="res://shaders/starfield_sky_v3.gdshader" id="2_starfield"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_aagh5"]
+shader = ExtResource("2_starfield")
+shader_parameter/space_color = Color(0.02, 0.02, 0.05, 1)
+shader_parameter/star_height = 5.0
+shader_parameter/star_blend = 0.1
+shader_parameter/star_twinkle_speed = 0.6
+shader_parameter/star_oscillation_speed = 0.35
+shader_parameter/star_oscillation_strength = 0.08
+shader_parameter/sky_seed = 0.0
+shader_parameter/parallax_offset = Vector3(0, 0, 0)
+shader_parameter/star_zoom_scale = 1.0
+shader_parameter/parallax_drift_strength = 0.016
+shader_parameter/parallax_strength = 1.8070000858325
+shader_parameter/parallax_drift_speed_x = 0.18
+shader_parameter/parallax_drift_speed_z = 0.14
+shader_parameter/star_grid_density = 0.1
+shader_parameter/star_jitter_amount = 0.6
+shader_parameter/star_size_min = 0.05200000247
+shader_parameter/star_size_max = 0.15300000656898
+shader_parameter/star_glow_radius_mult = 1.646000030685
+shader_parameter/star_glow_intensity = 1.0
+shader_parameter/star_twinkle_min = 0.8
+shader_parameter/star_twinkle_amount = 0.2
+shader_parameter/star_twinkle_freq_scale = 2.0
+shader_parameter/star_twinkle_phase = 97.0
+shader_parameter/star_oscillation_phase_scale = 0.5
+shader_parameter/star_oscillation_cell_scale = Vector2(8, 11)
+shader_parameter/star_color_blue = Color(0.5, 0.7, 1, 1)
+shader_parameter/star_color_white = Color(1, 0.95, 0.9, 1)
+shader_parameter/star_color_orange = Color(1, 0.4, 0.15, 1)
+shader_parameter/star_color_mid = 0.5
+shader_parameter/star_output_scale = 1.1
+shader_parameter/star_layer1_cells = 434.494020590965
+shader_parameter/star_layer1_threshold = 0.8590000408025
+shader_parameter/star_layer1_brightness = 0.46400002204
+shader_parameter/star_layer1_seed = 0.0
+shader_parameter/star_layer1_parallax = 0.5
+shader_parameter/star_layer2_cells = 247.618011714355
+shader_parameter/star_layer2_threshold = 0.79600003781
+shader_parameter/star_layer2_brightness = 0.48800002318
+shader_parameter/star_layer2_seed = 100.0
+shader_parameter/star_layer2_parallax = 1.0
+shader_parameter/star_layer3_cells = 99.2850046685375
+shader_parameter/star_layer3_threshold = 0.9590000455525
+shader_parameter/star_layer3_brightness = 0.9630000457425
+shader_parameter/star_layer3_seed = 200.0
+shader_parameter/star_layer3_parallax = 1.5
+shader_parameter/star_layer4_cells = 60.0000028025
+shader_parameter/star_layer4_threshold = 0.962000045695
+shader_parameter/star_layer4_brightness = 0.906000043035
+shader_parameter/star_layer4_seed = 300.0
+shader_parameter/star_layer4_parallax = 2.0
+
+[sub_resource type="Sky" id="Sky_space"]
+sky_material = SubResource("ShaderMaterial_aagh5")
+
+[sub_resource type="Environment" id="Environment_birrt"]
+background_mode = 2
+sky = SubResource("Sky_space")
+ambient_light_source = 2
+ambient_light_color = Color(0.3, 0.3, 0.4, 1)
+ambient_light_energy = 0.5
+
+[node name="MainMenuBackground" type="Node3D" unique_id=2048525837]
+script = ExtResource("1_script")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=3509394]
+transform = Transform3D(0.866025, -0.353553, 0.353553, 0, 0.707107, 0.707107, -0.5, -0.612372, 0.612372, 0, 50, 0)
+light_color = Color(0.9, 0.9, 1, 1)
+light_energy = 1.5
+shadow_enabled = true
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1980602606]
+transform = Transform3D(1, 0, 0, 0, 0.50000024, 0.8660253, 0, -0.8660253, 0.50000024, 6.0675826, 12.865622, 7.654375)
+current = true
+
+[node name="Structures" type="Node3D" parent="." unique_id=779806733]
+
+[node name="PowerLines" type="Node3D" parent="." unique_id=738974098]
+
+[node name="Asteroids" type="Node3D" parent="." unique_id=31456698]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=882343920]
+environment = SubResource("Environment_birrt")

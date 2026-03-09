@@ -77,7 +77,7 @@ func _setup_startup_map() -> void:
 		_configure_story_mode()
 
 	if ResourceLoader.exists(selected_map_path):
-		MapLoader.load_map_from_json(selected_map_path)
+		MapLoader.load_map_from_json(selected_map_path, _is_editor_mode)
 		_center_camera_on_spawn()
 		if _is_editor_mode:
 			_open_editor_panel_default()
@@ -104,9 +104,12 @@ func _configure_editor_mode() -> void:
 
 
 func _open_editor_panel_default() -> void:
-	var editor_controller: Node = get_node_or_null("MapEditorController")
-	if editor_controller and editor_controller.has_method("set_editor_visible"):
-		editor_controller.call("set_editor_visible", true)
+	var map_editor_scene: PackedScene = load("res://scenes/game/map_editor.tscn") as PackedScene
+	if map_editor_scene:
+		var map_editor: Node = map_editor_scene.instantiate()
+		add_child(map_editor)
+		if map_editor.has_method("set_editor_visible"):
+			map_editor.call("set_editor_visible", true)
 
 
 func _configure_story_mode() -> void:

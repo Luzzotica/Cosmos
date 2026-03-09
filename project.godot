@@ -34,6 +34,7 @@ StoryCampaignManager="*res://scripts/autoload/story_campaign_manager.gd"
 GameSession="*res://scripts/autoload/game_session.gd"
 ECS="*uid://dfqwl5njvdnmq"
 LineBatchManager="*res://scripts/autoload/line_batch_manager.gd"
+GameWorld="*uid://c160il8fy8l7o"
 
 [display]
 

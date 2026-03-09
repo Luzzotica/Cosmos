@@ -1,163 +1,315 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/map_editor_panel.gd" id="1_panel"]
 [ext_resource type="Theme" path="res://themes/cosmos_ui_theme.tres" id="2_theme"]
+[ext_resource type="PackedScene" path="res://scenes/ui/minimap_panel.tscn" id="3_minimap"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.0196078, 0.0784314, 0.152941, 0.9)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.643137, 0.262745, 0.133333, 0.9)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_normal"]
+bg_color = Color(0.32549, 0.0588235, 0.117647, 0.92)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.643137, 0.262745, 0.133333, 0.85)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_hover"]
+bg_color = Color(0.643137, 0.262745, 0.133333, 0.95)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.972549, 0.737255, 0.0156863, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
 
 [node name="MapEditorPanel" type="Control"]
-layout_mode = 1
-anchors_preset = 0
-offset_left = 20.0
-offset_top = 20.0
-offset_right = 400.0
-offset_bottom = 660.0
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 1
 theme = ExtResource("2_theme")
 script = ExtResource("1_panel")
 
-[node name="Panel" type="PanelContainer" parent="."]
+[node name="Margin" type="MarginContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
 
-[node name="Margin" type="MarginContainer" parent="Panel"]
+[node name="VBox" type="VBoxContainer" parent="Margin"]
 layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="TopBar" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="MapInfoPanel" type="PanelContainer" parent="Margin/VBox/TopBar"]
+custom_minimum_size = Vector2(220, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="Margin" type="MarginContainer" parent="Margin/VBox/TopBar/MapInfoPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 6
+
+[node name="VBox" type="VBoxContainer" parent="Margin/VBox/TopBar/MapInfoPanel/Margin"]
+layout_mode = 2
+
+[node name="MapName" type="LineEdit" parent="Margin/VBox/TopBar/MapInfoPanel/Margin/VBox"]
+layout_mode = 2
+placeholder_text = "Map name"
+text = "Community Draft"
+
+[node name="MetaRow" type="HBoxContainer" parent="Margin/VBox/TopBar/MapInfoPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Biome" type="LineEdit" parent="Margin/VBox/TopBar/MapInfoPanel/Margin/VBox/MetaRow"]
+custom_minimum_size = Vector2(90, 0)
+layout_mode = 2
+placeholder_text = "Biome"
+text = "asteroid_field"
+
+[node name="Difficulty" type="LineEdit" parent="Margin/VBox/TopBar/MapInfoPanel/Margin/VBox/MetaRow"]
+custom_minimum_size = Vector2(70, 0)
+layout_mode = 2
+placeholder_text = "Diff"
+text = "normal"
+
+[node name="WaveDesignerButton" type="Button" parent="Margin/VBox/TopBar"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Wave Designer"
+
+[node name="MapSettingsButton" type="Button" parent="Margin/VBox/TopBar"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Map Settings"
+
+[node name="MapSettingsPopup" type="PopupPanel" parent="."]
+size = Vector2i(400, 220)
+
+[node name="Margin" type="MarginContainer" parent="MapSettingsPopup"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 theme_override_constants/margin_left = 12
 theme_override_constants/margin_top = 12
 theme_override_constants/margin_right = 12
 theme_override_constants/margin_bottom = 12
 
-[node name="VBox" type="VBoxContainer" parent="Panel/Margin"]
+[node name="VBox" type="VBoxContainer" parent="MapSettingsPopup/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="Title" type="Label" parent="Panel/Margin/VBox"]
+[node name="MetaRow" type="HBoxContainer" parent="MapSettingsPopup/Margin/VBox"]
 layout_mode = 2
-text = "Map Editor (F9)"
+theme_override_constants/separation = 8
 
-[node name="ToolSelect" type="OptionButton" parent="Panel/Margin/VBox"]
+[node name="Act" type="LineEdit" parent="MapSettingsPopup/Margin/VBox/MetaRow"]
+custom_minimum_size = Vector2(70, 0)
 layout_mode = 2
-
-[node name="StructureTypeSelect" type="OptionButton" parent="Panel/Margin/VBox"]
-layout_mode = 2
-
-[node name="AsteroidSize" type="SpinBox" parent="Panel/Margin/VBox"]
-layout_mode = 2
-min_value = 1.0
-max_value = 8.0
-step = 0.1
-value = 3.0
-prefix = "Size "
-
-[node name="AsteroidMinerals" type="SpinBox" parent="Panel/Margin/VBox"]
-layout_mode = 2
-min_value = 1.0
-max_value = 500.0
-step = 1.0
-value = 30.0
-prefix = "Minerals "
-
-[node name="CloudRadius" type="SpinBox" parent="Panel/Margin/VBox"]
-layout_mode = 2
-min_value = 5.0
-max_value = 200.0
-step = 1.0
-value = 35.0
-prefix = "Cloud Radius "
-
-[node name="CloudCount" type="SpinBox" parent="Panel/Margin/VBox"]
-layout_mode = 2
-min_value = 1.0
-max_value = 100.0
-step = 1.0
-value = 8.0
-prefix = "Cloud Count "
-
-[node name="MapName" type="LineEdit" parent="Panel/Margin/VBox"]
-layout_mode = 2
-placeholder_text = "Map name"
-text = "Community Draft"
-
-[node name="Biome" type="LineEdit" parent="Panel/Margin/VBox"]
-layout_mode = 2
-placeholder_text = "Biome"
-text = "asteroid_field"
-
-[node name="Difficulty" type="LineEdit" parent="Panel/Margin/VBox"]
-layout_mode = 2
-placeholder_text = "Difficulty band"
-text = "normal"
-
-[node name="Act" type="LineEdit" parent="Panel/Margin/VBox"]
-layout_mode = 2
-placeholder_text = "Story act"
+placeholder_text = "Act"
 text = "act_01"
 
-[node name="Chapter" type="LineEdit" parent="Panel/Margin/VBox"]
+[node name="Chapter" type="LineEdit" parent="MapSettingsPopup/Margin/VBox/MetaRow"]
+custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
-placeholder_text = "Story chapter"
+placeholder_text = "Chapter"
 text = "chapter_01_first_light"
 
-[node name="PartialExtraction" type="CheckBox" parent="Panel/Margin/VBox"]
+[node name="PartialExtraction" type="CheckBox" parent="MapSettingsPopup/Margin/VBox/MetaRow"]
 layout_mode = 2
 button_pressed = true
-text = "Allow partial extraction"
+text = "Partial extraction"
 
-[node name="CarryoverMinerals" type="SpinBox" parent="Panel/Margin/VBox"]
+[node name="CarryoverRow" type="HBoxContainer" parent="MapSettingsPopup/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="CarryoverMinerals" type="SpinBox" parent="MapSettingsPopup/Margin/VBox/CarryoverRow"]
+custom_minimum_size = Vector2(140, 0)
 layout_mode = 2
 min_value = 0.0
 max_value = 50000.0
 step = 100.0
 value = 6000.0
-prefix = "Target carryover minerals "
+prefix = "Carryover minerals "
 
-[node name="CarryoverEnergy" type="SpinBox" parent="Panel/Margin/VBox"]
+[node name="CarryoverEnergy" type="SpinBox" parent="MapSettingsPopup/Margin/VBox/CarryoverRow"]
+custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
 min_value = 0.0
 max_value = 1000.0
 step = 5.0
 value = 100.0
-prefix = "Target carryover energy "
+prefix = "Carryover energy "
 
-[node name="StatusLabel" type="Label" parent="Panel/Margin/VBox"]
+[node name="Spacer" type="Control" parent="Margin/VBox/TopBar"]
 layout_mode = 2
-autowrap_mode = 3
-text = "Editor idle."
+size_flags_horizontal = 3
 
-[node name="ButtonRow" type="HBoxContainer" parent="Panel/Margin/VBox"]
+[node name="ActionPanel" type="PanelContainer" parent="Margin/VBox/TopBar"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="Margin" type="MarginContainer" parent="Margin/VBox/TopBar/ActionPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="HBox" type="HBoxContainer" parent="Margin/VBox/TopBar/ActionPanel/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="SaveButton" type="Button" parent="Panel/Margin/VBox/ButtonRow"]
+[node name="SaveButton" type="Button" parent="Margin/VBox/TopBar/ActionPanel/Margin/HBox"]
 layout_mode = 2
-size_flags_horizontal = 3
 text = "Save Draft"
 
-[node name="TestButton" type="Button" parent="Panel/Margin/VBox/ButtonRow"]
+[node name="TestButton" type="Button" parent="Margin/VBox/TopBar/ActionPanel/Margin/HBox"]
 layout_mode = 2
-size_flags_horizontal = 3
 text = "Test Play"
 
-[node name="CloseButton" type="Button" parent="Panel/Margin/VBox/ButtonRow"]
+[node name="ExportButton" type="Button" parent="Margin/VBox/TopBar/ActionPanel/Margin/HBox"]
 layout_mode = 2
-size_flags_horizontal = 3
+text = "Export"
+
+[node name="ImportButton" type="Button" parent="Margin/VBox/TopBar/ActionPanel/Margin/HBox"]
+layout_mode = 2
+text = "Import"
+
+[node name="CloseButton" type="Button" parent="Margin/VBox/TopBar/ActionPanel/Margin/HBox"]
+layout_mode = 2
 text = "Close"
 
-[node name="FileRow" type="HBoxContainer" parent="Panel/Margin/VBox"]
+[node name="StatusLabel" type="Label" parent="Margin/VBox/TopBar"]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+size_flags_vertical = 1
+text = "Editor idle. (F9 to toggle)"
+
+[node name="Spacer2" type="Control" parent="Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+custom_minimum_size = Vector2(0, 20)
+
+[node name="BottomBar" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 8
+alignment = 1
+theme_override_constants/separation = 16
+
+[node name="ModePanel" type="PanelContainer" parent="Margin/VBox/BottomBar"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="Margin" type="MarginContainer" parent="Margin/VBox/BottomBar/ModePanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
+
+[node name="ModeVBox" type="VBoxContainer" parent="Margin/VBox/BottomBar/ModePanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ModeButtons" type="HBoxContainer" parent="Margin/VBox/BottomBar/ModePanel/Margin/ModeVBox"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="ExportButton" type="Button" parent="Panel/Margin/VBox/FileRow"]
+[node name="BuildingModeButton" type="Button" parent="Margin/VBox/BottomBar/ModePanel/Margin/ModeVBox/ModeButtons"]
+custom_minimum_size = Vector2(140, 50)
 layout_mode = 2
-size_flags_horizontal = 3
-text = "Export JSON"
+toggle_mode = true
+button_pressed = true
+text = "Buildings"
 
-[node name="ImportButton" type="Button" parent="Panel/Margin/VBox/FileRow"]
+[node name="AsteroidModeButton" type="Button" parent="Margin/VBox/BottomBar/ModePanel/Margin/ModeVBox/ModeButtons"]
+custom_minimum_size = Vector2(140, 50)
 layout_mode = 2
-size_flags_horizontal = 3
-text = "Import JSON"
+toggle_mode = true
+text = "Asteroids"
+
+[node name="EraseModeButton" type="Button" parent="Margin/VBox/BottomBar/ModePanel/Margin/ModeVBox/ModeButtons"]
+custom_minimum_size = Vector2(100, 50)
+layout_mode = 2
+toggle_mode = true
+text = "Erase"
+
+[node name="ModeContent" type="HBoxContainer" parent="Margin/VBox/BottomBar/ModePanel/Margin/ModeVBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="BuildingContent" type="HBoxContainer" parent="Margin/VBox/BottomBar/ModePanel/Margin/ModeVBox/ModeContent"]
+layout_mode = 2
+theme_override_constants/separation = 10
+visible = false
+
+[node name="BuildButtons" type="HBoxContainer" parent="Margin/VBox/BottomBar/ModePanel/Margin/ModeVBox/ModeContent/BuildingContent"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="AsteroidContent" type="HBoxContainer" parent="Margin/VBox/BottomBar/ModePanel/Margin/ModeVBox/ModeContent"]
+layout_mode = 2
+theme_override_constants/separation = 12
+visible = false
+
+[node name="PlaceCloudLabel" type="Label" parent="Margin/VBox/BottomBar/ModePanel/Margin/ModeVBox/ModeContent/AsteroidContent"]
+layout_mode = 2
+text = "Click on map to place clouds"
+
+[node name="MonolithButton" type="Button" parent="Margin/VBox/BottomBar/ModePanel/Margin/ModeVBox/ModeContent/AsteroidContent"]
+custom_minimum_size = Vector2(120, 40)
+layout_mode = 2
+text = "Monolith (Y)"
+
+[node name="MinimapPanel" parent="." instance=ExtResource("3_minimap")]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -280.0
+offset_top = -280.0
+offset_right = -20.0
+offset_bottom = -20.0
+grow_horizontal = 0
 
 [node name="ExportDialog" type="FileDialog" parent="."]
 title = "Export Map JSON"

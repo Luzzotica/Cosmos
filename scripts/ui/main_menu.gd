@@ -1,12 +1,13 @@
-extends Control
+extends Node3D
 class_name MainMenu
 
-@onready var story_levels_button: Button = $Center/VBox/StoryLevelsButton
-@onready var map_editor_button: Button = $Center/VBox/MapEditorButton
-@onready var quit_button: Button = $Center/VBox/QuitButton
+@onready var story_levels_button: Button = $UILayer/LeftPanel/CenterV/VBox/StoryLevelsButton
+@onready var map_editor_button: Button = $UILayer/LeftPanel/CenterV/VBox/MapEditorButton
+@onready var quit_button: Button = $UILayer/LeftPanel/CenterV/VBox/QuitButton
 
 
 func _ready() -> void:
+	MusicManager.play_build_music(true)
 	story_levels_button.pressed.connect(_on_story_levels_pressed)
 	map_editor_button.pressed.connect(_on_map_editor_pressed)
 	quit_button.pressed.connect(_on_quit_pressed)

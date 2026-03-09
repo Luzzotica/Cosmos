@@ -464,6 +464,14 @@ func set_starter_panel(is_starter: bool) -> void:
 			construction_component.set_built()
 		if power_node:
 			power_node.is_enabled = true
+		# Sync ECS c_construction so ConstructionSystem sees is_built (avoids double-processing)
+		if _ecs_entity and ECS and ECS.world:
+			var C_ConstructionClass: GDScript = load("res://scripts/ecs/components/c_construction.gd") as GDScript
+			if C_ConstructionClass:
+				var c_construction: Resource = _ecs_entity.get_component(C_ConstructionClass.new())
+				if c_construction:
+					c_construction.set("is_built", true)
+					c_construction.set("build_progress", 1.0)
 		# Immediately finalize the build animation (restore materials, full scale)
 		_on_construction_completed()
 
@@ -554,5 +562,3 @@ func get_selection_details() -> Dictionary:
 
 	details["stats"] = stats
 	return details
-
-
