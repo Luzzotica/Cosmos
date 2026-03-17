@@ -82,7 +82,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
 			# If we're not currently building something, clear selection
 			if not BuildManager.is_building():
-				print("[DEBUG] SelectionManager: Unhandled left click - clearing selection")
 				clear_selection()
 
 
@@ -240,17 +239,18 @@ func get_primary_selection_details() -> Dictionary:
 func _get_entity_type(entity: Node3D) -> EntityType:
 	if entity is BaseStructure:
 		return EntityType.STRUCTURE
-	elif entity is EnemyShip:
+	if entity.has_method("get_selection_details") and entity.get_parent() and entity.get_parent().has_method("get_component"):
+		return EntityType.STRUCTURE
+	if entity is EnemyShipBase:
 		return EntityType.ENEMY
-	elif entity is Asteroid:
+	elif entity.has_method("mine_minerals") or (entity.get_parent() and entity.get_parent().has_method("mine_minerals")):
 		return EntityType.ASTEROID
-	# Check by class name as fallback
 	var class_name_str: String = entity.get_class()
 	if "Structure" in class_name_str or entity.has_method("is_built"):
 		return EntityType.STRUCTURE
 	if "Enemy" in class_name_str:
 		return EntityType.ENEMY
-	if "Asteroid" in class_name_str or entity.has_method("mine_minerals"):
+	if "Asteroid" in class_name_str or entity.has_method("mine_minerals") or (entity.get_parent() and entity.get_parent().has_method("mine_minerals")):
 		return EntityType.ASTEROID
 	return EntityType.NONE
 
@@ -272,16 +272,37 @@ func _get_entity_name(entity: Node3D) -> String:
 		var structure: BaseStructure = entity as BaseStructure
 		if structure.building_type != "":
 			return structure.building_type.replace("_", " ").capitalize()
-	if entity is EnemyShip:
-		return "Enemy Ship"
-	if entity is Asteroid:
-		return "Asteroid"
+	if entity.has_method("get_selection_name") and entity.get_parent() and entity.get_parent().has_method("get_component"):
+		return entity.get_selection_name()
+	if entity is EnemyShipBase:
+		var enemy: EnemyShipBase = entity as EnemyShipBase
+		return enemy.get_selection_name()
+	if entity.has_method("get_selection_name"):
+		return entity.get_selection_name()
 	return entity.name.replace("_", " ").capitalize()
 
 
 func _get_structure_info(entity: Node3D) -> Dictionary:
 	var info: Dictionary = {}
-	
+	if entity.has_method("get_selection_details") and entity.get_parent() and entity.get_parent().has_method("get_component"):
+		var details: Dictionary = entity.get_selection_details()
+		if details.has("health_current"):
+			info["health"] = details.health_current
+		if details.has("health_max"):
+			info["max_health"] = details.health_max
+		if details.has("health_current") and details.has("health_max") and details.health_max > 0:
+			info["health_percent"] = (float(details.health_current) / float(details.health_max)) * 100.0
+		if details.has("is_built"):
+			info["is_built"] = details.is_built
+		if details.has("build_progress"):
+			info["build_progress"] = details.build_progress
+		if details.has("connection_count"):
+			info["connection_count"] = details.connection_count
+		if details.has("is_powered"):
+			info["is_powered"] = details.is_powered
+		if details.has("building_type"):
+			info["building_type"] = details.building_type
+		return info
 	if entity is BaseStructure:
 		var structure: BaseStructure = entity as BaseStructure
 		
@@ -311,38 +332,20 @@ func _get_structure_info(entity: Node3D) -> Dictionary:
 
 
 func _get_enemy_info(entity: Node3D) -> Dictionary:
-	var info: Dictionary = {}
-	
-	if entity is EnemyShip:
-		var enemy: EnemyShip = entity as EnemyShip
-		
-		# Health
-		if enemy.health_component:
-			info["health"] = enemy.health_component.health
-			info["max_health"] = enemy.health_component.max_health
-			info["health_percent"] = enemy.health_component.get_health_percentage() * 100.0
-		
-		# Stats
-		info["damage"] = enemy.damage
-		info["speed"] = enemy.speed
-		
-		# Weakness (placeholder - can be expanded)
-		info["weakness"] = "Laser"  # Default, can be made dynamic
-	
-	return info
+	if entity is EnemyShipBase:
+		return (entity as EnemyShipBase).get_selection_details()
+	return {}
 
 
 func _get_asteroid_info(entity: Node3D) -> Dictionary:
 	var info: Dictionary = {}
-	
-	if entity is Asteroid:
-		var asteroid: Asteroid = entity as Asteroid
+	var asteroid: Node = entity if entity.has_method("mine_minerals") else entity.get_parent()
+	if asteroid and asteroid.has_method("mine_minerals"):
 		info["remaining_minerals"] = asteroid.remaining_minerals
 		info["total_minerals"] = asteroid.total_minerals
 		info["mineral_percent"] = (asteroid.remaining_minerals / asteroid.total_minerals) * 100.0 if asteroid.total_minerals > 0 else 0.0
 		info["is_depleted"] = asteroid.is_depleted
 		info["size"] = asteroid.asteroid_size
-	
 	return info
 
 

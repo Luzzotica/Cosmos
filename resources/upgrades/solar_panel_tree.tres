@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="UpgradeTreeData" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/upgrade_tree_data.gd" id="1_tree"]
+[ext_resource type="Script" path="res://scripts/data/upgrade_node_data.gd" id="2_node"]
+
+[sub_resource type="Resource" id="node_reinforced_panels"]
+script = ExtResource("2_node")
+id = "reinforced_panels"
+display_name = "Reinforced Panels"
+description = "Increases panel durability by 50%."
+mineral_cost = 100
+power_cost = 8.0
+upgrade_time = 3.0
+requires = Array[String]([])
+excludes = Array[String]([])
+stat_modifiers = [{"component": "C_Health", "property": "maximum", "operation": "multiply", "value": 1.5}, {"component": "C_Health", "property": "current", "operation": "multiply", "value": 1.5}]
+
+[sub_resource type="Resource" id="node_high_capacity"]
+script = ExtResource("2_node")
+id = "high_capacity"
+display_name = "High-Capacity Cells"
+description = "Doubles energy storage capacity."
+mineral_cost = 150
+power_cost = 12.0
+upgrade_time = 4.0
+requires = Array[String]([])
+excludes = Array[String]([])
+stat_modifiers = []
+
+[resource]
+script = ExtResource("1_tree")
+tree_id = "solar_panel"
+nodes = [SubResource("node_reinforced_panels"), SubResource("node_high_capacity")]

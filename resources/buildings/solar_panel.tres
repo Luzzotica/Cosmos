@@ -1,19 +1,18 @@
-[gd_resource type="Resource" script_class="BuildingData" load_steps=3 format=3 uid="uid://dnx4v8xr2hqey"]
+[gd_resource type="Resource" script_class="BuildingData" format=3 uid="uid://dnx4v8xr2hqey"]
 
-[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_building_data"]
-[ext_resource type="PackedScene" uid="uid://bvxk8wn2hqtgc" path="res://scenes/structures/solar_panel.tscn" id="2_scene"]
+[ext_resource type="Script" uid="uid://cyse7hiin278m" path="res://scripts/data/building_data.gd" id="1_building_data"]
+[ext_resource type="PackedScene" uid="uid://dy2xhsx723lk" path="res://scenes/ecs/e_solar_panel.tscn" id="1_iy0sp"]
 
 [resource]
 script = ExtResource("1_building_data")
 id = "solar_panel"
 display_name = "Solar Panel"
 description = "Generates and stores power for your base."
-scene = ExtResource("2_scene")
-cost = 75
+scene = ExtResource("1_iy0sp")
+cost = 250
 construction_time = 3.0
 placement_sphere_radius = 1.5
 max_health = 75.0
-power_radius = 100.0
 max_connections = 20
 energy_production = 10.0
 max_energy_storage = 100.0

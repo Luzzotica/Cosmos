@@ -14,10 +14,11 @@ attack_cooldown = 2.0
 reward_minerals = 35
 tags = PackedStringArray("commander")
 movement_profile = {
-"avoidance_force": 18.0,
-"drag": 2.8,
-"max_acceleration": 7.0,
-"max_turn_rate_deg": 75.0
+"turn_rate_deg": 75.0,
+"avoidance_ray_length": 14.0,
+"avoidance_cone_deg": 28.0,
+"collision_damage": 32.0,
+"destroy_on_collision": true
 }
 targeting_profile = {
 "mode": "power_priority",

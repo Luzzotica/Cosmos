@@ -24,8 +24,6 @@ func _ready() -> void:
 	owner_entity = get_parent() as Node3D
 	input_ray_pickable = true
 	monitorable = false
-	collision_layer = 1 << 1
-	collision_mask = 0
 	SelectionManager.register_selectable(self)
 	tree_exiting.connect(_on_tree_exiting)
 
@@ -85,6 +83,14 @@ func get_faction() -> String:
 		return faction_override
 	if owner_entity and owner_entity.has_method("get_team"):
 		return owner_entity.call("get_team")
+	# ECS path: body's parent is Entity with C_Team
+	if owner_entity:
+		var entity: Node = owner_entity.get_parent()
+		if entity and entity.has_method("get_component"):
+			var c_team: Variant = entity.get_component(C_Team)
+			if c_team:
+				return c_team.team
+	# Legacy path for structures
 	if owner_entity:
 		for child in owner_entity.get_children():
 			if child is TeamComponent:

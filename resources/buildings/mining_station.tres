@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="BuildingData" load_steps=3 format=3 uid="uid://c8x2v5ykqn1em"]
 
 [ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_building_data"]
-[ext_resource type="PackedScene" uid="uid://dpnx7w2lqeqmx" path="res://scenes/structures/mining_station.tscn" id="2_scene"]
+[ext_resource type="PackedScene" uid="uid://cminingecs001" path="res://scenes/ecs/e_mining_station.tscn" id="2_scene"]
 
 [resource]
 script = ExtResource("1_building_data")
@@ -9,7 +9,7 @@ id = "mining_station"
 display_name = "Mining Station"
 description = "Extracts minerals from nearby asteroids."
 scene = ExtResource("2_scene")
-cost = 100
+cost = 75
 construction_time = 3.0
 placement_sphere_radius = 2.0
 max_health = 100.0
@@ -18,6 +18,6 @@ max_connections = 1
 use_power_cost = 2.0
 power_buffer_capacity = 6.0
 action_range = 12.5
-mining_interval = 3.0
-mine_amount = 5.0
+mining_interval = 2.0
+mine_amount = 15.0
 show_asteroid_targeting = true

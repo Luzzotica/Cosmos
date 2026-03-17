@@ -24,6 +24,11 @@ const CURRENT_SCHEMA_VERSION: int = 1
 @export var target_carryover_minerals: int = 0
 @export var target_carryover_energy: float = 0.0
 
+@export_group("Win Conditions")
+@export var win_minerals_mined: int = 0
+@export var win_monolith_power_required: float = 0.0
+@export var win_mode: String = "none"  # "minerals" | "monolith" | "both" | "none"
+
 @export_group("Asteroids")
 @export var asteroids: Array[AsteroidPlacement] = []
 @export var asteroid_clouds: Array[Resource] = []
@@ -82,6 +87,9 @@ static func _create_from_dict(data: Dictionary) -> MapData:
 	map_data.preview_image_path = String(data.get("preview_image_path", ""))
 	map_data.target_carryover_minerals = int(data.get("target_carryover_minerals", 0))
 	map_data.target_carryover_energy = float(data.get("target_carryover_energy", 0.0))
+	map_data.win_minerals_mined = int(data.get("win_minerals_mined", 0))
+	map_data.win_monolith_power_required = float(data.get("win_monolith_power_required", 0.0))
+	map_data.win_mode = String(data.get("win_mode", "none"))
 	var parsed_tags: Array = data.get("tags", [])
 	map_data.tags = PackedStringArray(parsed_tags.map(func(item: Variant) -> String: return String(item)))
 	
@@ -193,6 +201,9 @@ func _to_dict() -> Dictionary:
 		"preview_image_path": preview_image_path,
 		"target_carryover_minerals": target_carryover_minerals,
 		"target_carryover_energy": target_carryover_energy,
+		"win_minerals_mined": win_minerals_mined,
+		"win_monolith_power_required": win_monolith_power_required,
+		"win_mode": win_mode,
 		"initial_wave_delay": initial_wave_delay,
 		"wave_interval": wave_interval,
 		"allow_partial_extraction": allow_partial_extraction,

@@ -1,0 +1,126 @@
+[gd_scene format=3 uid="uid://2m8d3qof77p5"]
+
+[ext_resource type="Script" uid="uid://by0shd6l6xbyi" path="res://scripts/ecs/entities/structure_entity.gd" id="1_entity"]
+[ext_resource type="Script" uid="uid://b6k13gc2m4e5s" path="res://addons/gecs/ecs/component.gd" id="2_pgoan"]
+[ext_resource type="Script" uid="uid://18tfurh7vrbn" path="res://scripts/ecs/components/c_structure.gd" id="2_structure"]
+[ext_resource type="Script" uid="uid://s0m0va7uhacv" path="res://scripts/ecs/components/c_health.gd" id="3_health"]
+[ext_resource type="Script" uid="uid://m4qryo881oo4" path="res://scripts/ecs/components/c_team.gd" id="4_team"]
+[ext_resource type="Script" uid="uid://ciuam2tjt75s5" path="res://scripts/ecs/components/c_transform3d.gd" id="5_transform"]
+[ext_resource type="Script" uid="uid://c6qwkhkdip2b4" path="res://scripts/ecs/components/c_mining_station.gd" id="7_mining"]
+[ext_resource type="Script" uid="uid://c2iy2omarsk2l" path="res://scripts/structures/structure_body_base.gd" id="9_body"]
+[ext_resource type="PackedScene" path="res://scenes/components/power_node_component.tscn" id="13_power"]
+[ext_resource type="Script" uid="uid://dpcraf2kmlk2y" path="res://scripts/components/power_user.gd" id="14_power_user"]
+[ext_resource type="PackedScene" uid="uid://r1vhglyeysme" path="res://scenes/components/selectable_component.tscn" id="15_selectable"]
+[ext_resource type="Script" uid="uid://c6g3le57y0tuc" path="res://scripts/components/construction_component.gd" id="16_pgoan"]
+[ext_resource type="PackedScene" path="res://scenes/components/selection_visuals.tscn" id="16_selection"]
+[ext_resource type="Shader" uid="uid://518h4rttda2r" path="res://shaders/structure_hull.gdshader" id="17_hull"]
+[ext_resource type="Script" uid="uid://b8q418u2trajv" path="res://scripts/structures/mining_station_visual_handler.gd" id="18_visual"]
+[ext_resource type="Script" uid="uid://cilf2qopdn8y5" path="res://scripts/ecs/components/c_upgrades.gd" id="19_upgrades"]
+
+[sub_resource type="Resource" id="Resource_structure"]
+script = ExtResource("2_structure")
+building_type = "mining_station"
+
+[sub_resource type="Resource" id="Resource_health"]
+script = ExtResource("3_health")
+
+[sub_resource type="Resource" id="Resource_team"]
+script = ExtResource("4_team")
+
+[sub_resource type="Resource" id="Resource_transform"]
+script = ExtResource("5_transform")
+
+[sub_resource type="Resource" id="Resource_mining"]
+script = ExtResource("7_mining")
+
+[sub_resource type="Resource" id="Resource_upgrades"]
+script = ExtResource("19_upgrades")
+upgrade_tree_id = "mining_station"
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_base"]
+top_radius = 1.0
+bottom_radius = 1.0
+height = 0.6
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_base"]
+render_priority = 0
+shader = ExtResource("17_hull")
+shader_parameter/base_color = Color(0.42, 0.45, 0.5, 1)
+shader_parameter/metallic = 0.75
+shader_parameter/roughness = 0.32
+shader_parameter/noise_scale = 12.0
+shader_parameter/brushed_strength = 0.12
+shader_parameter/panel_line_strength = 0.06
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_collector"]
+top_radius = 0.4
+bottom_radius = 0.4
+height = 0.15
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_collector"]
+albedo_color = Color(0.95, 0.85, 0.2, 1)
+emission_enabled = true
+emission = Color(0.9, 0.75, 0.15, 1)
+emission_energy_multiplier = 2.1
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_collision"]
+radius = 1.0936666
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_obstacle"]
+radius = 1.014617
+
+[node name="MiningStation" type="Node" unique_id=1183302137]
+script = ExtResource("1_entity")
+component_resources = Array[ExtResource("2_pgoan")]([SubResource("Resource_structure"), SubResource("Resource_health"), SubResource("Resource_team"), SubResource("Resource_transform"), SubResource("Resource_mining"), SubResource("Resource_upgrades")])
+
+[node name="StructureBody" type="Node3D" parent="." unique_id=1279199466]
+script = ExtResource("9_body")
+
+[node name="VisualRoot" type="Node3D" parent="StructureBody" unique_id=631907302]
+
+[node name="CollectorBase" type="MeshInstance3D" parent="StructureBody/VisualRoot" unique_id=763709462]
+mesh = SubResource("CylinderMesh_base")
+skeleton = NodePath("../..")
+surface_material_override/0 = SubResource("ShaderMaterial_base")
+
+[node name="ActiveCollector" type="MeshInstance3D" parent="StructureBody/VisualRoot" unique_id=18142451]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.675, 0)
+cast_shadow = 0
+mesh = SubResource("CylinderMesh_collector")
+skeleton = NodePath("../..")
+surface_material_override/0 = SubResource("StandardMaterial3D_collector")
+
+[node name="ConnectionPoint" type="Marker3D" parent="StructureBody/VisualRoot" unique_id=1126322212]
+
+[node name="PowerNode" parent="StructureBody" unique_id=743759473 instance=ExtResource("13_power")]
+max_connections = 1
+is_enabled = false
+
+[node name="PowerUser" type="Node3D" parent="StructureBody/PowerNode" unique_id=806382721]
+script = ExtResource("14_power_user")
+use_power_cost = 2.0
+power_buffer_capacity = 6.0
+
+[node name="SelectableComponent" parent="StructureBody" unique_id=465420382 instance=ExtResource("15_selectable")]
+selection_kind = "structure"
+
+[node name="CollisionShape3D" parent="StructureBody/SelectableComponent" index="0"]
+shape = SubResource("SphereShape3D_collision")
+
+[node name="SelectionVisuals" parent="StructureBody" unique_id=329274314 instance=ExtResource("16_selection")]
+
+[node name="VisualHandler" type="Node" parent="StructureBody" unique_id=290660633 node_paths=PackedStringArray("laser_origin")]
+script = ExtResource("18_visual")
+laser_origin = NodePath("../VisualRoot/ActiveCollector")
+
+[node name="ObstacleBody" type="StaticBody3D" parent="StructureBody" unique_id=507343763]
+collision_layer = 4
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StructureBody/ObstacleBody" unique_id=1799752310]
+shape = SubResource("SphereShape3D_obstacle")
+
+[node name="ConstructionComponent" type="Node3D" parent="StructureBody" unique_id=1613410109]
+script = ExtResource("16_pgoan")
+
+[editable path="StructureBody/SelectableComponent"]

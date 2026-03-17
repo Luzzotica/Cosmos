@@ -155,35 +155,36 @@ static func has_line_of_sight(from_pos: Vector3, to_pos: Vector3, exclude1: Node
 	var end: Vector3 = to_pos + Vector3(0, 0.5, 0)
 	
 	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(start, end)
-	query.collision_mask = 0xFFFFFFFF  # Check all layers
+	query.collision_mask = 1 << 19  # PowerLineBlocking layer only
 	query.collide_with_bodies = true
 	query.collide_with_areas = true
 	
-	# Exclude the two structures we're connecting
+	# Exclude all collision bodies from the two structures we're connecting
 	var exclude_rids: Array[RID] = []
-	if exclude1:
-		var body1: CollisionObject3D = _find_collision_body(exclude1)
-		if body1:
-			exclude_rids.append(body1.get_rid())
-	if exclude2:
-		var body2: CollisionObject3D = _find_collision_body(exclude2)
-		if body2:
-			exclude_rids.append(body2.get_rid())
+	for exclude_node in [exclude1, exclude2]:
+		if exclude_node:
+			for body in _find_all_collision_bodies(exclude_node):
+				exclude_rids.append(body.get_rid())
 	query.exclude = exclude_rids
 	
 	var result: Dictionary = space_state.intersect_ray(query)
 	return result.is_empty()  # Clear if nothing hit
 
 
-## Find collision body in a node hierarchy
+## Find first collision body in a node hierarchy
 static func _find_collision_body(node: Node) -> CollisionObject3D:
+	var bodies: Array = _find_all_collision_bodies(node)
+	return bodies[0] if bodies.size() > 0 else null
+
+
+## Find all collision bodies in a node hierarchy
+static func _find_all_collision_bodies(node: Node) -> Array[CollisionObject3D]:
+	var result: Array[CollisionObject3D] = []
 	if node is CollisionObject3D:
-		return node as CollisionObject3D
+		result.append(node as CollisionObject3D)
 	for child in node.get_children():
-		var body: CollisionObject3D = _find_collision_body(child)
-		if body:
-			return body
-	return null
+		result.append_array(_find_all_collision_bodies(child))
+	return result
 
 
 ## Connect another node to this node

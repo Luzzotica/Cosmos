@@ -2,13 +2,10 @@ extends System
 class_name EnemyTargetingSystem
 ## Batch targeting: fetches player structures once per frame, assigns targets to enemies.
 
-const MovementBehaviorClass: Script = preload("res://scripts/enemies/behaviors/movement_behavior.gd")
 const TargetingBehaviorClass: Script = preload("res://scripts/enemies/behaviors/targeting_behavior.gd")
 
-var _movement_behavior: RefCounted
 var _targeting_behavior: RefCounted
 var _player_structures_cache: Array[Node3D] = []
-var _cache_valid: bool = false
 
 
 func query() -> QueryBuilder:
@@ -16,14 +13,12 @@ func query() -> QueryBuilder:
 
 
 func setup() -> void:
-	_movement_behavior = MovementBehaviorClass.new()
 	_targeting_behavior = TargetingBehaviorClass.new()
 
 
 func process(entities: Array[Entity], components: Array, delta: float) -> void:
 	if entities.is_empty():
 		return
-	# Batch-fetch player structures once per frame
 	_refresh_structures_cache()
 	for entity in entities:
 		_process_entity_targeting(entity, delta)
@@ -31,7 +26,6 @@ func process(entities: Array[Entity], components: Array, delta: float) -> void:
 
 func _refresh_structures_cache() -> void:
 	_player_structures_cache.clear()
-	# Prefer ECS query for player structures when available
 	if ECS and ECS.world:
 		var structure_entities = ECS.world.query.with_all([C_Structure, C_Team]).execute()
 		for entity in structure_entities:
@@ -43,7 +37,6 @@ func _refresh_structures_cache() -> void:
 				_player_structures_cache.append(c_structure.structure_node)
 		if not _player_structures_cache.is_empty():
 			return
-	# Fallback: scene tree
 	var main: Node = Engine.get_main_loop().root.get_node_or_null("Main")
 	if not main:
 		return
@@ -61,24 +54,68 @@ func _process_entity_targeting(entity: Entity, delta: float) -> void:
 	var c_transform: C_Transform3D = entity.get_component(C_Transform3D) as C_Transform3D
 	if c_state == null or c_targeting == null or c_transform == null or c_state.is_destroyed:
 		return
+	var c_tprofile: C_TargetingProfile = entity.get_component(C_TargetingProfile) as C_TargetingProfile
+	if c_tprofile:
+		_targeting_behavior.configure({"mode": c_tprofile.mode, "power_priority_bias": c_tprofile.power_priority_bias})
 	var tactical: Dictionary = _get_tactical_modifier(entity)
-	var retarget_interval: float = _targeting_behavior.get_retarget_interval(tactical) if _targeting_behavior else 0.5
+	var retarget_interval: float = c_tprofile.retarget_interval if c_tprofile else 0.5
+	if tactical.has("retarget_interval_override"):
+		retarget_interval = minf(retarget_interval, float(tactical["retarget_interval_override"]))
 	c_targeting.retarget_timer -= delta
 	var should_retarget: bool = c_targeting.retarget_timer <= 0.0
 	if should_retarget:
 		c_targeting.retarget_timer = retarget_interval
-	# Validate current target
 	if c_targeting.target_node != null:
 		if not is_instance_valid(c_targeting.target_node) or c_targeting.target_node.get("is_destroyed") == true:
 			c_targeting.target_node = null
 	if should_retarget and not _should_hold_target(c_state, c_targeting):
-		var candidates: Array = _player_structures_cache.duplicate()
 		var body_ref: C_PhysicsBodyRef = entity.get_component(C_PhysicsBodyRef) as C_PhysicsBodyRef
 		var node_for_choose: Node3D = body_ref.body if body_ref and body_ref.body else null
-		if node_for_choose and _targeting_behavior:
+		if c_state.enemy_id == "enemy_saboteur":
+			_process_saboteur_targeting(entity, c_state, c_targeting, node_for_choose)
+		elif node_for_choose and _targeting_behavior:
+			var candidates: Array = _player_structures_cache.duplicate()
 			c_targeting.target_node = _targeting_behavior.choose_target(node_for_choose, candidates, tactical)
+			c_targeting.target_position = Vector3.INF
 		else:
 			c_targeting.target_node = null
+			c_targeting.target_position = Vector3.INF
+
+
+func _process_saboteur_targeting(entity: Entity, c_state: C_EnemyState, c_targeting: C_Targeting, node_for_choose: Node3D) -> void:
+	var c_saboteur: C_SaboteurState = entity.get_component(C_SaboteurState) as C_SaboteurState
+	if c_saboteur == null:
+		c_targeting.target_node = null
+		c_targeting.target_position = Vector3.INF
+		return
+	if c_saboteur.state != C_SaboteurState.State.MOVE_TO and c_saboteur.target_structure != null and is_instance_valid(c_saboteur.target_structure):
+		return
+	if node_for_choose == null or not _targeting_behavior:
+		c_targeting.target_node = null
+		c_targeting.target_position = Vector3.INF
+		c_saboteur.target_structure = null
+		c_saboteur.hover_position = Vector3.ZERO
+		c_saboteur.target_line_start = Vector3.ZERO
+		c_saboteur.target_line_end = Vector3.ZERO
+		return
+	var player_structures: Array = []
+	for s in _player_structures_cache:
+		player_structures.append(s)
+	var result: Dictionary = _targeting_behavior.choose_saboteur_target(node_for_choose, player_structures)
+	if result.is_empty():
+		c_targeting.target_node = null
+		c_targeting.target_position = Vector3.INF
+		c_saboteur.target_structure = null
+		c_saboteur.hover_position = Vector3.ZERO
+		c_saboteur.target_line_start = Vector3.ZERO
+		c_saboteur.target_line_end = Vector3.ZERO
+		return
+	c_targeting.target_node = result.target_structure
+	c_targeting.target_position = result.hover_position
+	c_saboteur.target_structure = result.target_structure
+	c_saboteur.hover_position = result.hover_position
+	c_saboteur.target_line_start = result.get("line_start", Vector3.ZERO)
+	c_saboteur.target_line_end = result.get("line_end", Vector3.ZERO)
 
 
 func _should_hold_target(c_state: C_EnemyState, c_targeting: C_Targeting) -> bool:

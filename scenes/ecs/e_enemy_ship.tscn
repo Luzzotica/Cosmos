@@ -1,6 +1,6 @@
-[gd_scene load_steps=2 format=3 uid="uid://bqx7enemyecs01"]
+[gd_scene format=3 uid="uid://caswly2xbgrcd"]
 
-[ext_resource type="Script" path="res://scripts/ecs/entities/enemy_entity.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://dw4gsx63ym87r" path="res://scripts/ecs/entities/enemy_entity.gd" id="1_script"]
 
-[node name="EnemyEntity" type="Node"]
+[node name="EnemyEntity" type="Node" unique_id=1731154435]
 script = ExtResource("1_script")

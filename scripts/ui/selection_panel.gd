@@ -14,6 +14,15 @@ const COLOR_TEXT_PRIMARY: Color = Color(1.0, 1.0, 1.0, 1.0)
 const COLOR_TAG_ALLY: Color = Color(0.35, 1.0, 0.45, 1.0)
 const COLOR_TAG_ENEMY: Color = Color(1.0, 0.28, 0.28, 1.0)
 const COLOR_TAG_NEUTRAL: Color = Color(1.0, 0.9, 0.25, 1.0)
+const COLOR_UPGRADE_BG: Color = Color(0.12, 0.06, 0.22, 0.95)
+const COLOR_UPGRADE_BORDER: Color = Color(0.55, 0.35, 0.9, 0.8)
+const COLOR_UPGRADE_DISABLED: Color = Color(0.5, 0.5, 0.5, 0.6)
+const COLOR_UPGRADE_DONE: Color = Color(0.35, 0.8, 0.35, 0.8)
+
+const C_UpgradesScript = preload("res://scripts/ecs/components/c_upgrades.gd")
+
+const COLOR_SELL_BG: Color = Color(0.22, 0.06, 0.06, 0.95)
+const COLOR_SELL_BORDER: Color = Color(0.9, 0.25, 0.25, 0.8)
 
 @onready var title_label: Label = $MarginContainer/VBoxContainer/TitleLabel
 @onready var faction_tag_label: Label = $MarginContainer/VBoxContainer/FactionTagLabel
@@ -26,6 +35,13 @@ var _slide_tween: Tween = null
 var _target_x: float = 0.0
 var _style_box: StyleBoxFlat = null
 var _last_details: Dictionary = {}
+var _upgrade_container: VBoxContainer = null
+var _sell_container: VBoxContainer = null
+var _upgrade_progress_bar: ProgressBar = null
+var _selected_entity: Entity = null
+var _upgrade_refresh_timer: float = 0.0
+var _was_upgrading: bool = false
+const UPGRADE_REFRESH_INTERVAL: float = 0.25
 
 
 func _ready() -> void:
@@ -53,6 +69,18 @@ func _ready() -> void:
 	visible = true
 	modulate.a = 0.0
 	
+	var vbox: VBoxContainer = $MarginContainer/VBoxContainer
+	if vbox:
+		_upgrade_container = VBoxContainer.new()
+		_upgrade_container.name = "UpgradeContainer"
+		_upgrade_container.add_theme_constant_override("separation", 6)
+		vbox.add_child(_upgrade_container)
+
+		_sell_container = VBoxContainer.new()
+		_sell_container.name = "SellContainer"
+		_sell_container.add_theme_constant_override("separation", 6)
+		vbox.add_child(_sell_container)
+
 	# Connect to selection manager
 	SelectionManager.primary_selection_changed.connect(_on_primary_selection_changed)
 	SelectionManager.selection_details_changed.connect(_on_selection_details_changed)
@@ -125,8 +153,29 @@ func _on_selection_details_changed(details: Dictionary) -> void:
 	_update_from_details(details)
 
 
+func _process(delta: float) -> void:
+	if not _is_shown or _selected_entity == null:
+		return
+	var c_upgrades = _selected_entity.get_component(C_UpgradesScript)
+	if c_upgrades == null:
+		return
+	var currently_upgrading: bool = c_upgrades.is_upgrading
+	if not currently_upgrading:
+		if _was_upgrading:
+			_was_upgrading = false
+			_rebuild_upgrade_rows()
+		return
+	_was_upgrading = true
+	_upgrade_refresh_timer -= delta
+	if _upgrade_refresh_timer <= 0.0:
+		_upgrade_refresh_timer = UPGRADE_REFRESH_INTERVAL
+		_rebuild_upgrade_rows()
+
+
 func _on_selection_cleared() -> void:
 	_last_details = {}
+	_selected_entity = null
+	_was_upgrading = false
 	hide_panel()
 
 
@@ -160,9 +209,13 @@ func _update_faction_tag(faction: String) -> void:
 func _update_from_details(details: Dictionary) -> void:
 	if details.is_empty():
 		return
-	if details.hash() == _last_details.hash():
+	var prev_entity: Entity = _selected_entity
+	_resolve_selected_entity()
+	var entity_changed: bool = _selected_entity != prev_entity
+	if not entity_changed and details.hash() == _last_details.hash():
 		return
 	_last_details = details.duplicate(true)
+	_was_upgrading = false
 
 	_update_faction_tag(str(details.get("faction", "player")).to_lower())
 
@@ -171,6 +224,8 @@ func _update_from_details(details: Dictionary) -> void:
 
 	_update_primary_bar(details)
 	_rebuild_info_rows(details)
+	_rebuild_upgrade_rows()
+	_rebuild_sell_button(details)
 
 
 func _update_primary_bar(details: Dictionary) -> void:
@@ -269,3 +324,228 @@ func _add_info_row(label_text: String, value_text: String) -> void:
 	row.add_child(value)
 	
 	info_container.add_child(row)
+
+
+func _resolve_selected_entity() -> void:
+	_selected_entity = null
+	var body: Node3D = SelectionManager.selected_entity
+	if body == null or not is_instance_valid(body):
+		return
+	var parent: Node = body.get_parent()
+	if parent is Entity:
+		_selected_entity = parent as Entity
+
+
+func _rebuild_upgrade_rows() -> void:
+	if _upgrade_container == null:
+		return
+	for child in _upgrade_container.get_children():
+		child.queue_free()
+	_upgrade_progress_bar = null
+
+	if _selected_entity == null or not is_instance_valid(_selected_entity):
+		return
+	var c_upgrades = _selected_entity.get_component(C_UpgradesScript)
+	if c_upgrades == null:
+		return
+
+	var sep := HSeparator.new()
+	sep.add_theme_constant_override("separation", 8)
+	_upgrade_container.add_child(sep)
+
+	var header := Label.new()
+	header.text = "UPGRADES"
+	header.add_theme_font_size_override("font_size", 26)
+	header.add_theme_color_override("font_color", Color(0.7, 0.55, 1.0, 1.0))
+	header.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+	header.add_theme_constant_override("outline_size", 1)
+	_upgrade_container.add_child(header)
+
+	if c_upgrades.is_upgrading:
+		_build_upgrade_progress_ui(c_upgrades)
+		return
+
+	var mgr: Node = _get_upgrade_manager()
+	if mgr == null:
+		return
+	var tree: Resource = mgr.get_tree_for_building(c_upgrades.upgrade_tree_id)
+	if tree == null:
+		return
+
+	for node_data in tree.nodes:
+		if c_upgrades.purchased_upgrades.has(node_data.id):
+			_add_purchased_label(node_data)
+			continue
+
+	var available: Array = mgr.get_available_upgrades(_selected_entity)
+	for node_data in available:
+		_add_upgrade_button(node_data)
+
+
+func _build_upgrade_progress_ui(c_upgrades) -> void:
+	var mgr: Node = _get_upgrade_manager()
+	var tree: Resource = mgr.get_tree_for_building(c_upgrades.upgrade_tree_id) if mgr else null
+	var node_data: Resource = null
+	if tree and mgr:
+		node_data = mgr.get_node_data(tree, c_upgrades.current_upgrade_id)
+
+	var status_label := Label.new()
+	var upgrade_name: String = node_data.display_name if node_data else c_upgrades.current_upgrade_id
+	status_label.text = "Upgrading: " + upgrade_name
+	status_label.add_theme_font_size_override("font_size", 24)
+	status_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3, 1.0))
+	status_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+	status_label.add_theme_constant_override("outline_size", 1)
+	_upgrade_container.add_child(status_label)
+
+	_upgrade_progress_bar = ProgressBar.new()
+	_upgrade_progress_bar.custom_minimum_size = Vector2(0, 28)
+	_upgrade_progress_bar.value = c_upgrades.upgrade_progress * 100.0
+	_upgrade_progress_bar.show_percentage = false
+	var bg_style := StyleBoxFlat.new()
+	bg_style.bg_color = Color(0, 0, 0, 0.7)
+	bg_style.corner_radius_top_left = 4
+	bg_style.corner_radius_top_right = 4
+	bg_style.corner_radius_bottom_left = 4
+	bg_style.corner_radius_bottom_right = 4
+	_upgrade_progress_bar.add_theme_stylebox_override("background", bg_style)
+	var fill_style := StyleBoxFlat.new()
+	fill_style.bg_color = Color(0.55, 0.35, 0.9, 0.95)
+	fill_style.corner_radius_top_left = 4
+	fill_style.corner_radius_top_right = 4
+	fill_style.corner_radius_bottom_left = 4
+	fill_style.corner_radius_bottom_right = 4
+	_upgrade_progress_bar.add_theme_stylebox_override("fill", fill_style)
+	_upgrade_container.add_child(_upgrade_progress_bar)
+
+	if node_data and c_upgrades.upgrade_power_paid < node_data.power_cost:
+		var power_label := Label.new()
+		power_label.text = "Charging: %.0f / %.0f power" % [c_upgrades.upgrade_power_paid, node_data.power_cost]
+		power_label.add_theme_font_size_override("font_size", 22)
+		power_label.add_theme_color_override("font_color", COLOR_TEXT_MUTED)
+		power_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+		power_label.add_theme_constant_override("outline_size", 1)
+		_upgrade_container.add_child(power_label)
+
+
+func _add_purchased_label(node_data: Resource) -> void:
+	var label := Label.new()
+	label.text = "✓ " + node_data.display_name
+	label.add_theme_font_size_override("font_size", 22)
+	label.add_theme_color_override("font_color", COLOR_UPGRADE_DONE)
+	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+	label.add_theme_constant_override("outline_size", 1)
+	_upgrade_container.add_child(label)
+
+
+func _add_upgrade_button(node_data: Resource) -> void:
+	var btn := Button.new()
+	btn.text = "%s - %d minerals" % [node_data.display_name, node_data.mineral_cost]
+	btn.tooltip_text = node_data.description
+	btn.mouse_filter = Control.MOUSE_FILTER_STOP
+	btn.add_theme_font_size_override("font_size", 22)
+
+	var mgr: Node = _get_upgrade_manager()
+	var can_afford: bool = mgr.can_afford(node_data) if mgr else false
+	btn.disabled = not can_afford
+
+	var btn_style := StyleBoxFlat.new()
+	btn_style.bg_color = COLOR_UPGRADE_BG if can_afford else Color(0.08, 0.08, 0.12, 0.9)
+	btn_style.border_width_left = 1
+	btn_style.border_width_top = 1
+	btn_style.border_width_right = 1
+	btn_style.border_width_bottom = 1
+	btn_style.border_color = COLOR_UPGRADE_BORDER if can_afford else COLOR_UPGRADE_DISABLED
+	btn_style.corner_radius_top_left = 4
+	btn_style.corner_radius_top_right = 4
+	btn_style.corner_radius_bottom_left = 4
+	btn_style.corner_radius_bottom_right = 4
+	btn.add_theme_stylebox_override("normal", btn_style)
+
+	var hover_style := btn_style.duplicate() as StyleBoxFlat
+	hover_style.bg_color = Color(0.18, 0.1, 0.32, 0.95)
+	hover_style.border_color = Color(0.75, 0.55, 1.0, 1.0)
+	btn.add_theme_stylebox_override("hover", hover_style)
+
+	var pressed_style := btn_style.duplicate() as StyleBoxFlat
+	pressed_style.bg_color = Color(0.3, 0.15, 0.5, 0.95)
+	btn.add_theme_stylebox_override("pressed", pressed_style)
+
+	var upgrade_id: String = node_data.id
+	btn.pressed.connect(_on_upgrade_button_pressed.bind(upgrade_id))
+	_upgrade_container.add_child(btn)
+
+
+func _on_upgrade_button_pressed(upgrade_id: String) -> void:
+	if _selected_entity == null or not is_instance_valid(_selected_entity):
+		return
+	var mgr: Node = _get_upgrade_manager()
+	if mgr == null:
+		return
+	var success: bool = mgr.start_upgrade(_selected_entity, upgrade_id)
+	if success:
+		_rebuild_upgrade_rows()
+
+
+func _get_upgrade_manager() -> Node:
+	return get_node_or_null("/root/UpgradeManager")
+
+
+func _rebuild_sell_button(details: Dictionary) -> void:
+	if _sell_container == null:
+		return
+	for child in _sell_container.get_children():
+		child.queue_free()
+
+	if _selected_entity == null or not is_instance_valid(_selected_entity):
+		return
+	var faction: String = str(details.get("faction", "")).to_lower()
+	if faction != "player" and faction != "ally" and faction != "friendly":
+		return
+
+	var sep := HSeparator.new()
+	sep.add_theme_constant_override("separation", 8)
+	_sell_container.add_child(sep)
+
+	var btn := Button.new()
+	btn.text = "Sell Structure"
+	btn.mouse_filter = Control.MOUSE_FILTER_STOP
+	btn.add_theme_font_size_override("font_size", 22)
+
+	var btn_style := StyleBoxFlat.new()
+	btn_style.bg_color = COLOR_SELL_BG
+	btn_style.border_width_left = 1
+	btn_style.border_width_top = 1
+	btn_style.border_width_right = 1
+	btn_style.border_width_bottom = 1
+	btn_style.border_color = COLOR_SELL_BORDER
+	btn_style.corner_radius_top_left = 4
+	btn_style.corner_radius_top_right = 4
+	btn_style.corner_radius_bottom_left = 4
+	btn_style.corner_radius_bottom_right = 4
+	btn.add_theme_stylebox_override("normal", btn_style)
+
+	var hover_style := btn_style.duplicate() as StyleBoxFlat
+	hover_style.bg_color = Color(0.35, 0.08, 0.08, 0.95)
+	hover_style.border_color = Color(1.0, 0.35, 0.35, 1.0)
+	btn.add_theme_stylebox_override("hover", hover_style)
+
+	var pressed_style := btn_style.duplicate() as StyleBoxFlat
+	pressed_style.bg_color = Color(0.5, 0.1, 0.1, 0.95)
+	btn.add_theme_stylebox_override("pressed", pressed_style)
+
+	btn.pressed.connect(_on_sell_pressed)
+	_sell_container.add_child(btn)
+
+
+func _on_sell_pressed() -> void:
+	if _selected_entity == null or not is_instance_valid(_selected_entity):
+		return
+
+	var entity: Entity = _selected_entity
+	SelectionManager.clear_selection()
+
+	if entity.has_method("_on_health_destroyed"):
+		entity._on_health_destroyed()
+	else:
+		entity.queue_free()

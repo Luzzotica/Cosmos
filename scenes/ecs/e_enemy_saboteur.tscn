@@ -1,0 +1,121 @@
+[gd_scene format=3 uid="uid://bgrq4u00vr32n"]
+
+[ext_resource type="Script" uid="uid://dw4gsx63ym87r" path="res://scripts/ecs/entities/enemy_entity.gd" id="1_entity"]
+[ext_resource type="Script" uid="uid://cw5fbrg3f1oue" path="res://scripts/enemies/enemy_ship_base.gd" id="2_body"]
+[ext_resource type="Script" uid="uid://dw5obkiyptin6" path="res://scripts/enemies/saboteur_visual_handler.gd" id="3_handler"]
+[ext_resource type="PackedScene" uid="uid://r1vhglyeysme" path="res://scenes/components/selectable_component.tscn" id="4_selectable"]
+[ext_resource type="PackedScene" path="res://scenes/components/selection_visuals.tscn" id="5_selection"]
+[ext_resource type="Shader" uid="uid://0lybihpyhvn6" path="res://shaders/enemy_energy_crackle.gdshader" id="6_shader"]
+[ext_resource type="Script" uid="uid://b6k13gc2m4e5s" path="res://addons/gecs/ecs/component.gd" id="7_component"]
+[ext_resource type="Script" uid="uid://s0m0va7uhacv" path="res://scripts/ecs/components/c_health.gd" id="8_health"]
+[ext_resource type="Script" uid="uid://m4qryo881oo4" path="res://scripts/ecs/components/c_team.gd" id="9_team"]
+[ext_resource type="Script" uid="uid://ciuam2tjt75s5" path="res://scripts/ecs/components/c_transform3d.gd" id="10_transform"]
+[ext_resource type="Script" uid="uid://cdv6vol8ttyk6" path="res://scripts/ecs/components/c_enemy_state.gd" id="11_state"]
+[ext_resource type="Script" uid="uid://d4d31qgmh5c3j" path="res://scripts/ecs/components/c_targeting.gd" id="12_targeting"]
+[ext_resource type="Script" uid="uid://bwqcpjqbp5xu0" path="res://scripts/ecs/components/c_physics_body_ref.gd" id="13_bodyref"]
+[ext_resource type="Script" uid="uid://dlt0xs167dvph" path="res://scripts/ecs/components/c_collision_damage.gd" id="14_collision"]
+[ext_resource type="Script" uid="uid://b0kpl8kslrs0" path="res://scripts/ecs/components/c_saboteur_state.gd" id="15_saboteur"]
+[ext_resource type="Script" uid="uid://5i60l0f5551i" path="res://scripts/ecs/components/c_saboteur_movement.gd" id="16_saboteur_mov"]
+[ext_resource type="Script" uid="uid://dgianx45rhbef" path="res://scripts/ecs/components/c_targeting_profile.gd" id="17_tprofile"]
+
+[sub_resource type="Resource" id="Resource_health"]
+script = ExtResource("8_health")
+current = 38.0
+maximum = 38.0
+
+[sub_resource type="Resource" id="Resource_team"]
+script = ExtResource("9_team")
+team = "enemy"
+
+[sub_resource type="Resource" id="Resource_transform"]
+script = ExtResource("10_transform")
+
+[sub_resource type="Resource" id="Resource_state"]
+script = ExtResource("11_state")
+speed = 7.8
+display_name = "Grid Breaker"
+enemy_id = "enemy_saboteur"
+
+[sub_resource type="Resource" id="Resource_targeting"]
+script = ExtResource("12_targeting")
+
+[sub_resource type="Resource" id="Resource_bodyref"]
+script = ExtResource("13_bodyref")
+
+[sub_resource type="Resource" id="Resource_collision"]
+script = ExtResource("14_collision")
+amount = 14.0
+
+[sub_resource type="Resource" id="Resource_saboteur"]
+script = ExtResource("15_saboteur")
+
+[sub_resource type="Resource" id="Resource_saboteur_mov"]
+script = ExtResource("16_saboteur_mov")
+turn_rate_deg = 150.0
+avoid_radius = 4.0
+obstacle_slow_dist = 2.0
+min_speed_near_obstacle = 0.1
+
+[sub_resource type="Resource" id="Resource_tprofile"]
+script = ExtResource("17_tprofile")
+mode = "saboteur_leaf"
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_morph"]
+top_radius = 0.35
+bottom_radius = 0.0
+height = 1.0
+radial_segments = 16
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_energy"]
+render_priority = 0
+shader = ExtResource("6_shader")
+shader_parameter/emission_color = Color(1, 0.8, 0.2, 1)
+shader_parameter/emission_energy = 2.2
+shader_parameter/crackle_speed = 3.0
+shader_parameter/crackle_density = 28.0
+shader_parameter/crackle_sharpness = 8.0
+shader_parameter/core_brightness = 0.6
+shader_parameter/pulse_amount = 0.2
+shader_parameter/fresnel_power = 2.5
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_collision"]
+height = 1.2
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_barrier"]
+size = Vector3(2, 2.5, 2)
+
+[node name="EnemySaboteur" type="Node" unique_id=2008835656]
+script = ExtResource("1_entity")
+component_resources = Array[ExtResource("7_component")]([SubResource("Resource_health"), SubResource("Resource_team"), SubResource("Resource_transform"), SubResource("Resource_state"), SubResource("Resource_targeting"), SubResource("Resource_bodyref"), SubResource("Resource_collision"), SubResource("Resource_saboteur"), SubResource("Resource_saboteur_mov"), SubResource("Resource_tprofile")])
+
+[node name="ShipBody" type="CharacterBody3D" parent="." unique_id=1722596258]
+collision_mask = 5
+script = ExtResource("2_body")
+
+[node name="Body" type="Node3D" parent="ShipBody" unique_id=830067123]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0)
+
+[node name="MorphMesh" type="MeshInstance3D" parent="ShipBody/Body" unique_id=1684510570]
+transform = Transform3D(-1, 8.742278e-08, 0, -8.742278e-08, -1, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("CylinderMesh_morph")
+surface_material_override/0 = SubResource("ShaderMaterial_energy")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="ShipBody" unique_id=289765127]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0.75, 0)
+shape = SubResource("CapsuleShape3D_collision")
+
+[node name="Barrier" type="StaticBody3D" parent="ShipBody" unique_id=1725605507]
+visible = false
+collision_layer = 0
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="ShipBody/Barrier" unique_id=417557662]
+shape = SubResource("BoxShape3D_barrier")
+
+[node name="VisualHandler" type="Node" parent="ShipBody" unique_id=1006681389]
+script = ExtResource("3_handler")
+
+[node name="SelectableComponent" parent="ShipBody" unique_id=2007536072 instance=ExtResource("4_selectable")]
+selection_kind = "enemy"
+
+[node name="SelectionVisuals" parent="ShipBody" unique_id=805098945 instance=ExtResource("5_selection")]

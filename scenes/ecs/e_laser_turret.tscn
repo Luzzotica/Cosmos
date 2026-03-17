@@ -1,0 +1,130 @@
+[gd_scene format=3 uid="uid://br46rgend5e8l"]
+
+[ext_resource type="Script" uid="uid://by0shd6l6xbyi" path="res://scripts/ecs/entities/structure_entity.gd" id="1_entity"]
+[ext_resource type="Script" uid="uid://b6k13gc2m4e5s" path="res://addons/gecs/ecs/component.gd" id="2_e1wge"]
+[ext_resource type="Script" uid="uid://18tfurh7vrbn" path="res://scripts/ecs/components/c_structure.gd" id="2_structure"]
+[ext_resource type="Script" uid="uid://s0m0va7uhacv" path="res://scripts/ecs/components/c_health.gd" id="3_health"]
+[ext_resource type="Script" uid="uid://m4qryo881oo4" path="res://scripts/ecs/components/c_team.gd" id="4_team"]
+[ext_resource type="Script" uid="uid://ciuam2tjt75s5" path="res://scripts/ecs/components/c_transform3d.gd" id="5_transform"]
+[ext_resource type="Script" uid="uid://bxqem0gvi25gs" path="res://scripts/ecs/components/c_beam_weapon.gd" id="7_weapon"]
+[ext_resource type="Script" uid="uid://d4d31qgmh5c3j" path="res://scripts/ecs/components/c_targeting.gd" id="8_targeting"]
+[ext_resource type="Script" uid="uid://c2iy2omarsk2l" path="res://scripts/structures/structure_body_base.gd" id="9_body"]
+[ext_resource type="PackedScene" path="res://scenes/components/power_node_component.tscn" id="13_power"]
+[ext_resource type="Script" path="res://scripts/components/power_user.gd" id="14_power_user"]
+[ext_resource type="PackedScene" uid="uid://r1vhglyeysme" path="res://scenes/components/selectable_component.tscn" id="15_selectable"]
+[ext_resource type="PackedScene" path="res://scenes/components/selection_visuals.tscn" id="16_selection"]
+[ext_resource type="Script" uid="uid://c6g3le57y0tuc" path="res://scripts/components/construction_component.gd" id="17_e1wge"]
+[ext_resource type="Shader" uid="uid://518h4rttda2r" path="res://shaders/structure_hull.gdshader" id="17_hull"]
+[ext_resource type="Script" uid="uid://bxko3gg0dkb6e" path="res://scripts/structures/laser_turret_visual_handler.gd" id="18_visual"]
+[ext_resource type="Script" uid="uid://cilf2qopdn8y5" path="res://scripts/ecs/components/c_upgrades.gd" id="19_upgrades"]
+
+[sub_resource type="Resource" id="Resource_structure"]
+script = ExtResource("2_structure")
+building_type = "laser_turret"
+
+[sub_resource type="Resource" id="Resource_health"]
+script = ExtResource("3_health")
+
+[sub_resource type="Resource" id="Resource_team"]
+script = ExtResource("4_team")
+
+[sub_resource type="Resource" id="Resource_transform"]
+script = ExtResource("5_transform")
+
+[sub_resource type="Resource" id="Resource_weapon"]
+script = ExtResource("7_weapon")
+attack_range = 35.0
+attack_cooldown = 1.0
+beam_color = Color(0.2, 0.9, 1, 0.95)
+damage_type = "laser"
+
+[sub_resource type="Resource" id="Resource_targeting"]
+script = ExtResource("8_targeting")
+
+[sub_resource type="Resource" id="Resource_upgrades"]
+script = ExtResource("19_upgrades")
+upgrade_tree_id = "laser_turret"
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_base"]
+top_radius = 1.05
+bottom_radius = 1.05
+height = 0.45
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_base"]
+render_priority = 0
+shader = ExtResource("17_hull")
+shader_parameter/base_color = Color(0.45, 0.48, 0.52, 1)
+shader_parameter/metallic = 0.8
+shader_parameter/roughness = 0.35
+shader_parameter/noise_scale = 12.0
+shader_parameter/brushed_strength = 0.12
+shader_parameter/panel_line_strength = 0.06
+
+[sub_resource type="SphereMesh" id="SphereMesh_orb"]
+radius = 0.32
+height = 0.64
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_orb"]
+albedo_color = Color(0.15, 0.7, 1, 1)
+emission_enabled = true
+emission = Color(0.12, 0.65, 1, 1)
+emission_energy_multiplier = 2.4
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_collision"]
+radius = 1.1788092
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_obstacle"]
+radius = 1.0937948
+
+[node name="LaserTurret" type="Node" unique_id=2072039268]
+script = ExtResource("1_entity")
+component_resources = Array[ExtResource("2_e1wge")]([SubResource("Resource_structure"), SubResource("Resource_health"), SubResource("Resource_team"), SubResource("Resource_transform"), SubResource("Resource_weapon"), SubResource("Resource_targeting"), SubResource("Resource_upgrades")])
+
+[node name="StructureBody" type="Node3D" parent="." unique_id=1175918516]
+script = ExtResource("9_body")
+
+[node name="VisualRoot" type="Node3D" parent="StructureBody" unique_id=1171333929]
+
+[node name="TurretBase" type="MeshInstance3D" parent="StructureBody/VisualRoot" unique_id=728812027]
+mesh = SubResource("CylinderMesh_base")
+skeleton = NodePath("../..")
+surface_material_override/0 = SubResource("ShaderMaterial_base")
+
+[node name="ActiveOrb" type="MeshInstance3D" parent="StructureBody/VisualRoot" unique_id=530243051]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
+cast_shadow = 0
+mesh = SubResource("SphereMesh_orb")
+skeleton = NodePath("../..")
+surface_material_override/0 = SubResource("StandardMaterial3D_orb")
+
+[node name="ConnectionPoint" type="Marker3D" parent="StructureBody/VisualRoot" unique_id=307913093]
+
+[node name="PowerNode" parent="StructureBody" unique_id=202581664 instance=ExtResource("13_power")]
+max_connections = 1
+is_enabled = false
+
+[node name="PowerUser" type="Node3D" parent="StructureBody/PowerNode" unique_id=2027249718]
+script = ExtResource("14_power_user")
+
+[node name="SelectableComponent" parent="StructureBody" unique_id=1321927392 instance=ExtResource("15_selectable")]
+selection_kind = "structure"
+
+[node name="CollisionShape3D" parent="StructureBody/SelectableComponent" index="0"]
+shape = SubResource("SphereShape3D_collision")
+
+[node name="SelectionVisuals" parent="StructureBody" unique_id=1770071472 instance=ExtResource("16_selection")]
+
+[node name="VisualHandler" type="Node" parent="StructureBody" unique_id=39127061]
+script = ExtResource("18_visual")
+
+[node name="ObstacleBody" type="StaticBody3D" parent="StructureBody" unique_id=1452177005]
+collision_layer = 4
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StructureBody/ObstacleBody" unique_id=565109168]
+shape = SubResource("SphereShape3D_obstacle")
+
+[node name="ConstructionComponent" type="Node3D" parent="StructureBody" unique_id=1792917515]
+script = ExtResource("17_e1wge")
+
+[editable path="StructureBody/SelectableComponent"]

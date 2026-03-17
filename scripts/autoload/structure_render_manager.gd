@@ -44,7 +44,7 @@ func _process(_delta: float) -> void:
 		unregister_structure_by_id(structure_id)
 
 
-func register_structure(structure: Node3D, mesh_instances: Array[MeshInstance3D], accent_mesh_names: Array[String]) -> void:
+func register_structure(structure: Node3D, mesh_instances: Array[MeshInstance3D], accent_mesh_names: Array[String], props: Dictionary = {}) -> void:
 	if not is_instance_valid(structure):
 		return
 	
@@ -57,6 +57,11 @@ func register_structure(structure: Node3D, mesh_instances: Array[MeshInstance3D]
 	for mesh_name in accent_mesh_names:
 		accent_lookup[String(mesh_name)] = true
 	
+	var accent_no_shadow: Array = props.get("accent_no_shadow_mesh_names", [])
+	var accent_no_shadow_lookup: Dictionary = {}
+	for n in accent_no_shadow:
+		accent_no_shadow_lookup[String(n)] = true
+	
 	var entry_list: Array[Dictionary] = []
 	for mesh_instance in mesh_instances:
 		if not is_instance_valid(mesh_instance) or mesh_instance.mesh == null:
@@ -66,6 +71,10 @@ func register_structure(structure: Node3D, mesh_instances: Array[MeshInstance3D]
 			continue
 		
 		var role: String = ROLE_ACCENT if accent_lookup.has(mesh_instance.name) else ROLE_BASE
+		var accent_cast_shadow: bool = true
+		if role == ROLE_ACCENT:
+			accent_cast_shadow = not accent_no_shadow_lookup.has(mesh_instance.name)
+		
 		var source_material: Material = mesh_instance.get_active_material(0)
 		if source_material == null:
 			source_material = mesh_instance.material_override
@@ -73,8 +82,8 @@ func register_structure(structure: Node3D, mesh_instances: Array[MeshInstance3D]
 		var state: String = STATE_ACTIVE
 		if role == ROLE_BASE:
 			state = STATE_ACTIVE
-		var pool_key: String = _pool_key(mesh_instance.mesh, source_material, role, state)
-		var index: int = _alloc_in_pool(pool_key, mesh_instance.mesh, source_material, role, state)
+		var pool_key: String = _pool_key(mesh_instance.mesh, source_material, role, state, accent_cast_shadow)
+		var index: int = _alloc_in_pool(pool_key, mesh_instance.mesh, source_material, role, state, accent_cast_shadow)
 		_set_pool_transform(pool_key, index, mesh_instance.global_transform)
 		mesh_instance.visible = false
 		
@@ -84,6 +93,7 @@ func register_structure(structure: Node3D, mesh_instances: Array[MeshInstance3D]
 			"material": source_material,
 			"role": role,
 			"state": state,
+			"accent_cast_shadow": accent_cast_shadow,
 			"pool_key": pool_key,
 			"index": index
 		})
@@ -158,10 +168,11 @@ func _rebind_structure_state(structure_id: int, target_state: String) -> void:
 		
 		var mesh: Mesh = entry.get("mesh")
 		var source_material: Material = entry.get("material")
+		var accent_cast_shadow: bool = bool(entry.get("accent_cast_shadow", true))
 		var old_pool_key: String = entry.get("pool_key", "")
 		var old_index: int = int(entry.get("index", -1))
-		var new_pool_key: String = _pool_key(mesh, source_material, role, desired_state)
-		var new_index: int = _alloc_in_pool(new_pool_key, mesh, source_material, role, desired_state)
+		var new_pool_key: String = _pool_key(mesh, source_material, role, desired_state, accent_cast_shadow)
+		var new_index: int = _alloc_in_pool(new_pool_key, mesh, source_material, role, desired_state, accent_cast_shadow)
 		
 		var source_mesh: MeshInstance3D = entry.get("mesh_instance")
 		if is_instance_valid(source_mesh):
@@ -213,16 +224,17 @@ func _ensure_root(fallback_parent: Node) -> void:
 		fallback_parent.add_child(_root)
 
 
-func _pool_key(mesh: Mesh, source_material: Material, role: String, state: String) -> String:
+func _pool_key(mesh: Mesh, source_material: Material, role: String, state: String, accent_cast_shadow: bool = true) -> String:
 	var mesh_id: String = str(mesh.get_rid().get_id())
 	var mat_id: String = "none"
 	if source_material:
 		mat_id = str(source_material.get_rid().get_id())
-	return "%s_%s_%s_%s" % [mesh_id, mat_id, role, state]
+	var shadow_suffix: String = "sh" if accent_cast_shadow else "nosh"
+	return "%s_%s_%s_%s_%s" % [mesh_id, mat_id, role, state, shadow_suffix]
 
 
-func _alloc_in_pool(pool_key: String, mesh: Mesh, source_material: Material, role: String, state: String) -> int:
-	_ensure_pool(pool_key, mesh, source_material, role, state)
+func _alloc_in_pool(pool_key: String, mesh: Mesh, source_material: Material, role: String, state: String, accent_cast_shadow: bool = true) -> int:
+	_ensure_pool(pool_key, mesh, source_material, role, state, accent_cast_shadow)
 	var pool: Dictionary = _pool_data[pool_key]
 	var free_indices: Array = pool.get("free_indices", [])
 	var mm: MultiMesh = pool.get("multimesh")
@@ -260,7 +272,7 @@ func _set_pool_transform(pool_key: String, index: int, world_transform: Transfor
 	mm.set_instance_transform(index, world_transform)
 
 
-func _ensure_pool(pool_key: String, mesh: Mesh, source_material: Material, role: String, state: String) -> void:
+func _ensure_pool(pool_key: String, mesh: Mesh, source_material: Material, role: String, state: String, accent_cast_shadow: bool = true) -> void:
 	if _pool_data.has(pool_key):
 		return
 	
@@ -273,7 +285,8 @@ func _ensure_pool(pool_key: String, mesh: Mesh, source_material: Material, role:
 	mm.mesh = mesh
 	mmi.multimesh = mm
 	mmi.material_override = _get_state_material(source_material, role, state)
-	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	# Base meshes always cast shadows; accent meshes use accent_cast_shadow from props
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if (role == ROLE_BASE or accent_cast_shadow) else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	
 	_root.add_child(mmi)
 	_pool_nodes[pool_key] = mmi

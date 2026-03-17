@@ -39,16 +39,16 @@ var _build_shell_shader: Shader = null
 var _ecs_entity: Node = null
 
 func _ready() -> void:
-	print("[DEBUG] BaseStructure _ready called for: ", name)
 	selectable_component = get_node_or_null("SelectableComponent")
 	_setup_components()
 	_connect_signals()
 	_setup_build_animation()
-	_register_ecs_entity()
-	print("[DEBUG] BaseStructure initialization complete for: ", name, " - has Area3D: ", has_node("Area3D"))
+	call_deferred("_register_ecs_entity")
 
 
 func _register_ecs_entity() -> void:
+	if _ecs_entity != null:
+		return
 	var ecs_node: Node = get_node_or_null("/root/ECS")
 	if ecs_node == null:
 		return
@@ -454,8 +454,10 @@ func has_operational_power() -> bool:
 
 func _on_destroyed() -> void:
 	is_destroyed = true
-	if _ecs_entity != null and ECS != null and ECS.world != null:
-		ECS.world.remove_entity(_ecs_entity)
+	if _ecs_entity != null:
+		_ecs_entity.add_component(preload("res://scripts/ecs/components/c_destroyed.gd").new())
+		if ECS != null and ECS.world != null:
+			ECS.world.remove_entity(_ecs_entity)
 		_ecs_entity = null
 	destroyed.emit()
 	queue_free()
@@ -494,14 +496,11 @@ func set_starter_panel(is_starter: bool) -> void:
 			construction_component.set_built()
 		if power_node:
 			power_node.is_enabled = true
-		# Sync ECS c_construction so ConstructionSystem sees is_built (avoids double-processing)
-		if _ecs_entity and ECS and ECS.world:
+		# Remove C_Construction so systems using with_none([C_Construction]) process this structure
+		if _ecs_entity and _ecs_entity.has_method("remove_component"):
 			var C_ConstructionClass: GDScript = load("res://scripts/ecs/components/c_construction.gd") as GDScript
 			if C_ConstructionClass:
-				var c_construction: Resource = _ecs_entity.get_component(C_ConstructionClass.new())
-				if c_construction:
-					c_construction.set("is_built", true)
-					c_construction.set("build_progress", 1.0)
+				_ecs_entity.remove_component(C_ConstructionClass)
 		# Immediately finalize the build animation (restore materials, full scale)
 		_on_construction_completed()
 

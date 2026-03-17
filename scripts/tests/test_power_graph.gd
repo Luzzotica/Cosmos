@@ -8,6 +8,7 @@ const PowerNode = preload("res://scripts/components/power_node.gd")
 const PowerSource = preload("res://scripts/components/power_source.gd")
 const PowerGenerator = preload("res://scripts/components/power_generator.gd")
 const PowerUser = preload("res://scripts/components/power_user.gd")
+const ConstructionComponentScript = preload("res://scripts/components/construction_component.gd")
 
 var _test_nodes: Array = []
 
@@ -126,6 +127,62 @@ func _create_node_with_generator(pos: Vector3, power_output: float = 50.0, max_s
 	PowerGraphManager.add_generator(generator)
 	
 	return {"parent": parent, "node": node, "source": source, "generator": generator}
+
+
+## Helper to create an under-construction node (disabled main PowerNode + ConstructionComponent).
+## Also creates a separate enabled construction PowerNode with a PowerUser for drawing
+## construction power, mirroring how ConstructionComponent works in production.
+func _create_under_construction_node(pos: Vector3, max_distance: float = 100.0) -> Dictionary:
+	var parent: Node3D = Node3D.new()
+	parent.global_position = pos
+	
+	# Main power node - disabled during construction
+	var node: PowerNode = PowerNode.new()
+	node.max_connection_distance = max_distance
+	node.max_connections = 4
+	node.is_enabled = false
+	
+	# ConstructionComponent sibling (requires_power=false to avoid side effects in tests)
+	var construction: ConstructionComponentScript = ConstructionComponentScript.new()
+	construction.requires_power = false
+	construction.is_built = false
+	construction.build_progress = 0.0
+	
+	parent.add_child(node)
+	parent.add_child(construction)
+	add_child_autofree(parent)
+	_test_nodes.append(parent)
+	
+	PowerGraphManager.add_node(node)
+	
+	return {"parent": parent, "node": node, "construction": construction}
+
+
+## Helper to create an under-construction node that also has a construction PowerNode
+## (enabled, max_connections=1) with a PowerUser, simulating the real construction flow.
+func _create_under_construction_node_with_power(pos: Vector3, max_distance: float = 100.0, build_cost: float = 10.0) -> Dictionary:
+	var data: Dictionary = _create_under_construction_node(pos, max_distance)
+	
+	# Construction power node - enabled, single connection
+	var construction_power_node: PowerNode = PowerNode.new()
+	construction_power_node.max_connection_distance = max_distance
+	construction_power_node.max_connections = 1
+	construction_power_node.is_enabled = true
+	
+	var construction_user: PowerUser = PowerUser.new()
+	construction_user.use_power_cost = build_cost
+	construction_user.power_buffer_capacity = build_cost + 5.0
+	construction_user.is_construction_user = true
+	construction_power_node.add_child(construction_user)
+	
+	data.parent.add_child(construction_power_node)
+	
+	PowerGraphManager.add_node(construction_power_node)
+	PowerGraphManager.add_user(construction_user)
+	
+	data["construction_power_node"] = construction_power_node
+	data["construction_user"] = construction_user
+	return data
 
 
 # ====================
@@ -367,22 +424,26 @@ func test_enable_and_disable_node() -> void:
 	var node1: Node3D = _create_test_node(Vector3(0, 0, 0))
 	var node2: Node3D = _create_test_node(Vector3(75, 0, 0))
 	
-	# Initially both nodes and their edge should be enabled
 	assert_true(node1.is_enabled, "Node1 should be enabled initially")
 	assert_true(node2.is_enabled, "Node2 should be enabled initially")
-	assert_true(PowerGraphManager.is_edge_enabled(node1, node2), "Edge should be enabled initially")
+	assert_true(PowerGraphManager.is_edge_enabled(node1, node2), "Edge should be enabled when both nodes enabled")
 	
-	# Disable node1
+	# Disable node1 - edge requires both enabled, so it should be disabled
 	PowerGraphManager.disable_node(node1)
 	assert_false(node1.is_enabled, "Node1 should be disabled")
 	assert_true(node2.is_enabled, "Node2 should still be enabled")
-	assert_true(PowerGraphManager.is_edge_enabled(node1, node2), "Edge should still be enabled (one node enabled)")
+	assert_false(PowerGraphManager.is_edge_enabled(node1, node2), "Edge should be disabled (one node disabled)")
 	
 	# Disable node2 as well
 	PowerGraphManager.disable_node(node2)
 	assert_false(node1.is_enabled, "Node1 should still be disabled")
 	assert_false(node2.is_enabled, "Node2 should be disabled")
 	assert_false(PowerGraphManager.is_edge_enabled(node1, node2), "Edge should be disabled (both nodes disabled)")
+	
+	# Re-enable both - edge should come back
+	PowerGraphManager.enable_node(node1)
+	PowerGraphManager.enable_node(node2)
+	assert_true(PowerGraphManager.is_edge_enabled(node1, node2), "Edge should be enabled after re-enabling both nodes")
 
 
 func test_add_disabled_node() -> void:
@@ -404,13 +465,168 @@ func test_add_disabled_node() -> void:
 	node1.is_enabled = false
 	PowerGraphManager.add_node(node2)
 	
-	# Verify edge is disabled when both nodes are disabled
+	# Both disabled - edge should be disabled
 	assert_false(node1.is_enabled, "Node1 should be disabled")
 	assert_false(node2.is_enabled, "Node2 should be disabled")
-	assert_false(PowerGraphManager.is_edge_enabled(node1, node2), "Edge should be disabled")
+	assert_false(PowerGraphManager.is_edge_enabled(node1, node2), "Edge should be disabled (both disabled)")
 	
-	# Enable node2 and verify edge becomes enabled
+	# Enable only node2 - edge still disabled (both must be enabled)
 	PowerGraphManager.enable_node(node2)
 	assert_false(node1.is_enabled, "Node1 should still be disabled")
 	assert_true(node2.is_enabled, "Node2 should be enabled")
-	assert_true(PowerGraphManager.is_edge_enabled(node1, node2), "Edge should be enabled now")
+	assert_false(PowerGraphManager.is_edge_enabled(node1, node2), "Edge should still be disabled (node1 disabled)")
+	
+	# Enable node1 as well - edge should now be enabled
+	PowerGraphManager.enable_node(node1)
+	assert_true(PowerGraphManager.is_edge_enabled(node1, node2), "Edge should be enabled when both nodes enabled")
+
+
+# ====================
+# Edge State Tests
+# ====================
+
+func test_edge_enabled_when_both_nodes_enabled() -> void:
+	var node1: Node3D = _create_test_node(Vector3(0, 0, 0))
+	var node2: Node3D = _create_test_node(Vector3(75, 0, 0))
+	
+	assert_true(node1.is_enabled, "Node1 should be enabled")
+	assert_true(node2.is_enabled, "Node2 should be enabled")
+	assert_true(PowerGraphManager.is_edge_enabled(node1, node2), "Edge should be enabled when both nodes enabled")
+
+
+func test_edge_disabled_when_one_node_disabled() -> void:
+	var node1: Node3D = _create_test_node(Vector3(0, 0, 0))
+	var node2: Node3D = _create_test_node(Vector3(75, 0, 0))
+	
+	PowerGraphManager.disable_node(node1)
+	
+	assert_false(node1.is_enabled, "Node1 should be disabled")
+	assert_true(node2.is_enabled, "Node2 should be enabled")
+	assert_false(PowerGraphManager.is_edge_enabled(node1, node2), "Edge should be disabled when one node is disabled")
+
+
+func test_edge_disabled_when_both_nodes_disabled() -> void:
+	var node1: Node3D = _create_test_node(Vector3(0, 0, 0))
+	var node2: Node3D = _create_test_node(Vector3(75, 0, 0))
+	
+	PowerGraphManager.disable_node(node1)
+	PowerGraphManager.disable_node(node2)
+	
+	assert_false(PowerGraphManager.is_edge_enabled(node1, node2), "Edge should be disabled when both nodes disabled")
+
+
+func test_edge_enabled_after_re_enabling_node() -> void:
+	var node1: Node3D = _create_test_node(Vector3(0, 0, 0))
+	var node2: Node3D = _create_test_node(Vector3(75, 0, 0))
+	
+	assert_true(PowerGraphManager.is_edge_enabled(node1, node2), "Edge should start enabled")
+	
+	# Disable both
+	PowerGraphManager.disable_node(node1)
+	PowerGraphManager.disable_node(node2)
+	assert_false(PowerGraphManager.is_edge_enabled(node1, node2), "Edge should be disabled")
+	
+	# Re-enable both
+	PowerGraphManager.enable_node(node1)
+	PowerGraphManager.enable_node(node2)
+	assert_true(PowerGraphManager.is_edge_enabled(node1, node2), "Edge should be enabled after re-enabling both")
+
+
+func test_edges_removed_when_node_removed() -> void:
+	var node1: Node3D = _create_test_node(Vector3(0, 0, 0))
+	var node2: Node3D = _create_test_node(Vector3(75, 0, 0))
+	var node3: Node3D = _create_test_node(Vector3(150, 0, 0))
+	
+	# node1 -- node2 -- node3
+	assert_eq(node2.connected_nodes.size(), 2, "Node2 should have 2 connections")
+	assert_true(PowerGraphManager.is_edge_enabled(node1, node2), "Edge 1-2 should exist")
+	assert_true(PowerGraphManager.is_edge_enabled(node2, node3), "Edge 2-3 should exist")
+	
+	# Remove node2 - its edges should be gone
+	PowerGraphManager.remove_node(node2)
+	
+	assert_false(PowerGraphManager.is_edge_enabled(node1, node2), "Edge 1-2 should be gone after removing node2")
+	assert_false(PowerGraphManager.is_edge_enabled(node2, node3), "Edge 2-3 should be gone after removing node2")
+	assert_eq(node1.connected_nodes.size(), 0, "Node1 should have no connections after node2 removed")
+	assert_eq(node3.connected_nodes.size(), 0, "Node3 should have no connections after node2 removed")
+
+
+# ====================
+# Under-Construction / Disabled Relay Tests
+# ====================
+
+func test_cannot_draw_power_through_under_construction_relay() -> void:
+	# Layout: Source(100 power) -- Under-construction relay (disabled) -- User
+	var source_data: Dictionary = _create_node_with_source(Vector3(0, 0, 0), 100.0, 100.0)
+	var _uc_data: Dictionary = _create_under_construction_node(Vector3(75, 0, 0))
+	var user_data: Dictionary = _create_node_with_user(Vector3(150, 0, 0), 50.0, 50.0)
+	
+	# The under-construction relay's main node is disabled, so edges through it are disabled.
+	# The user should not be able to draw power through it.
+	var drawn: float = PowerGraphManager.draw_power_for_user(user_data.user, 50.0)
+	
+	assert_eq(drawn, 0.0, "Should not be able to draw power through under-construction relay")
+	assert_eq(source_data.source.current_storage, 100.0, "Source should still have all power")
+
+
+func test_cannot_draw_power_through_disabled_relay() -> void:
+	# Same as above but with an explicitly disabled node (no ConstructionComponent)
+	var source_data: Dictionary = _create_node_with_source(Vector3(0, 0, 0), 100.0, 100.0)
+	var _disabled_relay: Node3D = _create_test_node(Vector3(75, 0, 0), 100.0, 4, false)
+	var user_data: Dictionary = _create_node_with_user(Vector3(150, 0, 0), 50.0, 50.0)
+	
+	var drawn: float = PowerGraphManager.draw_power_for_user(user_data.user, 50.0)
+	
+	assert_eq(drawn, 0.0, "Should not be able to draw power through disabled relay")
+	assert_eq(source_data.source.current_storage, 100.0, "Source should still have all power")
+
+
+# ====================
+# Construction Power Tests
+# ====================
+
+func test_construction_power_node_can_draw_power() -> void:
+	# Source with power, and an under-construction node with its own construction PowerNode
+	var source_data: Dictionary = _create_node_with_source(Vector3(0, 0, 0), 100.0, 100.0)
+	var uc_data: Dictionary = _create_under_construction_node_with_power(Vector3(75, 0, 0), 100.0, 10.0)
+	
+	# The construction power node is enabled with max_connections=1, and should connect to the source
+	assert_true(uc_data.construction_power_node.is_enabled, "Construction power node should be enabled")
+	assert_eq(uc_data.construction_power_node.connected_nodes.size(), 1, "Construction power node should have 1 connection")
+	
+	# Construction user should be able to draw power
+	var drawn: float = PowerGraphManager.draw_power_for_user(uc_data.construction_user, 10.0)
+	
+	assert_eq(drawn, 10.0, "Construction user should draw 10 power")
+	assert_eq(source_data.source.current_storage, 90.0, "Source should have 90 power remaining")
+
+
+func test_chain_construction_builds_sequentially() -> void:
+	# Source -- Under-construction A -- Under-construction B
+	# A can draw power, B cannot until A's main node is enabled
+	var _source_data: Dictionary = _create_node_with_source(Vector3(0, 0, 0), 100.0, 100.0)
+	var uc_a: Dictionary = _create_under_construction_node_with_power(Vector3(75, 0, 0), 100.0, 10.0)
+	var uc_b: Dictionary = _create_under_construction_node_with_power(Vector3(150, 0, 0), 100.0, 10.0)
+	
+	# A's construction node (enabled, max_conn=1) should connect to Source (enabled)
+	assert_eq(uc_a.construction_power_node.connected_nodes.size(), 1, "A's construction node should connect to source")
+	
+	# B's construction node (enabled, max_conn=1) should connect to something, but
+	# A's construction node is full (max_conn=1, already connected to source).
+	# B connects to A's main node (disabled) - edge is disabled (AND: true AND false = false).
+	# So B should NOT be able to draw power.
+	var drawn_b: float = PowerGraphManager.draw_power_for_user(uc_b.construction_user, 10.0)
+	assert_eq(drawn_b, 0.0, "B should not draw power while A is under construction")
+	
+	# A draws power successfully
+	var drawn_a: float = PowerGraphManager.draw_power_for_user(uc_a.construction_user, 10.0)
+	assert_eq(drawn_a, 10.0, "A should draw 10 power for construction")
+	
+	# Simulate A finishing construction: remove construction power node, enable main node
+	PowerGraphManager.remove_node(uc_a.construction_power_node)
+	uc_a.construction_power_node.queue_free()
+	PowerGraphManager.enable_node(uc_a.node)
+	
+	# Now B's construction node should be able to draw power through A's enabled main node
+	var drawn_b_after: float = PowerGraphManager.draw_power_for_user(uc_b.construction_user, 10.0)
+	assert_eq(drawn_b_after, 10.0, "B should draw power after A completes construction")

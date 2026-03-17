@@ -13,10 +13,11 @@ attack_range = 17.0
 attack_cooldown = 2.2
 reward_minerals = 14
 movement_profile = {
-"avoidance_force": 26.0,
-"drag": 1.6,
-"max_acceleration": 12.0,
-"max_turn_rate_deg": 135.0
+"turn_rate_deg": 135.0,
+"avoidance_ray_length": 18.0,
+"avoidance_cone_deg": 36.0,
+"collision_damage": 18.0,
+"destroy_on_collision": true
 }
 targeting_profile = {
 "mode": "nearest"

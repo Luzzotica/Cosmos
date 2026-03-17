@@ -19,7 +19,7 @@ func _ready() -> void:
 
 
 func _load_scenes() -> void:
-	asteroid_scene = load("res://scenes/game/asteroid.tscn")
+	asteroid_scene = load("res://scenes/ecs/e_asteroid.tscn")
 	_cloud_marker_scene = load("res://scenes/editor/cloud_marker.tscn")
 
 
@@ -132,7 +132,10 @@ func clear_current_map() -> void:
 	var asteroids_parent: Node = main.get_node_or_null("Asteroids")
 	if asteroids_parent:
 		for child in asteroids_parent.get_children():
-			child.queue_free()
+			if ECS and ECS.world and child is Entity:
+				ECS.world.remove_entity(child as Entity)
+			else:
+				child.queue_free()
 	
 	# Clear structures
 	var structures_parent: Node = main.get_node_or_null("Structures")
@@ -154,13 +157,19 @@ func clear_current_map() -> void:
 func _spawn_asteroid(parent: Node3D, data: AsteroidPlacement) -> void:
 	if not asteroid_scene:
 		return
-	
-	var asteroid: Asteroid = asteroid_scene.instantiate() as Asteroid
-	if asteroid:
-		parent.add_child(asteroid)
-		asteroid.global_position = data.position
-		asteroid.asteroid_size = data.size
-		asteroid.set_minerals(data.minerals)
+
+	var entity: Node = asteroid_scene.instantiate() as Node
+	if entity:
+		parent.add_child(entity)
+		var body: Node3D = entity.get_node_or_null("AsteroidBody") as Node3D
+		if body:
+			body.global_position = data.position
+		if ECS and ECS.world:
+			ECS.world.add_entity(entity, [], false)
+		if entity.has_method("set_size"):
+			entity.call("set_size", data.size)
+		if entity.has_method("set_minerals"):
+			entity.call("set_minerals", data.minerals)
 
 
 ## Spawn a CloudMarker in editor mode (cloud region representation, no asteroids)
@@ -199,7 +208,7 @@ func _spawn_asteroid_cloud(parent: Node3D, data: Resource) -> void:
 		_spawn_asteroid(parent, placement)
 
 
-func spawn_asteroid_for_editor(parent: Node3D, world_position: Vector3, size: float, minerals: float) -> Asteroid:
+func spawn_asteroid_for_editor(parent: Node3D, world_position: Vector3, size: float, minerals: float) -> Node:
 	var data: AsteroidPlacement = AsteroidPlacement.new()
 	data.position = world_position
 	data.size = size
@@ -208,7 +217,7 @@ func spawn_asteroid_for_editor(parent: Node3D, world_position: Vector3, size: fl
 	var children: Array = parent.get_children()
 	if children.is_empty():
 		return null
-	return children[children.size() - 1] as Asteroid
+	return children[children.size() - 1]
 
 
 func spawn_asteroid_cloud_for_editor(parent: Node3D, cloud_data: Resource) -> void:
@@ -250,15 +259,29 @@ func _spawn_structure(parent: Node3D, data: StructurePlacement) -> void:
 		push_warning("Unknown structure type: " + data.building_type)
 		return
 	
-	var structure: Node3D = scene.instantiate() as Node3D
-	if structure:
-		parent.add_child(structure)
-		structure.global_position = data.position
-		# Mark as pre-built (skip construction) for map-placed structures
+	var structure: Node = scene.instantiate()
+	if not structure:
+		return
+	parent.add_child(structure)
+	if structure is Node3D:
+		(structure as Node3D).global_position = data.position
+	elif structure is Entity:
+		var body: Node = structure.get_node_or_null("StructureBody")
+		if body and body is Node3D:
+			(body as Node3D).global_position = data.position
+		if ECS and ECS.world:
+			ECS.world.add_entity(structure, [], false)
+		if data.is_pre_built and body and body.has_method("set_starter_panel"):
+			body.call("set_starter_panel", true)
+		if data.building_type == "monolith" and current_map and current_map.get("win_monolith_power_required") and current_map.win_monolith_power_required > 0 and structure.get("_pending_monolith_power_required") != null:
+			structure.set("_pending_monolith_power_required", float(current_map.win_monolith_power_required))
+		return
+	else:
+		return
+	if structure is Node3D:
 		if data.is_pre_built and structure.has_method("set_starter_panel"):
 			structure.call("set_starter_panel", true)
-		# Configure monolith power target from map if set
-		if data.building_type == "monolith" and current_map and current_map.win_monolith_power_required > 0:
+		if data.building_type == "monolith" and current_map and current_map.get("win_monolith_power_required") and current_map.win_monolith_power_required > 0 and structure.get("_pending_monolith_power_required") != null:
 			structure.set("_pending_monolith_power_required", float(current_map.win_monolith_power_required))
 
 

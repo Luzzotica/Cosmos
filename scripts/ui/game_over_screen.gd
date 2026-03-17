@@ -1,6 +1,6 @@
 extends Control
 class_name GameOverScreen
-## Game Over Screen - Shows when all structures are destroyed
+## Game Over Screen - Shows when all structures are destroyed or on victory
 
 signal restart_requested
 
@@ -16,10 +16,11 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	restart_button.pressed.connect(_on_restart_pressed)
 	restart_button.mouse_entered.connect(_on_restart_hovered)
-	GameState.game_over.connect(_on_game_over)
+	GameState.game_over.connect(_on_game_ended)
+	GameState.victory.connect(_on_game_ended)
 
 
-func _on_game_over() -> void:
+func _on_game_ended() -> void:
 	show_game_over()
 
 
@@ -27,6 +28,13 @@ func show_game_over() -> void:
 	visible = true
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	restart_button.grab_focus()
+
+	if GameState.is_victory:
+		title_label.text = "VICTORY"
+		message_label.text = "Objectives complete!"
+	else:
+		title_label.text = "GAME OVER"
+		message_label.text = "All structures have been destroyed!"
 	
 	# Update stats
 	var waves_survived: int = GameState.current_wave
@@ -34,11 +42,12 @@ func show_game_over() -> void:
 	var minutes: int = int(time_survived / 60.0)
 	var seconds: int = int(time_survived) % 60
 	
-	stats_label.text = "Waves Survived: %d\nTime: %02d:%02d\nMinerals Collected: %d" % [
+	stats_label.text = "Waves Survived: %d\nTime: %02d:%02d\nMinerals Collected: %d\nMinerals Mined: %d" % [
 		waves_survived,
 		minutes,
 		seconds,
-		GameState.minerals
+		GameState.minerals,
+		GameState.total_minerals_mined
 	]
 
 

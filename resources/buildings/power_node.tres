@@ -1,17 +1,16 @@
-[gd_resource type="Resource" script_class="BuildingData" load_steps=3 format=3 uid="uid://bw7kq3n1lxvmc"]
+[gd_resource type="Resource" script_class="BuildingData" format=3 uid="uid://bw7kq3n1lxvmc"]
 
-[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_building_data"]
-[ext_resource type="PackedScene" uid="uid://cwp2r8nxg4yqr" path="res://scenes/structures/power_node.tscn" id="2_scene"]
+[ext_resource type="Script" uid="uid://cyse7hiin278m" path="res://scripts/data/building_data.gd" id="1_building_data"]
+[ext_resource type="PackedScene" uid="uid://dsblg0nafa0x3" path="res://scenes/ecs/e_power_node.tscn" id="1_j55ux"]
 
 [resource]
 script = ExtResource("1_building_data")
 id = "power_node"
 display_name = "Power Node"
 description = "Extends the power grid to reach distant structures."
-scene = ExtResource("2_scene")
+scene = ExtResource("1_j55ux")
 cost = 25
 construction_time = 3.0
 placement_sphere_radius = 1.5
 max_health = 50.0
-power_radius = 100.0
 max_connections = 6

@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://dkwt3h8ycvvqm"]
 
 [ext_resource type="Script" uid="uid://cn0nespna7xeb" path="res://scripts/camera/rts_camera.gd" id="1_camera"]
+[ext_resource type="Script" path="res://scripts/debug/enemy_target_debug_overlay.gd" id="2_debug"]
 [ext_resource type="Script" uid="uid://b33a0nilirc6s" path="res://scripts/game/main_game.gd" id="2_main"]
 [ext_resource type="PackedScene" uid="uid://c5yh8m2qxr4wv" path="res://scenes/ui/game_hud.tscn" id="3_hud"]
 [ext_resource type="Shader" uid="uid://t6rxxtupsr6f" path="res://shaders/starfield_sky_v3.gdshader" id="3_mkoeh"]
@@ -80,6 +81,11 @@ albedo_color = Color(0.1, 0.1, 0.15, 1)
 
 [node name="Main" type="Node3D" unique_id=802102950]
 script = ExtResource("2_main")
+
+[node name="EnemyTargetDebugOverlay" type="Node3D" parent="."]
+script = ExtResource("2_debug")
+enabled = false
+obstacle_debug_enabled = false
 
 [node name="ECSWorld" type="Node" parent="." unique_id=802102951]
 script = ExtResource("11_world")

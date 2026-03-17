@@ -7,7 +7,7 @@
 [ext_resource type="PackedScene" path="res://scenes/components/power_node_component.tscn" id="5_power_node"]
 [ext_resource type="PackedScene" uid="uid://r1vhglyeysme" path="res://scenes/components/selectable_component.tscn" id="6_selectable"]
 [ext_resource type="PackedScene" path="res://scenes/components/selection_visuals.tscn" id="7_selection_visuals"]
-[ext_resource type="Shader" path="res://shaders/structure_hull.gdshader" id="8_hull"]
+[ext_resource type="Shader" uid="uid://518h4rttda2r" path="res://shaders/structure_hull.gdshader" id="8_hull"]
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_bottom"]
 top_radius = 0.8
@@ -16,10 +16,14 @@ height = 1.0
 radial_segments = 4
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_base"]
+render_priority = 0
 shader = ExtResource("8_hull")
 shader_parameter/base_color = Color(0.42, 0.45, 0.5, 1)
 shader_parameter/metallic = 0.8
 shader_parameter/roughness = 0.35
+shader_parameter/noise_scale = 12.0
+shader_parameter/brushed_strength = 0.12
+shader_parameter/panel_line_strength = 0.06
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_top"]
 top_radius = 0.0
@@ -37,28 +41,34 @@ emission_enabled = true
 emission = Color(0.12, 0.68, 1, 1)
 emission_energy_multiplier = 4.0
 
+[sub_resource type="SphereShape3D" id="SphereShape3D_obstacle"]
+radius = 0.83953434
+
 [node name="PowerNode" type="Node3D" unique_id=1457942554]
 script = ExtResource("1_power_node")
 building_type = "power_node"
 placement_preview_exclude_mesh_names = PackedStringArray("ActiveConnectionOrb")
 
-[node name="BaseBottom" type="MeshInstance3D" parent="." unique_id=1774872488]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5201125, 0)
+[node name="Root" type="Node3D" parent="." unique_id=903676097]
+
+[node name="BaseBottom" type="MeshInstance3D" parent="Root" unique_id=1774872488]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.52, 0)
 mesh = SubResource("CylinderMesh_bottom")
+skeleton = NodePath("../..")
 surface_material_override/0 = SubResource("ShaderMaterial_base")
 
-[node name="Top" type="MeshInstance3D" parent="." unique_id=696382110]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.52, 0)
+[node name="Top" type="MeshInstance3D" parent="Root" unique_id=696382110]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.52, 0)
 mesh = SubResource("CylinderMesh_top")
+skeleton = NodePath("../..")
 surface_material_override/0 = SubResource("ShaderMaterial_base")
 
-[node name="ConnectionPoint" type="Marker3D" parent="." unique_id=1020920223]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0350561, 0)
+[node name="ConnectionPoint" type="Marker3D" parent="Root" unique_id=1020920223]
 
-[node name="ActiveConnectionOrb" type="MeshInstance3D" parent="." unique_id=1617351865]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9745276, 0)
+[node name="ActiveConnectionOrb" type="MeshInstance3D" parent="Root" unique_id=1617351865]
 cast_shadow = 0
 mesh = SubResource("TorusMesh_58hpp")
+skeleton = NodePath("../..")
 surface_material_override/0 = SubResource("StandardMaterial3D_connection_orb")
 
 [node name="TeamComponent" parent="." unique_id=1800482275 instance=ExtResource("2_team")]
@@ -77,3 +87,13 @@ is_enabled = false
 selection_kind = "structure"
 
 [node name="SelectionVisuals" parent="." unique_id=1550334664 instance=ExtResource("7_selection_visuals")]
+
+[node name="ObstacleBody" type="StaticBody3D" parent="." unique_id=1582342964]
+collision_layer = 4
+collision_mask = 0
+input_ray_pickable = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="ObstacleBody" unique_id=91109255]
+shape = SubResource("SphereShape3D_obstacle")
+
+[editable path="SelectableComponent"]

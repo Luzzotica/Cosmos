@@ -2,12 +2,13 @@ extends BaseStructure
 class_name SolarPanel
 ## Solar Panel - Generates and stores power
 
-var power_source: PowerSource
-var power_generator: PowerGenerator
+@onready var panel_mesh: MeshInstance3D = $VisualRoot/Panel
+@onready var power_source: PowerSource = $PowerNode/PowerSource as PowerSource
+@onready var power_generator: PowerGenerator = $PowerNode/PowerSource/PowerGenerator as PowerGenerator
+
 var is_active: bool = false
 var _is_starter_panel: bool = false
 @export var sun_light_path: NodePath = NodePath("/root/Main/DirectionalLight3D")
-@onready var panel_mesh: MeshInstance3D = $Panel
 
 var _sun_light: DirectionalLight3D = null
 var _panel_intro_complete: bool = false
@@ -18,19 +19,7 @@ var _panel_rest_y: float = 1.5
 func _ready() -> void:
 	building_type = "solar_panel"
 	super._ready()
-	_setup_power_components()
 	_resolve_sun_light()
-
-
-func _setup_power_components() -> void:
-	# Find power components
-	if power_node:
-		for child in power_node.get_children():
-			if child is PowerSource:
-				power_source = child
-				for source_child in power_source.get_children():
-					if source_child is PowerGenerator:
-						power_generator = source_child
 
 
 func set_starter_panel(is_starter: bool) -> void:

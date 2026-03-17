@@ -12,6 +12,7 @@ const HOTKEY_LABELS: Array[String] = ["Q", "E", "R", "T", "Y", "U"]
 @onready var energy_label: Label = $Margin/VBox/TopBar/ResourcesPanel/MarginContainer/VBoxContainer/EnergyLabel
 @onready var wave_label: Label = $Margin/VBox/TopBar/WavePanel/MarginContainer/VBoxContainer/WaveLabel
 @onready var wave_timer_label: Label = $Margin/VBox/TopBar/WavePanel/MarginContainer/VBoxContainer/WaveTimerLabel
+@onready var next_wave_button: Button = $Margin/VBox/TopBar/WavePanel/MarginContainer/VBoxContainer/NextWaveButton
 @onready var build_panel: PanelContainer = $Margin/VBox/BottomBar/BuildPanel
 @onready var build_buttons_container: HBoxContainer = $Margin/VBox/BottomBar/BuildPanel/MarginContainer/BuildButtons
 @onready var menu_button: Button = $Margin/VBox/TopBar/MenuButton
@@ -24,6 +25,7 @@ func _ready() -> void:
 	_connect_signals()
 	_setup_build_buttons()
 	_setup_menu_button()
+	_setup_next_wave_button()
 	_update_resources()
 	_update_wave_info()
 
@@ -80,6 +82,19 @@ func _setup_menu_button() -> void:
 		menu_button.mouse_entered.connect(_on_build_button_hovered)
 
 
+func _setup_next_wave_button() -> void:
+	if next_wave_button:
+		next_wave_button.pressed.connect(_on_next_wave_button_pressed)
+		next_wave_button.mouse_entered.connect(_on_build_button_hovered)
+
+
+func _on_next_wave_button_pressed() -> void:
+	if GameState.is_game_over or GameState.is_wave_in_progress:
+		return
+	_play_sfx_method("play_ui_confirm")
+	GameState.start_wave()
+
+
 func _on_menu_button_pressed() -> void:
 	if GameState.is_game_over:
 		return
@@ -129,6 +144,8 @@ func _update_wave_timer() -> void:
 			wave_timer_label.text = "Next wave in: %.1fs" % GameState.time_until_next_wave
 		else:
 			wave_timer_label.text = "Wave active!"
+	if next_wave_button:
+		next_wave_button.visible = not GameState.is_wave_in_progress and not GameState.is_game_over
 
 
 func _on_minerals_changed(_amount: int) -> void:

@@ -1,0 +1,125 @@
+[gd_scene format=3 uid="uid://dy2xhsx723lk"]
+
+[ext_resource type="Script" uid="uid://by0shd6l6xbyi" path="res://scripts/ecs/entities/structure_entity.gd" id="1_entity"]
+[ext_resource type="Script" uid="uid://b6k13gc2m4e5s" path="res://addons/gecs/ecs/component.gd" id="2_component"]
+[ext_resource type="Script" uid="uid://18tfurh7vrbn" path="res://scripts/ecs/components/c_structure.gd" id="2_structure"]
+[ext_resource type="Script" uid="uid://s0m0va7uhacv" path="res://scripts/ecs/components/c_health.gd" id="3_health"]
+[ext_resource type="Script" uid="uid://m4qryo881oo4" path="res://scripts/ecs/components/c_team.gd" id="4_team"]
+[ext_resource type="Script" uid="uid://ciuam2tjt75s5" path="res://scripts/ecs/components/c_transform3d.gd" id="5_transform"]
+[ext_resource type="Script" uid="uid://c2iy2omarsk2l" path="res://scripts/structures/structure_body_base.gd" id="9_body"]
+[ext_resource type="PackedScene" path="res://scenes/components/power_node_component.tscn" id="13_power"]
+[ext_resource type="PackedScene" path="res://scenes/components/power_source_component.tscn" id="14_power_source"]
+[ext_resource type="PackedScene" path="res://scenes/components/power_generator_component.tscn" id="15_power_gen"]
+[ext_resource type="PackedScene" uid="uid://r1vhglyeysme" path="res://scenes/components/selectable_component.tscn" id="16_selectable"]
+[ext_resource type="PackedScene" path="res://scenes/components/selection_visuals.tscn" id="17_selection"]
+[ext_resource type="Script" uid="uid://c6g3le57y0tuc" path="res://scripts/components/construction_component.gd" id="18_construct"]
+[ext_resource type="Shader" uid="uid://518h4rttda2r" path="res://shaders/structure_hull.gdshader" id="18_hull"]
+[ext_resource type="Script" uid="uid://o4u7lytscml8" path="res://scripts/structures/solar_panel_visual_handler.gd" id="19_visual"]
+[ext_resource type="Script" uid="uid://cilf2qopdn8y5" path="res://scripts/ecs/components/c_upgrades.gd" id="20_upgrades"]
+
+[sub_resource type="Resource" id="Resource_structure"]
+script = ExtResource("2_structure")
+building_type = "solar_panel"
+
+[sub_resource type="Resource" id="Resource_health"]
+script = ExtResource("3_health")
+current = 75.0
+maximum = 75.0
+
+[sub_resource type="Resource" id="Resource_team"]
+script = ExtResource("4_team")
+
+[sub_resource type="Resource" id="Resource_transform"]
+script = ExtResource("5_transform")
+
+[sub_resource type="Resource" id="Resource_upgrades"]
+script = ExtResource("20_upgrades")
+upgrade_tree_id = "solar_panel"
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_base"]
+top_radius = 1.0
+bottom_radius = 1.1
+height = 0.6
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_base"]
+render_priority = 0
+shader = ExtResource("18_hull")
+shader_parameter/base_color = Color(0.44, 0.47, 0.52, 1)
+shader_parameter/metallic = 0.75
+shader_parameter/roughness = 0.34
+shader_parameter/noise_scale = 12.0
+shader_parameter/brushed_strength = 0.12
+shader_parameter/panel_line_strength = 0.06
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_panel"]
+top_radius = 0.98
+bottom_radius = 0.98
+height = 0.08
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_panel"]
+albedo_color = Color(0.1, 0.72, 1, 1)
+metallic = 0.7
+roughness = 0.2
+emission_enabled = true
+emission = Color(0.08, 0.58, 0.95, 1)
+emission_energy_multiplier = 1.8
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_collision"]
+radius = 1.2789497
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_obstacle"]
+radius = 1.1739564
+
+[node name="SolarPanel" type="Node" unique_id=1525818432]
+script = ExtResource("1_entity")
+component_resources = Array[ExtResource("2_component")]([SubResource("Resource_structure"), SubResource("Resource_health"), SubResource("Resource_team"), SubResource("Resource_transform"), SubResource("Resource_upgrades")])
+
+[node name="StructureBody" type="Node3D" parent="." unique_id=1175918518]
+script = ExtResource("9_body")
+
+[node name="VisualRoot" type="Node3D" parent="StructureBody" unique_id=898434844]
+
+[node name="Base" type="MeshInstance3D" parent="StructureBody/VisualRoot" unique_id=1369577304]
+mesh = SubResource("CylinderMesh_base")
+skeleton = NodePath("../..")
+surface_material_override/0 = SubResource("ShaderMaterial_base")
+
+[node name="Panel" type="MeshInstance3D" parent="StructureBody/VisualRoot" unique_id=485568320]
+transform = Transform3D(1.08, 0, 0, 0, 1, 0, 0, 0, 1.08, 0, 0.8, 0)
+mesh = SubResource("CylinderMesh_panel")
+skeleton = NodePath("../..")
+surface_material_override/0 = SubResource("StandardMaterial3D_panel")
+
+[node name="ConnectionPoint" type="Marker3D" parent="StructureBody/VisualRoot" unique_id=1521537959]
+
+[node name="PowerNode" parent="StructureBody" unique_id=1575964325 instance=ExtResource("13_power")]
+max_connections = 20
+is_enabled = false
+
+[node name="PowerSource" parent="StructureBody/PowerNode" unique_id=490174112 instance=ExtResource("14_power_source")]
+
+[node name="PowerGenerator" parent="StructureBody/PowerNode/PowerSource" unique_id=1934779749 instance=ExtResource("15_power_gen")]
+power_output = 5.0
+
+[node name="SelectableComponent" parent="StructureBody" unique_id=1650531544 instance=ExtResource("16_selectable")]
+selection_kind = "structure"
+
+[node name="CollisionShape3D" parent="StructureBody/SelectableComponent" index="0"]
+shape = SubResource("SphereShape3D_collision")
+
+[node name="SelectionVisuals" parent="StructureBody" unique_id=1582406498 instance=ExtResource("17_selection")]
+
+[node name="VisualHandler" type="Node" parent="StructureBody" unique_id=39127063]
+script = ExtResource("19_visual")
+
+[node name="ObstacleBody" type="StaticBody3D" parent="StructureBody" unique_id=1972139933]
+collision_layer = 4
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StructureBody/ObstacleBody" unique_id=1651282584]
+shape = SubResource("SphereShape3D_obstacle")
+
+[node name="ConstructionComponent" type="Node3D" parent="StructureBody" unique_id=393221066]
+script = ExtResource("18_construct")
+
+[editable path="StructureBody/SelectableComponent"]

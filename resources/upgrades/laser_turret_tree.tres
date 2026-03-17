@@ -1,0 +1,57 @@
+[gd_resource type="Resource" script_class="UpgradeTreeData" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/upgrade_tree_data.gd" id="1_tree"]
+[ext_resource type="Script" path="res://scripts/data/upgrade_node_data.gd" id="2_node"]
+
+[sub_resource type="Resource" id="node_rapid_fire"]
+script = ExtResource("2_node")
+id = "rapid_fire"
+display_name = "Rapid Fire"
+description = "Increases fire rate by 40%."
+mineral_cost = 75
+power_cost = 10.0
+upgrade_time = 3.0
+requires = Array[String]([])
+excludes = Array[String](["heavy_beam"])
+stat_modifiers = [{"component": "C_BeamWeapon", "property": "attack_cooldown", "operation": "multiply", "value": 0.6}]
+
+[sub_resource type="Resource" id="node_heavy_beam"]
+script = ExtResource("2_node")
+id = "heavy_beam"
+display_name = "Heavy Beam"
+description = "Doubles beam damage."
+mineral_cost = 100
+power_cost = 10.0
+upgrade_time = 3.0
+requires = Array[String]([])
+excludes = Array[String](["rapid_fire"])
+stat_modifiers = [{"component": "C_BeamWeapon", "property": "damage", "operation": "multiply", "value": 2.0}]
+
+[sub_resource type="Resource" id="node_overcharge"]
+script = ExtResource("2_node")
+id = "overcharge"
+display_name = "Overcharge"
+description = "Further 25% fire rate boost and +5 range."
+mineral_cost = 150
+power_cost = 15.0
+upgrade_time = 4.0
+requires = Array[String](["rapid_fire"])
+excludes = Array[String]([])
+stat_modifiers = [{"component": "C_BeamWeapon", "property": "attack_cooldown", "operation": "multiply", "value": 0.75}, {"component": "C_BeamWeapon", "property": "attack_range", "operation": "add", "value": 5.0}]
+
+[sub_resource type="Resource" id="node_piercing"]
+script = ExtResource("2_node")
+id = "piercing"
+display_name = "Piercing Shot"
+description = "Beam ignores enemy armor."
+mineral_cost = 150
+power_cost = 15.0
+upgrade_time = 4.0
+requires = Array[String](["heavy_beam"])
+excludes = Array[String]([])
+stat_modifiers = [{"component": "C_BeamWeapon", "property": "damage_type", "operation": "set", "value": "piercing"}]
+
+[resource]
+script = ExtResource("1_tree")
+tree_id = "laser_turret"
+nodes = [SubResource("node_rapid_fire"), SubResource("node_heavy_beam"), SubResource("node_overcharge"), SubResource("node_piercing")]

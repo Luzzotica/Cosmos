@@ -16,13 +16,16 @@
   "target_carryover_energy": 120.0,
   "starting_resources": {
     "override_defaults": true,
-    "minerals": 8000,
+    "minerals": 300,
     "energy": 100.0,
     "energy_capacity": 120.0
   },
+  "win_minerals_mined": 22000,
+  "win_monolith_power_required": 0,
+  "win_mode": "minerals",
   "asteroids": [
-    { "position": [-130, 0, -60], "size": 2.8, "minerals": 26 },
-    { "position": [145, 0, 10], "size": 3.0, "minerals": 28 }
+    { "position": [-130, 0, -60], "size": 2.8, "minerals": 900 },
+    { "position": [145, 0, 10], "size": 3.0, "minerals": 1000 }
   ],
   "asteroid_clouds": [
     {
@@ -31,8 +34,8 @@
       "count": 10,
       "min_size": 2.0,
       "max_size": 3.5,
-      "min_minerals": 20,
-      "max_minerals": 42,
+      "min_minerals": 800,
+      "max_minerals": 1600,
       "seed": 40401
     },
     {
@@ -41,8 +44,8 @@
       "count": 12,
       "min_size": 2.2,
       "max_size": 3.8,
-      "min_minerals": 22,
-      "max_minerals": 46,
+      "min_minerals": 850,
+      "max_minerals": 1650,
       "seed": 40402
     }
   ],

@@ -324,13 +324,19 @@ func _create_default_preview() -> Node3D:
 ## Build a preview from the real structure scene by copying meshes only.
 func _create_visual_preview_from_scene(scene: PackedScene) -> Node3D:
 	var preview_root: Node3D = Node3D.new()
-	var source_root: Node3D = scene.instantiate() as Node3D
+	var instance: Node = scene.instantiate()
+	var source_root: Node = null
+	if instance is Node3D:
+		source_root = instance
+	elif instance is Entity:
+		source_root = instance.get_node_or_null("StructureBody")
 	if not source_root:
+		if instance:
+			instance.free()
 		return _create_default_preview()
-	
 	_configure_preview_mesh_filters(source_root)
 	_copy_meshes_to_preview(source_root, preview_root, Transform3D.IDENTITY)
-	source_root.free()
+	instance.free()
 	_clear_preview_mesh_filters()
 	
 	# Fallback in case source scene has no mesh content at runtime.
@@ -473,8 +479,12 @@ func _get_preview_max_connections(building_type: String) -> int:
 		return 0
 	
 	var max_connections: int = 0
-	if temp_structure is Node3D:
-		var power_node: Node3D = _find_power_node_in_structure(temp_structure as Node3D)
+	var root_for_lookup: Node = temp_structure
+	if temp_structure is Entity:
+		var body: Node = temp_structure.get_node_or_null("StructureBody")
+		root_for_lookup = body if body else temp_structure
+	if root_for_lookup:
+		var power_node: Node3D = _find_power_node_in_structure(root_for_lookup)
 		if power_node:
 			max_connections = int(power_node.get("max_connections"))
 	
@@ -747,15 +757,14 @@ func _check_line_of_sight(from_pos: Vector3, to_pos: Vector3, exclude_structure:
 	var end: Vector3 = to_pos + Vector3(0, 0.5, 0)
 	
 	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(start, end)
-	query.collision_mask = 0xFFFFFFFF  # Check all layers
+	query.collision_mask = 1 << 19  # PowerLineBlocking layer only
 	query.collide_with_bodies = true
 	query.collide_with_areas = true
 	
-	# Exclude the target structure
+	# Exclude all collision bodies from the target structure
 	var exclude_rids: Array[RID] = []
 	if exclude_structure:
-		var body: CollisionObject3D = _find_collision_body(exclude_structure)
-		if body:
+		for body in _find_all_collision_bodies(exclude_structure):
 			exclude_rids.append(body.get_rid())
 	query.exclude = exclude_rids
 	
@@ -763,15 +772,20 @@ func _check_line_of_sight(from_pos: Vector3, to_pos: Vector3, exclude_structure:
 	return result.is_empty()  # Clear if nothing hit
 
 
-## Find collision body in a node hierarchy
+## Find first collision body in a node hierarchy
 func _find_collision_body(node: Node) -> CollisionObject3D:
+	var bodies: Array = _find_all_collision_bodies(node)
+	return bodies[0] if bodies.size() > 0 else null
+
+
+## Find all collision bodies in a node hierarchy
+func _find_all_collision_bodies(node: Node) -> Array[CollisionObject3D]:
+	var result: Array[CollisionObject3D] = []
 	if node is CollisionObject3D:
-		return node as CollisionObject3D
+		result.append(node as CollisionObject3D)
 	for child in node.get_children():
-		var body: CollisionObject3D = _find_collision_body(child)
-		if body:
-			return body
-	return null
+		result.append_array(_find_all_collision_bodies(child))
+	return result
 
 
 ## Setup an overlap detector area on the placement preview.
@@ -1111,16 +1125,23 @@ func _find_power_nodes_for_preview(position: Vector3, max_preview_count: int) ->
 	var all_nodes: Array = []
 	
 	for structure in structures_parent.get_children():
-		if not structure is Node3D:
+		var structure_spatial: Node3D = null
+		var root_for_power: Node = structure
+		if structure is Node3D:
+			structure_spatial = structure as Node3D
+		elif structure is Entity:
+			var body: Node = structure.get_node_or_null("StructureBody")
+			if body and body is Node3D:
+				structure_spatial = body as Node3D
+				root_for_power = body
+		if structure_spatial == null:
 			continue
-		
-		# Find power node component
-		var power_node: Node3D = _find_power_node_in_structure(structure)
+		var power_node: Node3D = _find_power_node_in_structure(root_for_power)
 		if power_node:
 			if power_node.has_method("is_valid_connection_target") and not power_node.is_valid_connection_target():
 				# Allow previewing connections to structures still under construction.
 				# They can receive links before they become valid relay/target nodes.
-				if not _is_structure_under_construction(structure):
+				if not _is_structure_under_construction(root_for_power):
 					continue
 			
 			# Check if this node can accept more connections
@@ -1133,12 +1154,12 @@ func _find_power_nodes_for_preview(position: Vector3, max_preview_count: int) ->
 			if _preview_max_connections == 1 and other_max_connections == 1:
 				continue
 			
-			var distance: float = position.distance_to(structure.global_position)
+			var distance: float = position.distance_to(structure_spatial.global_position)
 			# Use the PowerNode's constant for range check
 			if distance <= PowerNodeClass.CONNECTION_RANGE:
 				all_nodes.append({
 					"node": power_node,
-					"structure": structure,
+					"structure": structure_spatial,
 					"distance": distance
 				})
 	
@@ -1155,7 +1176,7 @@ func _find_power_nodes_for_preview(position: Vector3, max_preview_count: int) ->
 
 
 ## Find power node component in a structure
-func _find_power_node_in_structure(structure: Node3D) -> Node3D:
+func _find_power_node_in_structure(structure: Node) -> Node3D:
 	for child in structure.get_children():
 		# Check if this is a PowerNode by its methods
 		if child.has_method("can_accept_more_connections") and child.has_method("is_valid_connection_target"):
@@ -1163,7 +1184,7 @@ func _find_power_node_in_structure(structure: Node3D) -> Node3D:
 	return null
 
 
-func _is_structure_under_construction(structure: Node3D) -> bool:
+func _is_structure_under_construction(structure: Node) -> bool:
 	for child in structure.get_children():
 		if child.has_method("get_progress") and child.get("is_built") == false:
 			return true
@@ -1185,33 +1206,35 @@ func _update_asteroid_highlights(world_position: Vector3) -> void:
 		return
 	
 	for child in asteroids_parent.get_children():
-		# Check if it's an asteroid by checking for the mine_minerals method
-		if child.has_method("mine_minerals") and child.has_method("get_mineral_percentage"):
-			var asteroid_node: Node3D = child as Node3D
-			if asteroid_node and not asteroid_node.get("is_depleted"):
-				var distance: float = world_position.distance_to(asteroid_node.global_position)
-				if distance <= _preview_action_range:
-					var highlight: MeshInstance3D = _create_asteroid_highlight_at(asteroid_node)
-					_asteroid_highlights.append(highlight)
-					get_tree().root.add_child(highlight)
+		if not child.has_method("mine_minerals"):
+			continue
+		if child.get("is_depleted"):
+			continue
+		var ast_pos: Variant = child.get("global_position")
+		if ast_pos == null:
+			continue
+		var distance: float = world_position.distance_to(ast_pos as Vector3)
+		if distance <= _preview_action_range:
+			var ast_size: float = 3.0
+			var sz_val: Variant = child.get("asteroid_size")
+			if sz_val != null:
+				ast_size = float(sz_val)
+			var highlight: MeshInstance3D = _create_asteroid_highlight(ast_pos as Vector3, ast_size)
+			_asteroid_highlights.append(highlight)
+			get_tree().root.add_child(highlight)
 
 
-## Create highlight ring around asteroid at position
-func _create_asteroid_highlight_at(asteroid_node: Node3D) -> MeshInstance3D:
+func _create_asteroid_highlight(ast_pos: Vector3, ast_size: float) -> MeshInstance3D:
 	var highlight: MeshInstance3D = MeshInstance3D.new()
-	
-	# Get asteroid size if available, otherwise use default
-	var asteroid_radius: float = 1.5
-	if asteroid_node.has_method("get_mineral_percentage"):
-		asteroid_radius = asteroid_node.get("asteroid_size") * 0.5 if asteroid_node.get("asteroid_size") else 1.5
-	
+	var asteroid_radius: float = ast_size * 0.5
+
 	var torus: TorusMesh = TorusMesh.new()
 	torus.inner_radius = asteroid_radius + 0.3
 	torus.outer_radius = asteroid_radius + 0.6
 	torus.rings = HIGHLIGHT_RING_SEGMENTS
 	torus.ring_segments = HIGHLIGHT_RING_SEGMENTS
 	highlight.mesh = torus
-	
+
 	var material: StandardMaterial3D = StandardMaterial3D.new()
 	material.albedo_color = Color(0.18, 0.8, 1.0, 0.7)
 	material.emission_enabled = true
@@ -1220,11 +1243,8 @@ func _create_asteroid_highlight_at(asteroid_node: Node3D) -> MeshInstance3D:
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	highlight.material_override = material
-	
-	# Store position for after adding to tree
-	var pos: Vector3 = asteroid_node.global_position
-	highlight.position = Vector3(pos.x, 0.3, pos.z)
-	
+
+	highlight.position = Vector3(ast_pos.x, 0.3, ast_pos.z)
 	return highlight
 
 
@@ -1347,26 +1367,30 @@ func _place_building(building_type: String, position: Vector3) -> void:
 		push_error("No scene found for building type: " + building_type)
 		return
 	
-	var building: Node3D = data.scene.instantiate() as Node3D
-	if building:
-		# Add to tree first, then set global_position
-		var main: Node = get_tree().root.get_node_or_null("Main")
-		if main:
-			var structures_parent: Node = main.get_node_or_null("Structures")
-			if structures_parent:
-				structures_parent.add_child(building)
-			else:
-				main.add_child(building)
+	var building: Node = data.scene.instantiate()
+	if not building:
+		return
+	var main: Node = get_tree().root.get_node_or_null("Main")
+	if main:
+		var structures_parent: Node = main.get_node_or_null("Structures")
+		if structures_parent:
+			structures_parent.add_child(building)
 		else:
-			get_tree().root.add_child(building)
-		
-		# Now safe to set global_position
-		building.global_position = position
+			main.add_child(building)
+	else:
+		get_tree().root.add_child(building)
+	if building is Node3D:
+		(building as Node3D).global_position = position
+	elif building is Entity:
+		var body: Node = building.get_node_or_null("StructureBody")
+		if body and body is Node3D:
+			(body as Node3D).global_position = position
+		if ECS and ECS.world:
+			ECS.world.add_entity(building, [], false)
 
 
 ## Internal: Reset build state
 func _reset_build_state() -> void:
-	print("[DEBUG] Resetting build state from ", current_state, " to IDLE")
 	current_state = BuildState.IDLE
 	_dragging_building_type = ""
 	_drag_position = Vector3.ZERO

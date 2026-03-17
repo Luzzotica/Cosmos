@@ -1,12 +1,12 @@
 extends System
 class_name EnemyMovementSystem
-## Batch movement: computes velocity from movement behavior and applies to physics body.
-
-const MovementBehaviorClass: Script = preload("res://scripts/enemies/behaviors/movement_behavior.gd")
+## Fighter movement: constant speed, local-space obstacle avoidance, turn-rate-limited steering.
+const ObstacleDebugStoreClass = preload("res://scripts/debug/obstacle_debug_store.gd")
+## Does not handle collision damage (see CollisionDamageSystem).
 
 
 func query() -> QueryBuilder:
-	return q.with_all([C_EnemyState, C_Targeting, C_Transform3D, C_PhysicsBodyRef, C_MovementProfile])
+	return q.with_all([C_EnemyState, C_Targeting, C_Transform3D, C_PhysicsBodyRef, C_FighterMovement])
 
 
 func process(entities: Array[Entity], components: Array, delta: float) -> void:
@@ -19,55 +19,111 @@ func _process_entity_movement(entity: Entity, delta: float) -> void:
 	var c_targeting: C_Targeting = entity.get_component(C_Targeting) as C_Targeting
 	var c_transform: C_Transform3D = entity.get_component(C_Transform3D) as C_Transform3D
 	var c_body_ref: C_PhysicsBodyRef = entity.get_component(C_PhysicsBodyRef) as C_PhysicsBodyRef
-	var c_movement: C_MovementProfile = entity.get_component(C_MovementProfile) as C_MovementProfile
-	if c_state.is_destroyed or c_body_ref == null or c_body_ref.body == null:
+	var c_fighter: C_FighterMovement = entity.get_component(C_FighterMovement) as C_FighterMovement
+	if c_state.is_destroyed or c_body_ref == null or c_body_ref.body == null or c_fighter == null:
 		return
 	var body: CharacterBody3D = c_body_ref.body
-	# Sync state to body so movement behavior can read speed/attack_range via get()
-	body.set_meta("speed", c_state.speed)
-	body.set_meta("attack_range", c_state.attack_range)
-	var movement_behavior: RefCounted = _get_or_create_movement_behavior(entity, c_movement)
-	if movement_behavior == null:
-		return
-	var target: Node3D = null
-	if c_targeting and c_targeting.target_node != null:
-		var raw: Variant = c_targeting.target_node
-		if raw != null and is_instance_valid(raw):
-			target = raw as Node3D
-		else:
-			c_targeting.target_node = null
-	var fallback: Vector3 = c_targeting.fallback_position if c_targeting else body.global_position + Vector3.FORWARD * 8.0
+
+	# Current forward from C_Transform (source of truth for rotation)
+	var current_forward: Vector3 = _forward_from_rotation_y(c_transform.rotation.y)
+	if current_forward.length() < 0.01:
+		current_forward = c_targeting.forward_direction if c_targeting else Vector3.FORWARD
+	current_forward = current_forward.normalized()
+
+	# Obstacle avoidance (local-space, takes priority)
+	var overlay = Engine.get_main_loop().root.get_node_or_null("Main/EnemyTargetDebugOverlay")
+	var want_debug: bool = overlay != null and overlay.get("obstacle_debug_enabled") == true
+	var avoidance_result = ObstacleAvoidance.compute(
+		body, current_forward, c_fighter.avoid_radius,
+		c_fighter.ship_radius, c_fighter.obstacle_radius, c_fighter.steer_force,
+		want_debug
+	)
+	var avoidance_force: Vector3 = avoidance_result.get("force", Vector3.ZERO)
+	var closest_obstacle_dist: float = avoidance_result.get("closest_dist", INF)
+	var desired_dir: Vector3
+	if avoidance_force.length() > 0.01:
+		desired_dir = avoidance_force.normalized()
+	else:
+		desired_dir = _compute_desired_direction(body, c_targeting, c_fighter)
+		if desired_dir.length() < 0.01:
+			desired_dir = current_forward
+
+	if want_debug and avoidance_result.has("debug_sphere_center"):
+		ObstacleDebugStoreClass.push(
+			body.global_position,
+			avoidance_result.debug_sphere_center,
+			avoidance_result.debug_sphere_radius,
+			desired_dir,
+			current_forward
+		)
+
+	# Turn-rate limit -> new facing direction (halved for less agile turning)
+	var max_turn: float = deg_to_rad(c_fighter.turn_rate_deg * 0.5) * delta
+	var new_forward: Vector3 = _rotate_toward(current_forward, desired_dir, max_turn)
+
+	# Update C_Transform rotation (source of truth)
+	var new_rotation_y: float = atan2(new_forward.x, new_forward.z)
+	c_transform.rotation.y = new_rotation_y
+	if c_targeting:
+		c_targeting.forward_direction = new_forward
+
+	# Apply C_Transform to body (drives visual rotation + position)
+	body.global_position = c_transform.position
+	body.rotation = Vector3(0.0, c_transform.rotation.y, 0.0)
+
+	# Speed: reduce when near obstacles to allow time to swerve
 	var tactical: Dictionary = _get_tactical_modifier(entity)
-	var velocity_result: Vector3 = movement_behavior.step(delta, body, target, fallback, tactical)
-	body.velocity = velocity_result
+	var base_speed: float = c_state.speed * float(tactical.get("speed_multiplier", 1.0))
+	var speed_mult: float = 1.0
+	if closest_obstacle_dist < c_fighter.obstacle_slow_dist:
+		var t: float = clampf(closest_obstacle_dist / c_fighter.obstacle_slow_dist, 0.0, 1.0)
+		speed_mult = lerpf(c_fighter.min_speed_near_obstacle, 1.0, t)
+	var speed: float = base_speed * speed_mult
+	body.velocity = new_forward * speed
 	body.move_and_slide()
-	# Sync transform back to component
+
+	# Sync position back from body (collision may have adjusted it)
 	c_transform.position = body.global_position
-	c_transform.rotation = body.rotation
-	# Update facing
-	var planar: Vector3 = Vector3(body.velocity.x, 0.0, body.velocity.z)
-	if planar.length() >= 0.1:
-		var look_dir: Vector3 = planar.normalized()
-		var target_rot: float = atan2(look_dir.x, look_dir.z)
-		body.rotation.y = lerp_angle(body.rotation.y, target_rot, delta * 4.0)
-		c_targeting.forward_direction = look_dir
 
 
-var _entity_behaviors: Dictionary = {}  # entity id -> MovementBehavior
+func _forward_from_rotation_y(rotation_y: float) -> Vector3:
+	return Vector3(sin(rotation_y), 0.0, cos(rotation_y)).normalized()
 
 
-func _get_or_create_movement_behavior(entity: Entity, c_movement: C_MovementProfile) -> RefCounted:
-	var id_key = entity.get_instance_id()
-	if _entity_behaviors.has(id_key):
-		return _entity_behaviors[id_key]
-	var behavior: RefCounted = MovementBehaviorClass.new()
-	var body_ref: C_PhysicsBodyRef = entity.get_component(C_PhysicsBodyRef) as C_PhysicsBodyRef
-	if body_ref and body_ref.body:
-		behavior.set_initial_forward(-body_ref.body.global_basis.z)
-	if c_movement and not c_movement.profile.is_empty():
-		behavior.configure(c_movement.profile)
-	_entity_behaviors[id_key] = behavior
-	return behavior
+func _compute_desired_direction(body: CharacterBody3D, c_targeting: C_Targeting, c_fighter: C_FighterMovement) -> Vector3:
+	var target_pos: Vector3
+	if c_targeting and c_targeting.target_node != null and is_instance_valid(c_targeting.target_node):
+		target_pos = (c_targeting.target_node as Node3D).global_position
+		# Offset target perpendicular to ship-target line so enemies approach from the side
+		var ship_pos: Vector3 = body.global_position
+		var to_struct: Vector3 = target_pos - ship_pos
+		to_struct.y = 0.0
+		if to_struct.length() > 0.01:
+			var perp: Vector3 = Vector3(-to_struct.z, 0.0, to_struct.x).normalized()
+			perp *= signf(c_fighter.target_offset_side) if c_fighter.target_offset_side != 0.0 else 1.0
+			target_pos += perp * c_fighter.target_offset_length
+	elif c_targeting:
+		target_pos = c_targeting.fallback_position
+	else:
+		target_pos = body.global_position + Vector3.FORWARD * 8.0
+	var to_target: Vector3 = target_pos - body.global_position
+	to_target.y = 0.0
+	if to_target.length() < 0.01:
+		return Vector3.ZERO
+	return to_target.normalized()
+
+
+func _rotate_toward(from_dir: Vector3, to_dir: Vector3, max_radians: float) -> Vector3:
+	var a: Vector2 = Vector2(from_dir.x, from_dir.z).normalized()
+	var b: Vector2 = Vector2(to_dir.x, to_dir.z).normalized()
+	if a.length() < 0.01:
+		return to_dir
+	if b.length() < 0.01:
+		return from_dir
+	var from_angle: float = atan2(a.x, a.y)
+	var to_angle: float = atan2(b.x, b.y)
+	var next_angle: float = rotate_toward(from_angle, to_angle, max_radians)
+	return Vector3(sin(next_angle), 0.0, cos(next_angle)).normalized()
 
 
 func _get_tactical_modifier(entity: Entity) -> Dictionary:

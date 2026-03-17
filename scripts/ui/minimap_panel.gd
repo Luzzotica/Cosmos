@@ -6,8 +6,8 @@ class_name MinimapPanel
 @export var background_color: Color = Color(0.0, 0.0, 0.0, 0.9) # #000000
 @export var border_color: Color = Color(0.643137, 0.262745, 0.133333, 1.0) # #a44322
 @export var structure_color: Color = Color(0.972549, 0.737255, 0.0156863, 1.0) # #f8bc04
-@export var asteroid_color: Color = Color(0.32549, 0.0588235, 0.117647, 0.95) # #530f1e
-@export var enemy_color: Color = Color(0.643137, 0.262745, 0.133333, 1.0) # #a44322
+@export var asteroid_color: Color = Color(0.2, 1.0, 0.3, 0.95)
+@export var enemy_color: Color = Color(1.0, 0.15, 0.15, 1.0)
 @export var edge_color: Color = Color(0.972549, 0.737255, 0.0156863, 0.95) # #f8bc04
 @export var disabled_edge_color: Color = Color(0.0196078, 0.0784314, 0.152941, 0.45) # #051427
 @export var camera_marker_color: Color = Color(0.972549, 0.737255, 0.0156863, 1.0) # #f8bc04
@@ -17,9 +17,6 @@ class_name MinimapPanel
 
 var _main: Node3D = null
 var _rts_camera: Camera3D = null
-var _structures_parent: Node3D = null
-var _asteroids_parent: Node3D = null
-var _enemies_parent: Node3D = null
 var _world_bounds: Rect2 = Rect2(Vector2(-200, -200), Vector2(400, 400))
 var _time_since_refresh: float = 0.0
 
@@ -93,9 +90,26 @@ func _refresh_draw_data() -> void:
 	_resolve_scene_references()
 	_world_bounds = _get_world_bounds()
 
-	_structure_points = _collect_world_points(_structures_parent)
-	_asteroid_points = _collect_world_points(_asteroids_parent)
-	_enemy_points = _collect_world_points(_enemies_parent)
+	# Iterate world.entities directly to avoid query cache issues when new entity types are added
+	_structure_points.clear()
+	_enemy_points.clear()
+	_asteroid_points.clear()
+	if ECS and ECS.world:
+		for entity in ECS.world.entities:
+			if not is_instance_valid(entity):
+				continue
+			if not entity.has_component(C_Transform3D):
+				continue
+			var c_transform: C_Transform3D = entity.get_component(C_Transform3D) as C_Transform3D
+			if c_transform == null:
+				continue
+			var pos: Vector3 = c_transform.position
+			if entity.has_component(C_EnemyState):
+				_enemy_points.append(_world_to_minimap(pos))
+			elif entity.has_component(C_Structure):
+				_structure_points.append(_world_to_minimap(pos))
+			elif entity.has_component(C_Asteroid):
+				_asteroid_points.append(_world_to_minimap(pos))
 	_collect_edge_segments()
 	_update_camera_marker()
 
@@ -109,25 +123,6 @@ func _resolve_scene_references() -> void:
 
 	if _rts_camera == null or not is_instance_valid(_rts_camera):
 		_rts_camera = _main.get_node_or_null("RTSCamera") as Camera3D
-	if _structures_parent == null or not is_instance_valid(_structures_parent):
-		_structures_parent = _main.get_node_or_null("Structures") as Node3D
-	if _asteroids_parent == null or not is_instance_valid(_asteroids_parent):
-		_asteroids_parent = _main.get_node_or_null("Asteroids") as Node3D
-	if _enemies_parent == null or not is_instance_valid(_enemies_parent):
-		_enemies_parent = _main.get_node_or_null("Enemies") as Node3D
-
-
-func _collect_world_points(parent_node: Node3D) -> Array[Vector2]:
-	var points: Array[Vector2] = []
-	if parent_node == null or not is_instance_valid(parent_node):
-		return points
-
-	for child in parent_node.get_children():
-		if child is Node3D and is_instance_valid(child):
-			var node3d: Node3D = child as Node3D
-			points.append(_world_to_minimap(node3d.global_position))
-
-	return points
 
 
 func _collect_edge_segments() -> void:

@@ -1,74 +1,59 @@
-[gd_scene load_steps=14 format=3 uid="uid://cw8fyr3a6o1pd"]
+[gd_scene format=3 uid="uid://bh5xwynkho08n"]
 
-[ext_resource type="Script" path="res://scripts/enemies/enemy_ship.gd" id="1_enemy"]
-[ext_resource type="PackedScene" path="res://scenes/components/team_component.tscn" id="2_team"]
-[ext_resource type="PackedScene" path="res://scenes/components/health_component.tscn" id="3_health"]
-[ext_resource type="PackedScene" path="res://scenes/components/selectable_component.tscn" id="4_selectable"]
-[ext_resource type="PackedScene" path="res://scenes/components/selection_visuals.tscn" id="5_selection_visuals"]
-[ext_resource type="Shader" path="res://shaders/enemy_energy_crackle.gdshader" id="6_shader"]
+[ext_resource type="Script" uid="uid://cw5fbrg3f1oue" path="res://scripts/enemies/enemy_ship_base.gd" id="1_enemy"]
+[ext_resource type="PackedScene" uid="uid://r1vhglyeysme" path="res://scenes/components/selectable_component.tscn" id="5_selectable"]
+[ext_resource type="PackedScene" path="res://scenes/components/selection_visuals.tscn" id="6_selection_visuals"]
+[ext_resource type="Shader" uid="uid://0lybihpyhvn6" path="res://shaders/enemy_energy_crackle.gdshader" id="7_shader"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_fuselage"]
-size = Vector3(0.32, 1.0, 0.45)
-
-[sub_resource type="BoxMesh" id="BoxMesh_arm"]
-size = Vector3(0.12, 1.0, 0.22)
+size = Vector3(0.32, 1, 0.45)
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_energy"]
-shader = ExtResource("6_shader")
+render_priority = 0
+shader = ExtResource("7_shader")
 shader_parameter/emission_color = Color(1, 0.05, 0.2, 1)
 shader_parameter/emission_energy = 2.5
 shader_parameter/crackle_speed = 3.0
 shader_parameter/crackle_density = 28.0
+shader_parameter/crackle_sharpness = 8.0
 shader_parameter/core_brightness = 0.6
 shader_parameter/pulse_amount = 0.2
+shader_parameter/fresnel_power = 2.5
+
+[sub_resource type="BoxMesh" id="BoxMesh_arm"]
+size = Vector3(0.12, 1, 0.22)
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_collision"]
-radius = 0.5
 height = 1.2
 
-[sub_resource type="SphereShape3D" id="SphereShape3D_input"]
-radius = 1.2
-
-[node name="EnemyShip" type="CharacterBody3D"]
+[node name="EnemyShip" type="CharacterBody3D" unique_id=1982622552]
+collision_mask = 5
 script = ExtResource("1_enemy")
-speed = 10.0
-damage = 10.0
 
-[node name="Body" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0.75, 0)
+[node name="Body" type="Node3D" parent="." unique_id=234044146]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0)
 
-[node name="Fuselage" type="MeshInstance3D" parent="Body"]
+[node name="Fuselage" type="MeshInstance3D" parent="Body" unique_id=1510749111]
 mesh = SubResource("BoxMesh_fuselage")
 surface_material_override/0 = SubResource("ShaderMaterial_energy")
 
-[node name="ArmL" type="MeshInstance3D" parent="Body"]
+[node name="ArmL" type="MeshInstance3D" parent="Body" unique_id=160877779]
 transform = Transform3D(-0.707, 0.707, 0, -0.707, -0.707, 0, 0, 0, 1, -0.38, 0.08, 0)
 mesh = SubResource("BoxMesh_arm")
 surface_material_override/0 = SubResource("ShaderMaterial_energy")
 
-[node name="ArmR" type="MeshInstance3D" parent="Body"]
+[node name="ArmR" type="MeshInstance3D" parent="Body" unique_id=309122304]
 transform = Transform3D(-0.707, -0.707, 0, 0.707, -0.707, 0, 0, 0, 1, 0.38, 0.08, 0)
 mesh = SubResource("BoxMesh_arm")
 surface_material_override/0 = SubResource("ShaderMaterial_energy")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0.75, 0)
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=2055801856]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0)
 shape = SubResource("CapsuleShape3D_collision")
 
-[node name="TeamComponent" parent="." instance=ExtResource("2_team")]
-team = 1
-detection_range = 300.0
-attack_range = 200.0
-
-[node name="HealthComponent" parent="." instance=ExtResource("3_health")]
-max_health = 50.0
-health = 50.0
-
-[node name="SelectableComponent" parent="." instance=ExtResource("4_selectable")]
+[node name="SelectableComponent" parent="." unique_id=61743879 instance=ExtResource("5_selectable")]
 selection_kind = "enemy"
 
-[node name="CollisionShape3D" parent="SelectableComponent" index="0"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
-shape = SubResource("SphereShape3D_input")
+[node name="SelectionVisuals" parent="." unique_id=27199212 instance=ExtResource("6_selection_visuals")]
 
-[node name="SelectionVisuals" parent="." instance=ExtResource("5_selection_visuals")]
+[editable path="SelectableComponent"]

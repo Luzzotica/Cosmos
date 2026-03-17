@@ -35,6 +35,7 @@ GameSession="*res://scripts/autoload/game_session.gd"
 ECS="*uid://dfqwl5njvdnmq"
 LineBatchManager="*res://scripts/autoload/line_batch_manager.gd"
 GameWorld="*uid://c160il8fy8l7o"
+UpgradeManager="*res://scripts/autoload/upgrade_manager.gd"
 
 [display]
 
@@ -84,6 +85,7 @@ camera_zoom_out={
 [layer_names]
 
 3d_physics/layer_2="Selection"
+3d_physics/layer_20="PowerLineBlocking"
 
 [rendering]
 

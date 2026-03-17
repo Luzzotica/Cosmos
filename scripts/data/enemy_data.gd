@@ -5,7 +5,7 @@ class_name EnemyData
 
 @export var enemy_id: String = "enemy_standard"
 @export var display_name: String = "Enemy Ship"
-@export var scene_path: String = "res://scenes/enemies/enemy_ship.tscn"
+@export var scene_path: String = "res://scenes/ecs/e_enemy_standard.tscn"
 
 @export_group("Base Stats")
 @export var max_health: float = 50.0

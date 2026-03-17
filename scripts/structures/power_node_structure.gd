@@ -2,7 +2,7 @@ extends BaseStructure
 class_name PowerNodeStructure
 ## Power Node - Relay structure for extending power grid
 
-@onready var active_connection_orb: MeshInstance3D = $ActiveConnectionOrb
+@onready var active_connection_orb: MeshInstance3D = $Root/ActiveConnectionOrb
 @onready var connection_point: Node3D = $ConnectionPoint
 
 var _orb_intro_tween: Tween = null

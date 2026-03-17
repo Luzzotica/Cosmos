@@ -12,7 +12,7 @@ const STING_CROSSFADE_SECONDS: float = 1.2
 const MUSIC_VOLUME_DB: float = -8.0
 const SILENCE_DB: float = -80.0
 
-const TRACK_BUILD: String = "res://assets/generated/audio/music/main_loop_build_phase.mp3"
+const TRACK_BUILD: String = "res://assets/audio/music/main_loop_build.mp3"
 const TRACK_COMBAT_LIGHT: String = "res://assets/generated/audio/music/combat_loop_light.mp3"
 const TRACK_COMBAT_HEAVY: String = "res://assets/generated/audio/music/combat_loop_heavy.mp3"
 const STING_VICTORY: String = "res://assets/generated/audio/music/victory_sting.mp3"
@@ -56,7 +56,17 @@ func play_defeat_sting() -> void:
 func _connect_game_signals() -> void:
 	GameState.wave_started.connect(_on_wave_started)
 	GameState.wave_ended.connect(_on_wave_ended)
-	GameState.game_over.connect(_on_game_over)
+	GameState.game_over.connect(_on_defeat)
+	GameState.victory.connect(_on_victory)
+
+
+func _on_victory() -> void:
+	play_victory_sting()
+
+
+func _on_defeat() -> void:
+	if not GameState.is_victory:
+		play_defeat_sting()
 
 
 func _on_wave_started(wave_number: int) -> void:
@@ -65,10 +75,6 @@ func _on_wave_started(wave_number: int) -> void:
 
 func _on_wave_ended(_wave_number: int) -> void:
 	play_build_music(false)
-
-
-func _on_game_over() -> void:
-	play_defeat_sting()
 
 
 func _create_music_players() -> void:

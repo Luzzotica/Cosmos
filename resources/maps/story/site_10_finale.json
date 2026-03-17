@@ -16,10 +16,13 @@
   "target_carryover_energy": 80.0,
   "starting_resources": {
     "override_defaults": true,
-    "minerals": 5000,
+    "minerals": 250,
     "energy": 90.0,
     "energy_capacity": 110.0
   },
+  "win_minerals_mined": 25000,
+  "win_monolith_power_required": 500,
+  "win_mode": "both",
   "asteroid_clouds": [
     {
       "center": [-160, 0, -140],
@@ -27,8 +30,8 @@
       "count": 16,
       "min_size": 2.0,
       "max_size": 4.0,
-      "min_minerals": 16,
-      "max_minerals": 42,
+      "min_minerals": 900,
+      "max_minerals": 1800,
       "seed": 100001
     },
     {
@@ -37,8 +40,8 @@
       "count": 15,
       "min_size": 2.0,
       "max_size": 3.8,
-      "min_minerals": 14,
-      "max_minerals": 38,
+      "min_minerals": 850,
+      "max_minerals": 1750,
       "seed": 100002
     },
     {
@@ -47,15 +50,16 @@
       "count": 20,
       "min_size": 2.0,
       "max_size": 4.2,
-      "min_minerals": 18,
-      "max_minerals": 45,
+      "min_minerals": 950,
+      "max_minerals": 1850,
       "seed": 100003
     }
   ],
   "starting_structures": [
     { "type": "solar_panel", "position": [0, 0, 0], "pre_built": true },
     { "type": "power_node", "position": [24, 0, 0], "pre_built": true },
-    { "type": "laser_turret", "position": [-32, 0, 30], "pre_built": true }
+    { "type": "laser_turret", "position": [-32, 0, 30], "pre_built": true },
+    { "type": "monolith", "position": [38, 0, 0], "pre_built": true }
   ],
   "waves": [
     { "enemy_count": 10, "delay": 1.4, "health_mult": 1.5, "speed_mult": 1.1 },

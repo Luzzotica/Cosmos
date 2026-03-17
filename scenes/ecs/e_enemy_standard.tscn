@@ -1,0 +1,107 @@
+[gd_scene format=3 uid="uid://w3x0eies2tll"]
+
+[ext_resource type="Script" uid="uid://dw4gsx63ym87r" path="res://scripts/ecs/entities/enemy_entity.gd" id="1_entity"]
+[ext_resource type="Script" uid="uid://cw5fbrg3f1oue" path="res://scripts/enemies/enemy_ship_base.gd" id="2_body"]
+[ext_resource type="PackedScene" uid="uid://r1vhglyeysme" path="res://scenes/components/selectable_component.tscn" id="4_selectable"]
+[ext_resource type="PackedScene" path="res://scenes/components/selection_visuals.tscn" id="5_selection"]
+[ext_resource type="Shader" uid="uid://0lybihpyhvn6" path="res://shaders/enemy_energy_crackle.gdshader" id="6_shader"]
+[ext_resource type="Script" uid="uid://b6k13gc2m4e5s" path="res://addons/gecs/ecs/component.gd" id="7_component"]
+[ext_resource type="Script" uid="uid://s0m0va7uhacv" path="res://scripts/ecs/components/c_health.gd" id="8_health"]
+[ext_resource type="Script" uid="uid://m4qryo881oo4" path="res://scripts/ecs/components/c_team.gd" id="9_team"]
+[ext_resource type="Script" uid="uid://ciuam2tjt75s5" path="res://scripts/ecs/components/c_transform3d.gd" id="10_transform"]
+[ext_resource type="Script" uid="uid://cdv6vol8ttyk6" path="res://scripts/ecs/components/c_enemy_state.gd" id="11_state"]
+[ext_resource type="Script" uid="uid://d4d31qgmh5c3j" path="res://scripts/ecs/components/c_targeting.gd" id="12_targeting"]
+[ext_resource type="Script" uid="uid://bwqcpjqbp5xu0" path="res://scripts/ecs/components/c_physics_body_ref.gd" id="13_bodyref"]
+[ext_resource type="Script" uid="uid://dlt0xs167dvph" path="res://scripts/ecs/components/c_collision_damage.gd" id="14_collision"]
+[ext_resource type="Script" uid="uid://dfcfga5kixwuf" path="res://scripts/ecs/components/c_fighter_movement.gd" id="15_fighter"]
+[ext_resource type="Script" uid="uid://bxqem0gvi25gs" path="res://scripts/ecs/components/c_beam_weapon.gd" id="16_weapon"]
+[ext_resource type="Script" uid="uid://dgianx45rhbef" path="res://scripts/ecs/components/c_targeting_profile.gd" id="17_tprofile"]
+
+[sub_resource type="Resource" id="Resource_health"]
+script = ExtResource("8_health")
+current = 50.0
+maximum = 50.0
+
+[sub_resource type="Resource" id="Resource_team"]
+script = ExtResource("9_team")
+team = "enemy"
+
+[sub_resource type="Resource" id="Resource_transform"]
+script = ExtResource("10_transform")
+
+[sub_resource type="Resource" id="Resource_state"]
+script = ExtResource("11_state")
+display_name = "Raider"
+
+[sub_resource type="Resource" id="Resource_targeting"]
+script = ExtResource("12_targeting")
+
+[sub_resource type="Resource" id="Resource_bodyref"]
+script = ExtResource("13_bodyref")
+
+[sub_resource type="Resource" id="Resource_collision"]
+script = ExtResource("14_collision")
+
+[sub_resource type="Resource" id="Resource_fighter"]
+script = ExtResource("15_fighter")
+
+[sub_resource type="Resource" id="Resource_weapon"]
+script = ExtResource("16_weapon")
+
+[sub_resource type="Resource" id="Resource_tprofile"]
+script = ExtResource("17_tprofile")
+
+[sub_resource type="BoxMesh" id="BoxMesh_fuselage"]
+size = Vector3(0.32, 1, 0.45)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_energy"]
+render_priority = 0
+shader = ExtResource("6_shader")
+shader_parameter/emission_color = Color(1, 0.05, 0.2, 1)
+shader_parameter/emission_energy = 2.5
+shader_parameter/crackle_speed = 3.0
+shader_parameter/crackle_density = 28.0
+shader_parameter/crackle_sharpness = 8.0
+shader_parameter/core_brightness = 0.6
+shader_parameter/pulse_amount = 0.2
+shader_parameter/fresnel_power = 2.5
+
+[sub_resource type="BoxMesh" id="BoxMesh_arm"]
+size = Vector3(0.12, 1, 0.22)
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_collision"]
+height = 1.2
+
+[node name="EnemyStandard" type="Node" unique_id=61775491]
+script = ExtResource("1_entity")
+component_resources = Array[ExtResource("7_component")]([SubResource("Resource_health"), SubResource("Resource_team"), SubResource("Resource_transform"), SubResource("Resource_state"), SubResource("Resource_targeting"), SubResource("Resource_bodyref"), SubResource("Resource_collision"), SubResource("Resource_fighter"), SubResource("Resource_weapon"), SubResource("Resource_tprofile")])
+
+[node name="ShipBody" type="CharacterBody3D" parent="." unique_id=1379323820]
+collision_mask = 5
+script = ExtResource("2_body")
+
+[node name="Body" type="Node3D" parent="ShipBody" unique_id=1030882094]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0.75, 0)
+
+[node name="Fuselage" type="MeshInstance3D" parent="ShipBody/Body" unique_id=2092748416]
+mesh = SubResource("BoxMesh_fuselage")
+surface_material_override/0 = SubResource("ShaderMaterial_energy")
+
+[node name="ArmL" type="MeshInstance3D" parent="ShipBody/Body" unique_id=441211057]
+transform = Transform3D(-0.707, 0.707, 0, -0.707, -0.707, 0, 0, 0, 1, -0.38, 0.08, 0)
+mesh = SubResource("BoxMesh_arm")
+surface_material_override/0 = SubResource("ShaderMaterial_energy")
+
+[node name="ArmR" type="MeshInstance3D" parent="ShipBody/Body" unique_id=1518064727]
+transform = Transform3D(-0.707, -0.707, 0, 0.707, -0.707, 0, 0, 0, 1, 0.38, 0.08, 0)
+mesh = SubResource("BoxMesh_arm")
+surface_material_override/0 = SubResource("ShaderMaterial_energy")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="ShipBody" unique_id=1006116757]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0.75, 0)
+shape = SubResource("CapsuleShape3D_collision")
+
+[node name="SelectableComponent" parent="ShipBody" unique_id=337025609 instance=ExtResource("4_selectable")]
+selection_kind = "enemy"
+
+[node name="SelectionVisuals" parent="ShipBody" unique_id=2018039552 instance=ExtResource("5_selection")]

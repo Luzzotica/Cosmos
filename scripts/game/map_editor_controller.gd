@@ -143,7 +143,7 @@ func _raycast(mouse_pos: Vector2) -> Dictionary:
 func _resolve_erasable_node(node: Node) -> Node:
 	var cursor: Node = node
 	while cursor != null and cursor != main_game:
-		if cursor is Asteroid:
+		if cursor.has_method("mine_minerals"):
 			return cursor
 		if cursor.get_parent() == structures_parent:
 			return cursor
@@ -169,12 +169,11 @@ func _build_map_data_from_scene() -> MapData:
 	map_data.wave_interval = GameState.map_wave_interval
 
 	for child in asteroids_parent.get_children():
-		if child is Asteroid:
-			var asteroid: Asteroid = child as Asteroid
+		if child.has_method("mine_minerals"):
 			var placement: AsteroidPlacement = AsteroidPlacement.new()
-			placement.position = asteroid.global_position
-			placement.size = asteroid.asteroid_size
-			placement.minerals = asteroid.total_minerals
+			placement.position = child.global_position
+			placement.size = child.asteroid_size
+			placement.minerals = child.total_minerals
 			map_data.asteroids.append(placement)
 
 	for cloud in _clouds:

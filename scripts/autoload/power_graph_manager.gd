@@ -227,7 +227,7 @@ func is_edge_enabled(node1: Node3D, node2: Node3D) -> bool:
 
 
 func _can_edge_handle_power(node1: Node3D, node2: Node3D) -> bool:
-	return (node1.get("is_enabled") or node2.get("is_enabled")) and _has_edge_line_of_sight(node1, node2)
+	return node1.get("is_enabled") and node2.get("is_enabled") and _has_edge_line_of_sight(node1, node2)
 
 
 func _has_edge_line_of_sight(node1: Node3D, node2: Node3D) -> bool:
@@ -424,6 +424,8 @@ func _identify_subgraphs() -> void:
 	while not unvisited.is_empty():
 		var start_node: Variant = unvisited.keys()[0]
 		unvisited.erase(start_node)
+		if not is_instance_valid(start_node):
+			continue
 		
 		# Find all nodes in this subgraph using DFS
 		var subgraph_nodes: Dictionary = {}
@@ -469,6 +471,8 @@ func _identify_subgraphs() -> void:
 
 ## DFS helper to find all connected nodes
 func _find_connected_nodes(node: Node3D, visited: Dictionary, subgraph: Dictionary, unvisited: Dictionary) -> void:
+	if not is_instance_valid(node):
+		return
 	visited[node] = true
 	subgraph[node] = true
 	unvisited.erase(node)
@@ -477,6 +481,8 @@ func _find_connected_nodes(node: Node3D, visited: Dictionary, subgraph: Dictiona
 		return
 	
 	for neighbor in _graph[node].keys():
+		if not is_instance_valid(neighbor):
+			continue
 		if not visited.has(neighbor) and is_edge_enabled(node, neighbor):
 			_find_connected_nodes(neighbor, visited, subgraph, unvisited)
 
@@ -655,7 +661,7 @@ func _update_all_edge_visuals() -> void:
 			
 			var edge_key: String = _get_edge_key(node1, node2)
 			var edge_has_los: bool = _has_edge_line_of_sight(node1, node2)
-			var endpoints_enabled: bool = node1.get("is_enabled") or node2.get("is_enabled")
+			var endpoints_enabled: bool = node1.get("is_enabled") and node2.get("is_enabled")
 			if not edge_has_los:
 				current_disrupted_edges[edge_key] = true
 				if not _known_disrupted_edges.has(edge_key):
@@ -753,12 +759,16 @@ func find_power_nodes_in_range(position: Vector3, radius: float, max_connections
 	for node in _nodes.keys():
 		if not is_instance_valid(node):
 			continue
+		if not node.is_inside_tree():
+			continue
 		
 		var node_max_distance: float = node.get("max_connection_distance")
 		var node_max_connections: int = node.get("max_connections")
 		
 		# Get structure position (parent of the power node)
 		var struct: Node3D = node.get_parent() as Node3D
+		if struct and not struct.is_inside_tree():
+			continue
 		var node_pos: Vector3 = struct.global_position if struct else node.global_position
 		var distance: float = node_pos.distance_to(position)
 		
@@ -777,6 +787,53 @@ func find_power_nodes_in_range(position: Vector3, radius: float, max_connections
 	for item in nodes_in_range:
 		result.append(item.node)
 	return result
+
+
+## Returns candidate leaf targets for saboteurs: player-owned leaf nodes with structure,
+## upstream neighbor, and line midpoint. Each entry: { structure, power_node, upstream_node,
+## line_midpoint, is_damage_dealer }
+func get_saboteur_leaf_targets(player_structures: Array) -> Array:
+	var targets: Array = []
+	for node in _nodes.keys():
+		if not is_instance_valid(node):
+			continue
+		if not node.has_method("get_node_type"):
+			continue
+		if int(node.call("get_node_type")) != int(PowerNode.NodeType.LEAF):
+			continue
+		var struct: Node3D = node.get_parent() as Node3D
+		if not struct or struct not in player_structures:
+			continue
+		# Skip unbuilt structures
+		var construction: Node = struct.get_node_or_null("ConstructionComponent")
+		if construction != null and construction.get("is_built") != true:
+			continue
+		# Skip destroyed
+		if struct.get("is_destroyed") == true:
+			continue
+		if not _graph.has(node):
+			continue
+		var neighbors: Array = _graph[node].keys()
+		if neighbors.is_empty():
+			continue
+		var upstream_node: Node3D = neighbors[0]
+		if not is_instance_valid(upstream_node):
+			continue
+		var leaf_pos: Vector3 = _get_node_world_position(node)
+		var upstream_pos: Vector3 = _get_node_world_position(upstream_node)
+		var line_midpoint: Vector3 = (leaf_pos + upstream_pos) * 0.5
+		var building_type: String = str(struct.get("building_type"))
+		var is_damage_dealer: bool = (building_type == "laser_turret")
+		targets.append({
+			"structure": struct,
+			"power_node": node,
+			"upstream_node": upstream_node,
+			"line_midpoint": line_midpoint,
+			"line_start": leaf_pos,
+			"line_end": upstream_pos,
+			"is_damage_dealer": is_damage_dealer
+		})
+	return targets
 
 
 ## Get the power node parent of a component

@@ -25,6 +25,7 @@ const CURSOR_TEXTURE_SIZE: int = 32
 const CURSOR_LAYER_ORDER: int = 100
 const DEFAULT_MAP_PATH: String = "res://resources/maps/tutorial_map.json"
 const SESSION_MODE_EDITOR: int = 1
+const StructureEntityScript = preload("res://scripts/ecs/entities/structure_entity.gd")
 
 enum CursorState {
 	NORMAL,
@@ -38,11 +39,12 @@ enum CursorState {
 
 
 func _ready() -> void:
-	# Defer ECS setup so World._ready (initialize) runs first, then we register systems
-	call_deferred("_setup_ecs")
+	# ECS must be set up before map load so Entity structures (mining station, laser turret)
+	# get registered via MapLoader._spawn_structure -> ECS.world.add_entity.
+	# World._ready has already run (children before parent in Godot).
+	_setup_ecs()
 	# Enable physics object picking for 3D mouse input events
 	get_viewport().physics_object_picking = true
-	print("[DEBUG] Physics object picking enabled: ", get_viewport().physics_object_picking)
 	_setup_space_cursor()
 	GameState.pause_changed.connect(_on_pause_changed)
 
@@ -125,6 +127,7 @@ func _setup_ecs() -> void:
 		return
 	ECS.world = ecs_world
 	_add_ecs_enemy_systems()
+	_register_existing_asteroid_entities()
 	if ecs_world.has_method("finalize_system_setup"):
 		ecs_world.finalize_system_setup()
 	set_physics_process(true)
@@ -146,6 +149,7 @@ func _physics_process(delta: float) -> void:
 
 func _process(_delta: float) -> void:
 	if not _is_editor_mode:
+		_check_win_conditions()
 		_check_game_over()
 	_update_sky_parallax()
 	_update_cursor_visual()
@@ -204,6 +208,43 @@ func _update_sky_parallax() -> void:
 			_sky_material.set_shader_parameter("star_zoom_scale", zoom_scale)
 
 
+func _check_win_conditions() -> void:
+	if GameState.is_game_over:
+		return
+	var map_data: MapData = MapLoader.current_map as MapData if MapLoader else null
+	if map_data == null:
+		return
+	var win_mode: String = map_data.win_mode
+	if win_mode == "none":
+		return
+	var win_minerals: int = map_data.win_minerals_mined
+	var win_monolith: float = map_data.win_monolith_power_required
+
+	var minerals_met: bool = (win_minerals <= 0) or (GameState.total_minerals_mined >= win_minerals)
+	var monolith_met: bool = (win_monolith <= 0)
+	if win_monolith > 0 and ECS and ECS.world:
+		const C_MonolithChargeClass = preload("res://scripts/ecs/components/c_monolith_charge.gd")
+		var monoliths: Array = ECS.world.query.with_all([C_MonolithChargeClass, C_Structure]).execute()
+		for entity in monoliths:
+			if entity is Entity:
+				var c_charge = (entity as Entity).get_component(C_MonolithChargeClass)
+				var c_structure: C_Structure = (entity as Entity).get_component(C_Structure) as C_Structure
+				if c_charge and c_structure and not c_structure.is_destroyed and c_charge.current_charge >= c_charge.power_required:
+					monolith_met = true
+					break
+
+	var victory: bool = false
+	if win_mode == "minerals":
+		victory = minerals_met
+	elif win_mode == "monolith":
+		victory = monolith_met
+	elif win_mode == "both":
+		victory = minerals_met and monolith_met
+
+	if victory:
+		GameState.trigger_victory()
+
+
 func _check_game_over() -> void:
 	if GameState.is_game_over:
 		return
@@ -212,6 +253,8 @@ func _check_game_over() -> void:
 	var count: int = 0
 	for child in structures_parent.get_children():
 		if child is BaseStructure and not child.is_destroyed:
+			count += 1
+		elif is_instance_of(child, StructureEntityScript) and not child.is_destroyed():
 			count += 1
 	
 	# If we had structures and now have none, game over
@@ -230,38 +273,45 @@ func _setup_default_game() -> void:
 
 
 func _generate_asteroids(count: int) -> void:
-	var asteroid_scene: PackedScene = load("res://scenes/game/asteroid.tscn") as PackedScene
+	var asteroid_scene: PackedScene = load("res://scenes/ecs/e_asteroid.tscn") as PackedScene
 	if not asteroid_scene:
 		push_warning("Asteroid scene not found")
 		return
-	
+
 	for i in range(count):
-		var asteroid: Node3D = asteroid_scene.instantiate() as Node3D
-		if asteroid:
-			# Distribute asteroids closer to the starting point
-			# Generate in a ring around the center to avoid spawning on the starting panel
-			var angle: float = randf() * TAU  # Random angle
-			var distance: float = randf_range(15, 50)  # Between 15 and 50 units from center
-			var x: float = cos(angle) * distance
-			var z: float = sin(angle) * distance
-			asteroids_parent.add_child(asteroid)
-			asteroid.global_position = Vector3(x, 0, z)
+		var entity: Node = asteroid_scene.instantiate() as Node
+		if entity:
+			var angle: float = randf() * TAU
+			var distance: float = randf_range(15, 50)
+			var pos: Vector3 = Vector3(cos(angle) * distance, 0, sin(angle) * distance)
+			asteroids_parent.add_child(entity)
+			var body: Node3D = entity.get_node_or_null("AsteroidBody") as Node3D
+			if body:
+				body.global_position = pos
+			if ECS and ECS.world:
+				ECS.world.add_entity(entity, [], false)
 
 
 func _add_starter_solar_panel() -> void:
-	var solar_panel_scene: PackedScene = load("res://scenes/structures/solar_panel.tscn") as PackedScene
+	var solar_panel_scene: PackedScene = load("res://scenes/ecs/e_solar_panel.tscn") as PackedScene
 	if not solar_panel_scene:
 		push_warning("Solar panel scene not found")
 		return
 	
-	var solar_panel: Node3D = solar_panel_scene.instantiate() as Node3D
+	var solar_panel: Node = solar_panel_scene.instantiate()
 	if solar_panel:
-		# Must add to tree FIRST so _ready() runs and sets up components
 		structures_parent.add_child(solar_panel)
-		solar_panel.global_position = Vector3(0, 0, 0)
-		if camera and camera.has_method("set_camera_position"):
-			camera.set_camera_position(solar_panel.global_position)
-		# Then mark as pre-built (skips build animation)
+		var body: Node = solar_panel.get_node_or_null("StructureBody")
+		if body and body is Node3D:
+			(body as Node3D).global_position = Vector3(0, 0, 0)
+			if camera and camera.has_method("set_camera_position"):
+				camera.set_camera_position((body as Node3D).global_position)
+		elif solar_panel is Node3D:
+			(solar_panel as Node3D).global_position = Vector3(0, 0, 0)
+			if camera and camera.has_method("set_camera_position"):
+				camera.set_camera_position((solar_panel as Node3D).global_position)
+		if ECS and ECS.world and solar_panel is Entity:
+			ECS.world.add_entity(solar_panel as Entity, [], false)
 		if solar_panel.has_method("set_starter_panel"):
 			solar_panel.set_starter_panel(true)
 
@@ -282,7 +332,10 @@ func load_map(map_data: Resource) -> void:
 
 func _clear_current_map() -> void:
 	for child in asteroids_parent.get_children():
-		child.queue_free()
+		if ECS and ECS.world and child is Entity:
+			ECS.world.remove_entity(child as Entity)
+		else:
+			child.queue_free()
 	for child in structures_parent.get_children():
 		child.queue_free()
 	for child in enemies_parent.get_children():
@@ -290,18 +343,22 @@ func _clear_current_map() -> void:
 
 
 func _spawn_asteroid_from_data(data: Dictionary) -> void:
-	var asteroid_scene: PackedScene = load("res://scenes/game/asteroid.tscn") as PackedScene
+	var asteroid_scene: PackedScene = load("res://scenes/ecs/e_asteroid.tscn") as PackedScene
 	if not asteroid_scene:
 		return
-	
-	var asteroid: Node3D = asteroid_scene.instantiate() as Node3D
-	if asteroid:
-		asteroids_parent.add_child(asteroid)
-		asteroid.global_position = data.get("position", Vector3.ZERO)
-		if data.has("size") and asteroid.has_method("set_size"):
-			asteroid.set_size(data.size)
-		if data.has("minerals") and asteroid.has_method("set_minerals"):
-			asteroid.set_minerals(data.minerals)
+
+	var entity: Node = asteroid_scene.instantiate() as Node
+	if entity:
+		asteroids_parent.add_child(entity)
+		var body: Node3D = entity.get_node_or_null("AsteroidBody") as Node3D
+		if body:
+			body.global_position = data.get("position", Vector3.ZERO)
+		if ECS and ECS.world:
+			ECS.world.add_entity(entity, [], false)
+		if entity.has_method("set_size") and data.has("size"):
+			entity.call("set_size", data.size)
+		if entity.has_method("set_minerals") and data.has("minerals"):
+			entity.call("set_minerals", data.minerals)
 
 
 func _spawn_structure_from_data(data: Dictionary) -> void:
@@ -641,14 +698,45 @@ func _add_ecs_enemy_systems() -> void:
 	if not ECS or not ECS.world:
 		return
 	var targeting: Script = load("res://scripts/ecs/systems/enemy_targeting_system.gd") as Script
+	var saboteur: Script = load("res://scripts/ecs/systems/saboteur_system.gd") as Script
+	var saboteur_movement: Script = load("res://scripts/ecs/systems/saboteur_movement_system.gd") as Script
 	var movement: Script = load("res://scripts/ecs/systems/enemy_movement_system.gd") as Script
-	var attack: Script = load("res://scripts/ecs/systems/enemy_attack_system.gd") as Script
+	var collision_damage: Script = load("res://scripts/ecs/systems/collision_damage_system.gd") as Script
+	var attack: Script = load("res://scripts/ecs/systems/beam_weapon_system.gd") as Script
+	var structure_targeting: Script = load("res://scripts/ecs/systems/structure_targeting_system.gd") as Script
 	if targeting:
 		ECS.world.add_system(targeting.new(), true)
+	if saboteur:
+		ECS.world.add_system(saboteur.new(), true)
+	if saboteur_movement:
+		ECS.world.add_system(saboteur_movement.new(), true)
 	if movement:
 		ECS.world.add_system(movement.new(), true)
+	if collision_damage:
+		ECS.world.add_system(collision_damage.new(), true)
 	if attack:
 		ECS.world.add_system(attack.new(), true)
+	if structure_targeting:
+		ECS.world.add_system(structure_targeting.new(), true)
+	var mining: Script = load("res://scripts/ecs/systems/mining_system.gd") as Script
+	if mining:
+		ECS.world.add_system(mining.new(), true)
+	var monolith_charge: Script = load("res://scripts/ecs/systems/monolith_charge_system.gd") as Script
+	if monolith_charge:
+		ECS.world.add_system(monolith_charge.new(), true)
+	var upgrade: Script = load("res://scripts/ecs/systems/upgrade_system.gd") as Script
+	if upgrade:
+		ECS.world.add_system(upgrade.new(), true)
+
+
+func _register_existing_asteroid_entities() -> void:
+	if not ECS or not ECS.world:
+		return
+	for child in asteroids_parent.get_children():
+		if child is Entity and not ECS.world.entities.has(child):
+			ECS.world.add_entity(child, [], false)
+
+
 
 
 func _on_pause_changed(paused: bool) -> void:

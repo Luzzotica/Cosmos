@@ -1,0 +1,66 @@
+[gd_scene format=3 uid="uid://di0w8fmgtad5g"]
+
+[ext_resource type="Script" uid="uid://bbpxy0u66akku" path="res://scripts/ecs/entities/asteroid_entity.gd" id="1_entity"]
+[ext_resource type="Script" uid="uid://dguoivkchkfl4" path="res://scripts/game/asteroid_body.gd" id="2_body"]
+[ext_resource type="PackedScene" uid="uid://r1vhglyeysme" path="res://scenes/components/selectable_component.tscn" id="3_selectable"]
+[ext_resource type="PackedScene" path="res://scenes/components/selection_visuals.tscn" id="4_selection"]
+[ext_resource type="Script" uid="uid://b6k13gc2m4e5s" path="res://addons/gecs/ecs/component.gd" id="5_component"]
+[ext_resource type="Script" uid="uid://ciuam2tjt75s5" path="res://scripts/ecs/components/c_transform3d.gd" id="6_transform"]
+[ext_resource type="Script" uid="uid://be7o8wppsr2kv" path="res://scripts/ecs/components/c_asteroid.gd" id="7_asteroid"]
+
+[sub_resource type="Resource" id="Resource_transform"]
+script = ExtResource("6_transform")
+
+[sub_resource type="Resource" id="Resource_asteroid"]
+script = ExtResource("7_asteroid")
+
+[sub_resource type="SphereMesh" id="SphereMesh_asteroid"]
+radius = 1.5
+height = 3.0
+radial_segments = 72
+rings = 48
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_asteroid"]
+albedo_color = Color(0.2, 0.8, 0.3, 1)
+roughness = 0.7
+emission_enabled = true
+emission = Color(0.1, 0.4, 0.1, 1)
+emission_energy_multiplier = 0.5
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_collision"]
+radius = 1.5948561
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_obstacle"]
+radius = 1.5046494
+
+[node name="Asteroid" type="Node" unique_id=1708412743]
+script = ExtResource("1_entity")
+id = null
+enabled = null
+component_resources = Array[ExtResource("5_component")]([SubResource("Resource_transform"), SubResource("Resource_asteroid")])
+
+[node name="AsteroidBody" type="Node3D" parent="." unique_id=134315292]
+script = ExtResource("2_body")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="AsteroidBody" unique_id=558020148]
+mesh = SubResource("SphereMesh_asteroid")
+surface_material_override/0 = SubResource("StandardMaterial3D_asteroid")
+
+[node name="SelectableComponent" parent="AsteroidBody" unique_id=1069279163 instance=ExtResource("3_selectable")]
+selection_kind = "asteroid"
+faction_override = "neutral"
+
+[node name="CollisionShape3D" parent="AsteroidBody/SelectableComponent" index="0"]
+shape = SubResource("SphereShape3D_collision")
+
+[node name="SelectionVisuals" parent="AsteroidBody" unique_id=1334159508 instance=ExtResource("4_selection")]
+
+[node name="ObstacleBody" type="StaticBody3D" parent="AsteroidBody" unique_id=758790100]
+collision_layer = 4
+collision_mask = 0
+input_ray_pickable = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="AsteroidBody/ObstacleBody" unique_id=194466661]
+shape = SubResource("SphereShape3D_obstacle")
+
+[editable path="AsteroidBody/SelectableComponent"]

@@ -6,6 +6,7 @@ signal energy_changed(current: float, capacity: float)
 signal wave_started(wave_number: int)
 signal wave_ended(wave_number: int)
 signal game_over
+signal victory
 signal pause_changed(paused: bool)
 
 # Resources
@@ -34,6 +35,8 @@ var map_wave_interval: float = 60.0
 var game_time: float = 0.0
 var is_paused: bool = false
 var is_game_over: bool = false
+var is_victory: bool = false
+var total_minerals_mined: int = 0
 
 # Config
 const DEFAULT_INITIAL_DELAY: float = 20.0  # 20 seconds before first wave
@@ -55,6 +58,12 @@ func _process(delta: float) -> void:
 
 func add_minerals(amount: float) -> void:
 	minerals += int(amount)
+
+
+func add_minerals_from_mining(amount: float) -> void:
+	var amt: int = int(amount)
+	minerals += amt
+	total_minerals_mined += amt
 
 
 func consume_minerals(amount: float) -> bool:
@@ -94,6 +103,14 @@ func end_wave() -> void:
 
 
 func _update_wave_timer(delta: float) -> void:
+	# Only run wave timer when in the main game scene (prevents spawning on main menu).
+	var tree := get_tree()
+	if not tree or not tree.current_scene:
+		return
+	var scene_path: String = tree.current_scene.scene_file_path
+	if scene_path != "res://scenes/game/main.tscn":
+		return
+
 	if not is_wave_in_progress:
 		time_until_next_wave -= delta
 		if time_until_next_wave <= 0:
@@ -107,12 +124,20 @@ func _update_energy_balance(delta: float) -> void:
 
 func trigger_game_over() -> void:
 	is_game_over = true
+	is_victory = false
 	set_paused(true)
 	game_over.emit()
 
 
+func trigger_victory() -> void:
+	is_game_over = true
+	is_victory = true
+	set_paused(true)
+	victory.emit()
+
+
 func reset() -> void:
-	minerals = 10000
+	minerals = 500
 	energy = 100.0
 	energy_capacity = 100.0
 	map_initial_wave_delay = DEFAULT_INITIAL_DELAY
@@ -124,6 +149,8 @@ func reset() -> void:
 	time_until_next_wave = map_initial_wave_delay
 	game_time = 0.0
 	is_game_over = false
+	is_victory = false
+	total_minerals_mined = 0
 	set_paused(false)
 
 
@@ -143,12 +170,14 @@ func apply_map_settings(map_data: MapData) -> void:
 		energy = clampf(map_data.starting_resources.energy, 0.0, energy_capacity)
 		energy_changed.emit(energy, energy_capacity)
 	else:
-		minerals = 10000
+		minerals = 500
 		energy_capacity = 100.0
 		energy = 100.0
 
 	game_time = 0.0
 	is_game_over = false
+	is_victory = false
+	total_minerals_mined = 0
 	set_paused(false)
 
 

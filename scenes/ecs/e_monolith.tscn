@@ -1,0 +1,125 @@
+[gd_scene format=3 uid="uid://bmonolith001"]
+
+[ext_resource type="Script" uid="uid://bo064bld8yd2m" path="res://scripts/ecs/entities/e_monolith.gd" id="1_entity"]
+[ext_resource type="Script" uid="uid://b6k13gc2m4e5s" path="res://addons/gecs/ecs/component.gd" id="2_component"]
+[ext_resource type="Script" uid="uid://18tfurh7vrbn" path="res://scripts/ecs/components/c_structure.gd" id="2_structure"]
+[ext_resource type="Script" uid="uid://s0m0va7uhacv" path="res://scripts/ecs/components/c_health.gd" id="3_health"]
+[ext_resource type="Script" uid="uid://m4qryo881oo4" path="res://scripts/ecs/components/c_team.gd" id="4_team"]
+[ext_resource type="Script" uid="uid://ciuam2tjt75s5" path="res://scripts/ecs/components/c_transform3d.gd" id="5_transform"]
+[ext_resource type="Script" uid="uid://2aersxfj6ir8" path="res://scripts/ecs/components/c_monolith_charge.gd" id="7_charge"]
+[ext_resource type="Script" uid="uid://c2iy2omarsk2l" path="res://scripts/structures/structure_body_base.gd" id="9_body"]
+[ext_resource type="PackedScene" path="res://scenes/components/power_node_component.tscn" id="13_power"]
+[ext_resource type="Shader" uid="uid://518h4rttda2r" path="res://shaders/structure_hull.gdshader" id="15_hull"]
+[ext_resource type="PackedScene" uid="uid://r1vhglyeysme" path="res://scenes/components/selectable_component.tscn" id="15_selectable"]
+[ext_resource type="Shader" uid="uid://61iftnra5hrq" path="res://shaders/structure_accent.gdshader" id="16_accent"]
+[ext_resource type="PackedScene" path="res://scenes/components/selection_visuals.tscn" id="16_selection"]
+[ext_resource type="Script" uid="uid://c6g3le57y0tuc" path="res://scripts/components/construction_component.gd" id="17_construct"]
+[ext_resource type="Script" uid="uid://d1jlgbhwciago" path="res://scripts/structures/monolith_visual_handler.gd" id="18_visual"]
+
+[sub_resource type="Resource" id="Resource_structure"]
+script = ExtResource("2_structure")
+building_type = "monolith"
+
+[sub_resource type="Resource" id="Resource_health"]
+script = ExtResource("3_health")
+current = 200.0
+maximum = 200.0
+
+[sub_resource type="Resource" id="Resource_team"]
+script = ExtResource("4_team")
+
+[sub_resource type="Resource" id="Resource_transform"]
+script = ExtResource("5_transform")
+
+[sub_resource type="Resource" id="Resource_charge"]
+script = ExtResource("7_charge")
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_base"]
+top_radius = 0.9
+bottom_radius = 1.0
+height = 0.5
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_base"]
+render_priority = 0
+shader = ExtResource("15_hull")
+shader_parameter/base_color = Color(0.35, 0.32, 0.38, 1)
+shader_parameter/metallic = 0.8
+shader_parameter/roughness = 0.3
+shader_parameter/noise_scale = 12.0
+shader_parameter/brushed_strength = 0.12
+shader_parameter/panel_line_strength = 0.06
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_core"]
+top_radius = 0.4
+height = 4.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_accent"]
+render_priority = 0
+shader = ExtResource("16_accent")
+shader_parameter/base_color = Color(0.15, 0.6, 0.9, 1)
+shader_parameter/emission_color = Color(0.08, 0.45, 0.85, 1)
+shader_parameter/emission_strength = 1.2
+shader_parameter/fresnel_power = 2.5
+shader_parameter/metallic = 0.75
+shader_parameter/roughness = 0.25
+shader_parameter/crackle_strength = 0.08
+shader_parameter/pulse_amount = 0.05
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_collision"]
+radius = 1.5
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_obstacle"]
+radius = 1.5
+
+[node name="Monolith" type="Node" unique_id=2072039269]
+script = ExtResource("1_entity")
+component_resources = Array[ExtResource("2_component")]([SubResource("Resource_structure"), SubResource("Resource_health"), SubResource("Resource_team"), SubResource("Resource_transform"), SubResource("Resource_charge")])
+
+[node name="StructureBody" type="Node3D" parent="." unique_id=1175918519]
+script = ExtResource("9_body")
+
+[node name="VisualRoot" type="Node3D" parent="StructureBody" unique_id=1171333930]
+
+[node name="Base" type="MeshInstance3D" parent="StructureBody/VisualRoot" unique_id=728812028]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
+mesh = SubResource("CylinderMesh_base")
+surface_material_override/0 = SubResource("ShaderMaterial_base")
+
+[node name="Core" type="MeshInstance3D" parent="StructureBody/VisualRoot" unique_id=530243052]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
+mesh = SubResource("CylinderMesh_core")
+surface_material_override/0 = SubResource("ShaderMaterial_accent")
+
+[node name="ConnectionPoint" type="Marker3D" parent="StructureBody/VisualRoot" unique_id=307913094]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
+
+[node name="PowerNode" parent="StructureBody" unique_id=202581666 instance=ExtResource("13_power")]
+is_enabled = false
+
+[node name="ChargeSink" type="Node3D" parent="StructureBody/PowerNode" unique_id=337939110]
+
+[node name="SelectableComponent" parent="StructureBody" unique_id=1321927394 instance=ExtResource("15_selectable")]
+selection_kind = "structure"
+
+[node name="CollisionShape3D" parent="StructureBody/SelectableComponent" index="0"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+shape = SubResource("SphereShape3D_collision")
+
+[node name="SelectionVisuals" parent="StructureBody" unique_id=1770071474 instance=ExtResource("16_selection")]
+
+[node name="VisualHandler" type="Node" parent="StructureBody" unique_id=39127064]
+script = ExtResource("18_visual")
+
+[node name="ObstacleBody" type="StaticBody3D" parent="StructureBody" unique_id=1452177006]
+collision_layer = 4
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StructureBody/ObstacleBody" unique_id=565109169]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+shape = SubResource("SphereShape3D_obstacle")
+
+[node name="ConstructionComponent" type="Node3D" parent="StructureBody" unique_id=1792917516]
+script = ExtResource("17_construct")
+construction_time = 5.0
+
+[editable path="StructureBody/SelectableComponent"]
