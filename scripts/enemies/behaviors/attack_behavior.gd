@@ -2,6 +2,7 @@ extends RefCounted
 class_name EnemyAttackBehavior
 ## Handles cooldown and typed damage delivery.
 
+const BeamPointResolverClass = preload("res://scripts/ecs/beam_point_resolver.gd")
 const DamageEventClass: Script = preload("res://scripts/combat/damage_event.gd")
 
 var damage_type: String = DamageEventClass.TYPE_PHYSICAL
@@ -32,7 +33,7 @@ func try_attack(enemy: Node3D, target: Node3D, tactical_modifier: Dictionary) ->
 	_cooldown_remaining = maxf(cooldown * cooldown_multiplier, 0.1)
 
 	if enemy.has_method("spawn_attack_beam"):
-		enemy.spawn_attack_beam(target.global_position + Vector3.UP * 0.8, beam_color)
+		enemy.spawn_attack_beam(BeamPointResolverClass.get_random_attack_point(target), beam_color)
 
 	var damage: float = float(enemy.get("damage"))
 	var damage_multiplier: float = float(tactical_modifier.get("damage_multiplier", 1.0))

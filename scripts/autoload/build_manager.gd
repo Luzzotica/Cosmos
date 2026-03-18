@@ -3,11 +3,15 @@ extends Node
 
 # Preload PowerNode to ensure type is available
 const PowerNodeClass: GDScript = preload("res://scripts/components/power_node.gd")
+const C_BeamWeaponClass: GDScript = preload("res://scripts/ecs/components/c_beam_weapon.gd")
+const C_MiningStationClass: GDScript = preload("res://scripts/ecs/components/c_mining_station.gd")
+const C_MissileLauncherClass: GDScript = preload("res://scripts/ecs/components/c_missile_launcher.gd")
+const C_RepairStationClass: GDScript = preload("res://scripts/ecs/components/c_repair_station.gd")
 const PLACEMENT_HOLO_SHADER_PATH: String = "res://shaders/placement_holo.gdshader"
 
 signal build_started(building_type: String)
 signal build_cancelled
-signal build_completed(building_type: String, position: Vector3)
+signal build_completed(building_type: String, position: Vector3, building: Node)
 signal placement_valid_changed(is_valid: bool)
 
 enum BuildState {
@@ -44,6 +48,8 @@ var _enemy_highlights: Array[MeshInstance3D] = []
 
 # Building data cache
 var _building_data: Dictionary = {}
+var _scene_placement_info_cache: Dictionary = {}  # building_type -> { action_range, show_asteroid_targeting, show_enemy_targeting }
+var _scene_placement_radius_cache: Dictionary = {}  # building_type -> float
 
 const RANGE_RING_SEGMENTS: int = 96
 const HIGHLIGHT_RING_SEGMENTS: int = 64
@@ -171,6 +177,16 @@ func get_building_data(building_type: String) -> Resource:
 	return _building_data.get(building_type)
 
 
+## Get placement sphere radius for a building type, derived from scene collision shape.
+## Used for overlap checks and power line taper.
+func get_placement_sphere_radius(building_type: String) -> float:
+	if _scene_placement_radius_cache.has(building_type):
+		return _scene_placement_radius_cache[building_type]
+	var radius: float = _get_scene_placement_sphere_radius(building_type)
+	_scene_placement_radius_cache[building_type] = radius
+	return radius
+
+
 ## Start dragging a building for placement
 func start_building(building_type: String, position: Vector3 = Vector3.ZERO) -> void:
 	if not can_place_building(building_type):
@@ -258,12 +274,12 @@ func confirm_placement() -> void:
 		return
 	
 	# Place the building
-	_place_building(_dragging_building_type, _drag_position)
+	var building: Node = _place_building(_dragging_building_type, _drag_position)
 	
 	# Start cooldown to prevent auto-selection
 	_placement_cooldown = PLACEMENT_COOLDOWN_DURATION
 	
-	build_completed.emit(_dragging_building_type, _drag_position)
+	build_completed.emit(_dragging_building_type, _drag_position, building)
 	_reset_build_state()
 
 
@@ -297,7 +313,7 @@ func _create_placement_preview(building_type: String) -> void:
 		get_tree().root.add_child(_placement_preview)
 		_placement_preview.global_position = _drag_position
 		_collect_preview_mesh_instances()
-		_preview_collision_radius = _resolve_preview_collision_radius(data)
+		_preview_collision_radius = _resolve_preview_collision_radius(building_type)
 		_set_preview_visual_state(_is_placement_valid)
 		_setup_placement_overlap_detector()
 	
@@ -451,14 +467,14 @@ func _create_range_indicator(building_type: String) -> void:
 	get_tree().root.add_child(_connection_range_indicator)
 	_connection_range_indicator.global_position = Vector3(_drag_position.x, 0.2, _drag_position.z)
 	
-	var data: Resource = get_building_data(building_type)
-	_preview_action_range = _get_building_action_range(building_type)
-	_preview_show_asteroid_targeting = data != null and bool(data.get("show_asteroid_targeting"))
-	_preview_show_enemy_targeting = data != null and bool(data.get("show_enemy_targeting"))
+	var placement_info: Dictionary = _get_scene_placement_info(building_type)
+	_preview_action_range = float(placement_info.get("action_range", 0.0))
+	_preview_show_asteroid_targeting = bool(placement_info.get("show_asteroid_targeting", false))
+	_preview_show_enemy_targeting = bool(placement_info.get("show_enemy_targeting", false))
 	
 	# Show one action range ring depending on targeting role.
 	if _preview_show_asteroid_targeting and _preview_action_range > 0.0:
-		_mining_range_indicator = _create_ring_mesh(_preview_action_range, Color(0.16, 0.8, 1.0, 0.32))
+		_mining_range_indicator = _create_ring_mesh(_preview_action_range, Color(1.0, 0.8, 0.2, 0.32))
 		get_tree().root.add_child(_mining_range_indicator)
 		_mining_range_indicator.global_position = Vector3(_drag_position.x, 0.15, _drag_position.z)
 	elif _preview_show_enemy_targeting and _preview_action_range > 0.0:
@@ -492,14 +508,85 @@ func _get_preview_max_connections(building_type: String) -> int:
 	return maxi(max_connections, 0)
 
 
-func _get_building_action_range(building_type: String) -> float:
+func _get_scene_placement_info(building_type: String) -> Dictionary:
+	if _scene_placement_info_cache.has(building_type):
+		return _scene_placement_info_cache[building_type]
+	var result: Dictionary = {
+		"action_range": 0.0,
+		"show_asteroid_targeting": false,
+		"show_enemy_targeting": false
+	}
 	var data: Resource = get_building_data(building_type)
-	if data == null:
+	if not data or not data.scene:
+		_scene_placement_info_cache[building_type] = result
+		return result
+	var temp_structure: Node = data.scene.instantiate()
+	if not temp_structure or not (temp_structure is Entity):
+		if temp_structure:
+			temp_structure.queue_free()
+		_scene_placement_info_cache[building_type] = result
+		return result
+	var entity: Entity = temp_structure as Entity
+	for res in entity.component_resources:
+		if res == null:
+			continue
+		var script_res: Script = res.get_script()
+		if script_res == null:
+			continue
+		var path: String = script_res.resource_path
+		if path == C_BeamWeaponClass.resource_path:
+			var attack_range: Variant = res.get("attack_range")
+			if attack_range != null:
+				result["action_range"] = maxf(float(attack_range), 0.0)
+			result["show_enemy_targeting"] = true
+			break
+		if path == C_MissileLauncherClass.resource_path:
+			var attack_range: Variant = res.get("attack_range")
+			if attack_range != null:
+				result["action_range"] = maxf(float(attack_range), 0.0)
+			result["show_enemy_targeting"] = true
+			break
+		if path == C_MiningStationClass.resource_path:
+			var mining_radius: Variant = res.get("mining_radius")
+			if mining_radius != null:
+				result["action_range"] = maxf(float(mining_radius), 0.0)
+			result["show_asteroid_targeting"] = true
+			break
+		if path == C_RepairStationClass.resource_path:
+			var attack_range: Variant = res.get("attack_range")
+			if attack_range != null:
+				result["action_range"] = maxf(float(attack_range), 0.0)
+			result["show_enemy_targeting"] = true
+			break
+	temp_structure.queue_free()
+	_scene_placement_info_cache[building_type] = result
+	return result
+
+
+func _get_scene_placement_sphere_radius(building_type: String) -> float:
+	var data: Resource = get_building_data(building_type)
+	if not data or not data.scene:
 		return 0.0
-	var maybe_value: Variant = data.get("action_range")
-	if maybe_value == null:
+	var temp_structure: Node = data.scene.instantiate()
+	if not temp_structure:
 		return 0.0
-	return maxf(float(maybe_value), 0.0)
+	var root_for_lookup: Node = temp_structure
+	if temp_structure is Entity:
+		var body: Node = temp_structure.get_node_or_null("StructureBody")
+		root_for_lookup = body if body else temp_structure
+	var selectable_area: Area3D = root_for_lookup.get_node_or_null("SelectableComponent") as Area3D
+	var radius: float = 0.0
+	if selectable_area:
+		var shape_node: CollisionShape3D = selectable_area.get_node_or_null("CollisionShape3D") as CollisionShape3D
+		if shape_node and shape_node.shape:
+			radius = _shape_radius_for_placement(shape_node.shape)
+	temp_structure.queue_free()
+	return radius
+
+
+func _get_building_action_range(building_type: String) -> float:
+	var info: Dictionary = _get_scene_placement_info(building_type)
+	return float(info.get("action_range", 0.0))
 
 
 func _ensure_connection_line_pool(count: int) -> void:
@@ -737,13 +824,10 @@ func _get_structure_taper_radius(structure_node: Node3D) -> float:
 func _get_building_taper_radius(building_type: String) -> float:
 	if building_type.is_empty():
 		return DEFAULT_PLACEMENT_RADIUS
-	var data: Resource = get_building_data(building_type)
-	if data == null:
+	var radius: float = get_placement_sphere_radius(building_type)
+	if radius <= 0.0:
 		return DEFAULT_PLACEMENT_RADIUS
-	var configured_radius: Variant = data.get("placement_sphere_radius")
-	if configured_radius == null:
-		return DEFAULT_PLACEMENT_RADIUS
-	return maxf(float(configured_radius), POWER_LINE_MIN_SEGMENT_LENGTH)
+	return maxf(radius, POWER_LINE_MIN_SEGMENT_LENGTH)
 
 
 ## Check line of sight between two positions (for power line placement)
@@ -933,13 +1017,10 @@ func _get_placement_collision_radius() -> float:
 	return maxf(_preview_collision_radius, 0.2)
 
 
-func _resolve_preview_collision_radius(data: Resource) -> float:
-	if data:
-		var configured_radius: Variant = data.get("placement_sphere_radius")
-		if configured_radius != null:
-			var radius_value: float = float(configured_radius)
-			if radius_value > 0.0:
-				return radius_value
+func _resolve_preview_collision_radius(building_type: String) -> float:
+	var scene_radius: float = get_placement_sphere_radius(building_type)
+	if scene_radius > 0.0:
+		return scene_radius
 	return _derive_preview_collision_radius()
 
 
@@ -1360,16 +1441,16 @@ func _check_placement_validity(position: Vector3) -> bool:
 	return true
 
 
-## Internal: Place the actual building
-func _place_building(building_type: String, position: Vector3) -> void:
+## Internal: Place the actual building and return the node
+func _place_building(building_type: String, position: Vector3) -> Node:
 	var data: Resource = get_building_data(building_type)
 	if not data or not data.scene:
 		push_error("No scene found for building type: " + building_type)
-		return
+		return null
 	
 	var building: Node = data.scene.instantiate()
 	if not building:
-		return
+		return null
 	var main: Node = get_tree().root.get_node_or_null("Main")
 	if main:
 		var structures_parent: Node = main.get_node_or_null("Structures")
@@ -1387,6 +1468,7 @@ func _place_building(building_type: String, position: Vector3) -> void:
 			(body as Node3D).global_position = position
 		if ECS and ECS.world:
 			ECS.world.add_entity(building, [], false)
+	return building
 
 
 ## Internal: Reset build state

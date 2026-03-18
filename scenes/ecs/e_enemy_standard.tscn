@@ -83,6 +83,12 @@ script = ExtResource("2_body")
 [node name="Body" type="Node3D" parent="ShipBody" unique_id=1030882094]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0.75, 0)
 
+[node name="BeamEmitPoint" type="Marker3D" parent="ShipBody/Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+
+[node name="AttackPoint" type="Marker3D" parent="ShipBody/Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+
 [node name="Fuselage" type="MeshInstance3D" parent="ShipBody/Body" unique_id=2092748416]
 mesh = SubResource("BoxMesh_fuselage")
 surface_material_override/0 = SubResource("ShaderMaterial_energy")

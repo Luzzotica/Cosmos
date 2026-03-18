@@ -40,6 +40,20 @@ var has_power: bool:
 		return power_buffer >= use_power_cost
 
 
+## Consume exactly `amount` power (draw from grid first if buffer low)
+func consume_power_amount(amount: float) -> bool:
+	if amount <= 0:
+		return true
+	draw_power_from_graph()
+	if power_buffer >= amount:
+		power_buffer -= amount
+		power_consumption = amount
+		power_consumed.emit(amount)
+		draw_power_from_graph()
+		return true
+	return false
+
+
 ## Try to consume power for one use
 func consume_power() -> bool:
 	if power_buffer >= use_power_cost:

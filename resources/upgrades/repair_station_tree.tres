@@ -1,0 +1,45 @@
+[gd_resource type="Resource" script_class="UpgradeTreeData" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/upgrade_tree_data.gd" id="1_tree"]
+[ext_resource type="Script" path="res://scripts/data/upgrade_node_data.gd" id="2_node"]
+
+[sub_resource type="Resource" id="node_more_robots"]
+script = ExtResource("2_node")
+id = "more_robots"
+display_name = "More Robots"
+description = "Deploy 1 additional repair robot."
+mineral_cost = 75
+power_cost = 10.0
+upgrade_time = 3.0
+requires = Array[String]([])
+excludes = Array[String]([])
+stat_modifiers = [{"component": "C_RepairStation", "property": "robot_capacity", "operation": "add", "value": 1}]
+
+[sub_resource type="Resource" id="node_potency"]
+script = ExtResource("2_node")
+id = "potency"
+display_name = "Potency"
+description = "Robots heal 50% faster."
+mineral_cost = 100
+power_cost = 10.0
+upgrade_time = 3.0
+requires = Array[String]([])
+excludes = Array[String]([])
+stat_modifiers = [{"component": "C_RepairStation", "property": "heal_per_second", "operation": "multiply", "value": 1.5}]
+
+[sub_resource type="Resource" id="node_faster_spawn"]
+script = ExtResource("2_node")
+id = "faster_spawn"
+display_name = "Faster Spawn"
+description = "Robots deploy 30% quicker."
+mineral_cost = 75
+power_cost = 10.0
+upgrade_time = 3.0
+requires = Array[String]([])
+excludes = Array[String]([])
+stat_modifiers = [{"component": "C_RepairStation", "property": "robot_spawn_interval", "operation": "multiply", "value": 0.7}]
+
+[resource]
+script = ExtResource("1_tree")
+tree_id = "repair_station"
+nodes = [SubResource("node_more_robots"), SubResource("node_potency"), SubResource("node_faster_spawn")]

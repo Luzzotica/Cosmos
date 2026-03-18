@@ -1,0 +1,60 @@
+[gd_scene format=3 uid="uid://b3y9l0n5o6q8r"]
+
+[ext_resource type="Script" path="res://scripts/projectiles/missile_body.gd" id="1_script"]
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_missile"]
+top_radius = 0.12
+bottom_radius = 0.12
+height = 0.5
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_missile"]
+albedo_color = Color(0.9, 0.5, 0.15, 1)
+emission_enabled = true
+emission = Color(0.8, 0.35, 0.1, 1)
+emission_energy_multiplier = 1.5
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_collision"]
+radius = 0.3
+
+[sub_resource type="SphereMesh" id="SphereMesh_trail"]
+radius = 0.05
+height = 0.1
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_trail"]
+albedo_color = Color(1.0, 0.45, 0.12, 0.8)
+emission_enabled = true
+emission = Color(0.85, 0.3, 0.05, 1)
+emission_energy_multiplier = 1.5
+transparency = 1
+
+[node name="Missile" type="Node3D"]
+script = ExtResource("1_script")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0)
+mesh = SubResource("CylinderMesh_missile")
+surface_material_override/0 = SubResource("StandardMaterial3D_missile")
+
+[node name="CollisionArea" type="Area3D" parent="."]
+monitoring = true
+monitorable = false
+collision_layer = 0
+collision_mask = 5
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="CollisionArea"]
+shape = SubResource("SphereShape3D_collision")
+
+[node name="TrailParticles" type="CPUParticles3D" parent="."]
+amount = 24
+emitting = true
+lifetime = 0.35
+visibility_aabb = AABB(-0.5, -0.5, -0.5, 1, 1, 1)
+emission_shape = 1
+emission_sphere_radius = 0.02
+direction = Vector3(0, -1, 0)
+spread = 0.3
+initial_velocity_min = 2.0
+initial_velocity_max = 5.0
+gravity = Vector3(0, -2, 0)
+mesh = SubResource("SphereMesh_trail")
+material_override = SubResource("StandardMaterial3D_trail")

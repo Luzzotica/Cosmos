@@ -4,8 +4,11 @@ class_name BeamWeaponSystem
 ## Usable by any entity with C_BeamWeapon (enemies, structures). Excludes C_Destroyed via query.
 ## Owns a beam pool for reuse; emits C_BeamWeapon.attack_fired for ship visuals.
 
+const BeamPointResolverClass = preload("res://scripts/ecs/beam_point_resolver.gd")
 const LASER_DURATION: float = 0.08
 const LASER_THICKNESS: float = 0.12
+const HEAL_BEAM_THICKNESS: float = 0.06
+const HEAL_BEAM_COLOR: Color = Color(0.2, 0.5, 1.0, 0.9)
 const C_UpgradesScript = preload("res://scripts/ecs/components/c_upgrades.gd")
 
 var _beam_pool: Array[MeshInstance3D] = []
@@ -23,7 +26,7 @@ func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 		_process_entity_attack(entity, delta)
 
 
-func play_beam(from_pos: Vector3, target_pos: Vector3, color: Color, duration: float = LASER_DURATION) -> void:
+func play_beam(from_pos: Vector3, target_pos: Vector3, color: Color, duration: float = LASER_DURATION, thickness: float = LASER_THICKNESS) -> void:
 	var distance: float = from_pos.distance_to(target_pos)
 	if distance <= 0.05:
 		return
@@ -32,7 +35,7 @@ func play_beam(from_pos: Vector3, target_pos: Vector3, color: Color, duration: f
 	if beam_mesh == null:
 		beam_mesh = BoxMesh.new()
 		beam.mesh = beam_mesh
-	beam_mesh.size = Vector3(LASER_THICKNESS, LASER_THICKNESS, distance)
+	beam_mesh.size = Vector3(thickness, thickness, distance)
 	var mat: StandardMaterial3D = beam.material_override as StandardMaterial3D
 	if mat == null:
 		mat = StandardMaterial3D.new()
@@ -57,6 +60,10 @@ func play_beam(from_pos: Vector3, target_pos: Vector3, color: Color, duration: f
 		)
 
 
+func play_heal_beam(from_pos: Vector3, target_pos: Vector3, duration: float = LASER_DURATION) -> void:
+	play_beam(from_pos, target_pos, HEAL_BEAM_COLOR, duration, HEAL_BEAM_THICKNESS)
+
+
 func _get_beam_from_pool() -> MeshInstance3D:
 	if not _beam_pool.is_empty():
 		var pooled: MeshInstance3D = _beam_pool.pop_back()
@@ -65,6 +72,14 @@ func _get_beam_from_pool() -> MeshInstance3D:
 	var beam: MeshInstance3D = MeshInstance3D.new()
 	beam.mesh = BoxMesh.new()
 	return beam
+
+
+func _ensure_power(body_node: Node3D) -> void:
+	if not body_node.has_method("get_power_user"):
+		return
+	var power_user: PowerUser = body_node.get_power_user()
+	if power_user and not power_user.has_power:
+		power_user.draw_power_from_graph()
 
 
 func _return_beam_to_pool(beam: MeshInstance3D) -> void:
@@ -92,6 +107,7 @@ func _process_entity_attack(entity: Entity, delta: float) -> void:
 		body_node = c_structure.structure_node
 	if body_node == null:
 		return
+	_ensure_power(body_node)
 	c_weapon.cooldown_remaining = maxf(c_weapon.cooldown_remaining - delta, 0.0)
 	var tactical: Dictionary = _get_tactical_modifier(entity)
 	var attack_range: float = c_weapon.attack_range * float(tactical.get("attack_range_multiplier", 1.0))
@@ -107,8 +123,8 @@ func _process_entity_attack(entity: Entity, delta: float) -> void:
 		return
 	var cooldown: float = c_weapon.attack_cooldown * float(tactical.get("attack_cooldown_multiplier", 1.0))
 	c_weapon.cooldown_remaining = maxf(cooldown, 0.1)
-	var from_pos: Vector3 = body_node.global_position + Vector3.UP * 0.6
-	var target_pos: Vector3 = target.global_position + Vector3.UP * 0.8
+	var from_pos: Vector3 = BeamPointResolverClass.get_beam_emit_point(body_node)
+	var target_pos: Vector3 = BeamPointResolverClass.get_random_attack_point(target)
 	c_weapon.attack_fired.emit(from_pos, target_pos, c_weapon.beam_color)
 	play_beam(from_pos, target_pos, c_weapon.beam_color, LASER_DURATION)
 	var damage: float = c_weapon.damage * float(tactical.get("damage_multiplier", 1.0))

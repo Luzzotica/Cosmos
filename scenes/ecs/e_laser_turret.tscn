@@ -97,6 +97,9 @@ mesh = SubResource("SphereMesh_orb")
 skeleton = NodePath("../..")
 surface_material_override/0 = SubResource("StandardMaterial3D_orb")
 
+[node name="BeamEmitPoint" type="Marker3D" parent="StructureBody/VisualRoot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
+
 [node name="ConnectionPoint" type="Marker3D" parent="StructureBody/VisualRoot" unique_id=307913093]
 
 [node name="PowerNode" parent="StructureBody" unique_id=202581664 instance=ExtResource("13_power")]

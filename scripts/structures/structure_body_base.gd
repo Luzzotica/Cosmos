@@ -7,6 +7,8 @@ const C_BeamWeaponClass = preload("res://scripts/ecs/components/c_beam_weapon.gd
 const C_ConstructionClass = preload("res://scripts/ecs/components/c_construction.gd")
 const C_MiningStationClass = preload("res://scripts/ecs/components/c_mining_station.gd")
 const C_MonolithChargeClass = preload("res://scripts/ecs/components/c_monolith_charge.gd")
+const C_MissileLauncherClass = preload("res://scripts/ecs/components/c_missile_launcher.gd")
+const C_RepairStationClass = preload("res://scripts/ecs/components/c_repair_station.gd")
 
 @export var placement_preview_include_mesh_names: PackedStringArray = PackedStringArray()
 @export var placement_preview_exclude_mesh_names: PackedStringArray = PackedStringArray()
@@ -15,6 +17,31 @@ var is_destroyed: bool:
 	get:
 		var c: C_Structure = _get_component(C_Structure)
 		return c != null and c.is_destroyed
+
+var building_type: String:
+	get:
+		var c: C_Structure = _get_component(C_Structure)
+		return c.building_type if c else ""
+
+var attack_range: float:
+	get:
+		var c_weapon = _get_component(C_BeamWeaponClass)
+		if c_weapon:
+			return maxf(float(c_weapon.get("attack_range")), 0.0)
+		var c_launcher = _get_component(C_MissileLauncherClass)
+		if c_launcher:
+			return maxf(float(c_launcher.get("attack_range")), 0.0)
+		var c_station = _get_component(C_RepairStationClass)
+		if c_station:
+			return maxf(float(c_station.get("attack_range")), 0.0)
+		return 0.0
+
+var mining_radius: float:
+	get:
+		var c_mining = _get_component(C_MiningStationClass)
+		if c_mining:
+			return maxf(float(c_mining.get("mining_radius")), 0.0)
+		return 0.0
 
 var power_node: PowerNode = null
 @onready var visual_handler: Node = get_node_or_null("VisualHandler")
@@ -46,14 +73,14 @@ func get_selection_name() -> String:
 
 
 func get_selection_details() -> Dictionary:
-	var c_structure: C_Structure = _get_component(C_Structure)
 	var c_health: C_Health = _get_component(C_Health)
 	var c_team: C_Team = _get_component(C_Team)
 	var c_construction: C_Construction = _get_component(C_Construction)
 	var c_weapon = _get_component(C_BeamWeaponClass)
 	var c_mining = _get_component(C_MiningStationClass)
 	var c_charge = _get_component(C_MonolithChargeClass)
-	var building_type: String = c_structure.building_type if c_structure else ""
+	var c_launcher = _get_component(C_MissileLauncherClass)
+	var c_station = _get_component(C_RepairStationClass)
 	var built: bool = c_construction.is_built if c_construction else true
 	var faction: String = c_team.team if c_team else "player"
 	var details: Dictionary = {
@@ -74,7 +101,7 @@ func get_selection_details() -> Dictionary:
 		details["is_connected"] = power_node.connected_nodes.size() > 0
 		details["connection_count"] = power_node.connected_nodes.size()
 	var stats: Array[Dictionary] = []
-	stats.append({"label": "Type", "value": building_type.replace("_", " ").capitalize() if building_type else "Structure"})
+	stats.append({"label": "Type", "value": building_type.replace("_", " ").capitalize() if building_type != "" else "Structure"})
 	stats.append({"label": "Status", "value": "Operational" if built else "Building %.0f%%" % details.get("build_progress", 0.0)})
 	if details.has("is_powered"):
 		stats.append({"label": "Power", "value": "Online" if details.is_powered else "Offline"})
@@ -87,11 +114,23 @@ func get_selection_details() -> Dictionary:
 		var rate: float = 1.0 / c_weapon.attack_cooldown if c_weapon.attack_cooldown > 0.0 else 0.0
 		stats.append({"label": "Fire Rate", "value": "%.1f/s" % rate})
 		stats.append({"label": "Damage", "value": "%.0f" % c_weapon.damage})
+	if c_launcher != null:
+		stats.append({"label": "Range", "value": "%.0f" % c_launcher.attack_range})
+		stats.append({"label": "Missiles", "value": "%d / %d" % [c_launcher.missiles_stored, c_launcher.missile_capacity]})
+		stats.append({"label": "Spawn Rate", "value": "1 / %.1fs" % c_launcher.missile_spawn_interval})
+		stats.append({"label": "Fire Rate", "value": "1 / %.1fs" % c_launcher.missile_fire_interval})
+		stats.append({"label": "Damage", "value": "%.0f" % c_launcher.damage})
+		stats.append({"label": "Cost", "value": "%d minerals, %.0f power" % [c_launcher.mineral_cost_per_shot, c_launcher.power_cost_per_shot]})
 	if c_mining:
 		stats.append({"label": "Mining Radius", "value": "%.1f" % c_mining.mining_radius})
 		stats.append({"label": "Mine Amount", "value": "%.0f" % c_mining.mine_amount})
 	if c_charge:
 		stats.append({"label": "Charge", "value": "%.0f / %.0f" % [c_charge.current_charge, c_charge.power_required]})
+	if c_station != null:
+		stats.append({"label": "Range", "value": "%.0f" % c_station.attack_range})
+		stats.append({"label": "Robots", "value": "%d / %d" % [c_station.robots_active, c_station.robot_capacity]})
+		stats.append({"label": "Heal Rate", "value": "%.1f/s" % c_station.heal_per_second})
+		stats.append({"label": "Cost", "value": "%d minerals per robot" % c_station.mineral_cost_per_robot})
 	details["stats"] = stats
 	return details
 
@@ -119,6 +158,13 @@ func consume_power_for_attack() -> bool:
 	if pu == null:
 		return true
 	return pu.consume_power()
+
+
+func consume_power_for_missile(amount: float) -> bool:
+	var pu: PowerUser = get_power_user()
+	if pu == null:
+		return true
+	return pu.consume_power_amount(amount)
 
 
 func fire_mining_beam() -> void:

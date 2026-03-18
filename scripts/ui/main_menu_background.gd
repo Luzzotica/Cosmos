@@ -3,7 +3,6 @@ extends Node3D
 ## Solar, power node, miner, turret, asteroid. Miner actively mines the asteroid.
 ## The sun (DirectionalLight3D) slowly rotates for visual interest.
 
-const C_StructureClass = preload("res://scripts/ecs/components/c_structure.gd")
 const MAIN_MENU_PREVIEW_MAP: String = "res://resources/maps/main_menu_preview.json"
 const SUN_ROTATION_SPEED: float = 0.08  # Radians per second
 
@@ -50,7 +49,6 @@ func _build_preview_level() -> void:
 		MapLoader.load_map_into_containers(map_data, structures_parent, asteroids_parent, false)
 	else:
 		_push_fallback_content()
-	call_deferred("_point_solar_panels_at_sun")
 
 
 func _clear_preview() -> void:
@@ -58,21 +56,6 @@ func _clear_preview() -> void:
 		child.free()
 	for child in asteroids_parent.get_children().duplicate():
 		child.free()
-
-
-func _point_solar_panels_at_sun() -> void:
-	var sun_path: NodePath = NodePath("../../DirectionalLight3D")
-	for child in structures_parent.get_children():
-		var building_type: Variant = child.get("building_type")
-		if building_type == "solar_panel":
-			child.set("sun_light_path", sun_path)
-		elif child.has_method("get_component"):
-			var c_structure = child.get_component(C_StructureClass)
-			if c_structure and c_structure.get("building_type") == "solar_panel":
-				var body: Node = child.get_node_or_null("StructureBody")
-				var vh: Node = body.get_node_or_null("VisualHandler") if body else null
-				if vh and vh.get("sun_light_path") != null:
-					vh.set("sun_light_path", sun_path)
 
 
 func _push_fallback_content() -> void:
@@ -83,9 +66,6 @@ func _push_fallback_content() -> void:
 		var body: Node = structure.get_node_or_null("StructureBody")
 		if body and body is Node3D:
 			(body as Node3D).global_position = Vector3.ZERO
-			var vh: Node = body.get_node_or_null("VisualHandler")
-			if vh and vh.get("sun_light_path") != null:
-				vh.set("sun_light_path", NodePath("../../DirectionalLight3D"))
 		if ECS and ECS.world and structure is Entity:
 			ECS.world.add_entity(structure as Entity, [], false)
 		if structure.has_method("set_starter_panel"):

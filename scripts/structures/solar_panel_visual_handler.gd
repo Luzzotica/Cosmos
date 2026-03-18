@@ -5,7 +5,8 @@ class_name SolarPanelVisualHandler
 @onready var _body: Node3D = get_parent() as Node3D
 @onready var _panel_mesh: MeshInstance3D = _body.get_node_or_null("VisualRoot/Panel") as MeshInstance3D
 
-@export var sun_light_path: NodePath = NodePath("/root/Main/DirectionalLight3D")
+## Optional override. If empty, uses GameWorld.sun_light (set by MainGame/MainMenuBackground).
+@export var sun_light_path: NodePath = NodePath()
 
 var _sun_light: DirectionalLight3D = null
 var _panel_intro_complete: bool = false
@@ -31,6 +32,8 @@ func _resolve_sun_light() -> void:
 	_sun_light = null
 	if not sun_light_path.is_empty():
 		_sun_light = get_node_or_null(sun_light_path) as DirectionalLight3D
+	if _sun_light == null and GameWorld:
+		_sun_light = GameWorld.sun_light
 
 
 func _orient_panel_toward_light() -> void:

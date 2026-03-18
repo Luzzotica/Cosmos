@@ -9,11 +9,25 @@ const C_BeamWeaponClass = preload("res://scripts/ecs/components/c_beam_weapon.gd
 @onready var _turret_base: MeshInstance3D = _body.get_node_or_null("VisualRoot/TurretBase") as MeshInstance3D
 @onready var _power_node: PowerNode = _body.get_node_or_null("PowerNode") as PowerNode
 
+const UNPOWERED_ORB_SCALE: float = 0.5
+
 var _orb_rest_local_pos: Vector3 = Vector3.ZERO
 var _orb_hidden_local_pos: Vector3 = Vector3.ZERO
 var _orb_recoil_tween: Tween = null
 var _orb_intro_tween: Tween = null
 var _last_powered_state: bool = true
+
+
+func _get_orb_scale_for_power_state(is_powered: bool) -> Vector3:
+	return Vector3.ONE if is_powered else Vector3.ONE * UNPOWERED_ORB_SCALE
+
+
+func set_powered_visual_state(is_powered: bool) -> void:
+	_last_powered_state = is_powered
+	if _active_orb:
+		_active_orb.scale = _get_orb_scale_for_power_state(is_powered)
+	# Keep orb glowing (STATE_ACTIVE); scale indicates power state
+	super.set_powered_visual_state(true)
 
 
 func _get_register_structure_props() -> Dictionary:
@@ -72,7 +86,7 @@ func _flash_active_orb(active_orb: MeshInstance3D, target_pos: Vector3, body: No
 				return
 			var reset_mat: StandardMaterial3D = active_orb.get_active_material(0) as StandardMaterial3D
 			if reset_mat:
-				reset_mat.emission_energy_multiplier = 2.4 if _last_powered_state else 0.0
+				reset_mat.emission_energy_multiplier = 2.4
 		)
 	if _orb_recoil_tween:
 		_orb_recoil_tween.kill()
@@ -96,7 +110,7 @@ func _flash_active_orb(active_orb: MeshInstance3D, target_pos: Vector3, body: No
 
 func _ensure_orb_centered(active_orb: MeshInstance3D) -> void:
 	active_orb.position = _orb_rest_local_pos
-	active_orb.scale = Vector3.ONE
+	active_orb.scale = _get_orb_scale_for_power_state(_last_powered_state)
 
 
 func _play_construction_finish_animation() -> void:
@@ -120,10 +134,10 @@ func _play_construction_finish_animation() -> void:
 	_orb_intro_tween.set_trans(Tween.TRANS_BACK)
 	_orb_intro_tween.set_ease(Tween.EASE_OUT)
 	_orb_intro_tween.tween_property(_active_orb, "position", _orb_rest_local_pos, 0.38)
-	_orb_intro_tween.parallel().tween_property(_active_orb, "scale", Vector3.ONE, 0.38)
+	_orb_intro_tween.parallel().tween_property(_active_orb, "scale", _get_orb_scale_for_power_state(_last_powered_state), 0.38)
 	_orb_intro_tween.tween_callback(func() -> void:
 		_orb_intro_tween = null
 		_ensure_orb_centered(_active_orb)
 		if mat:
-			mat.emission_energy_multiplier = 2.4 if _last_powered_state else 0.0
+			mat.emission_energy_multiplier = 2.4
 	)

@@ -11,6 +11,5 @@ description = "Extends the power grid to reach distant structures."
 scene = ExtResource("1_j55ux")
 cost = 25
 construction_time = 3.0
-placement_sphere_radius = 1.5
 max_health = 50.0
 max_connections = 6

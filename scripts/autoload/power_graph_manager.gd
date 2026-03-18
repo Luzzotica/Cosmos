@@ -1023,15 +1023,12 @@ func _get_taper_radius_for_power_node(power_node: Node3D) -> float:
 	var building_type: String = str(structure.get("building_type"))
 	if building_type.is_empty():
 		return DEFAULT_TAPER_RADIUS
-	if BuildManager == null or not BuildManager.has_method("get_building_data"):
+	if BuildManager == null or not BuildManager.has_method("get_placement_sphere_radius"):
 		return DEFAULT_TAPER_RADIUS
-	var data: Resource = BuildManager.get_building_data(building_type)
-	if data == null:
+	var radius: float = BuildManager.get_placement_sphere_radius(building_type)
+	if radius <= 0.0:
 		return DEFAULT_TAPER_RADIUS
-	var configured_radius: Variant = data.get("placement_sphere_radius")
-	if configured_radius == null:
-		return DEFAULT_TAPER_RADIUS
-	return maxf(float(configured_radius), POWER_LINE_MIN_SEGMENT_LENGTH)
+	return maxf(radius, POWER_LINE_MIN_SEGMENT_LENGTH)
 
 
 func _get_connection_anchor(node: Node3D) -> Vector3:
@@ -1041,7 +1038,7 @@ func _get_connection_anchor(node: Node3D) -> Vector3:
 	if structure == null or not structure.is_inside_tree():
 		return node.global_position
 	
-	var connection_point: Node3D = structure.get_node_or_null("ConnectionPoint") as Node3D
+	var connection_point: Node3D = structure.get_node_or_null("VisualRoot/ConnectionPoint") as Node3D
 	if connection_point and connection_point.is_inside_tree():
 		return connection_point.global_position
 	

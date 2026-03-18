@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3 uid="uid://d2a1k3m5n7qaq"]
+
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_building_data"]
+[ext_resource type="PackedScene" uid="uid://c4z0m1n6p7q9s" path="res://scenes/ecs/e_missile_turret.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_building_data")
+id = "missile_turret"
+display_name = "Missile Turret"
+description = "Stores and fires missiles at enemies. Costs minerals and power per shot."
+scene = ExtResource("2_scene")
+cost = 200
+construction_time = 4.0
+max_health = 100.0
+power_radius = 100.0
+max_connections = 1
+use_power_cost = 8.0
+power_buffer_capacity = 24.0

@@ -120,6 +120,10 @@ surface_material_override/0 = SubResource("StandardMaterial3D_ground")
 
 [node name="Enemies" type="Node3D" parent="." unique_id=762956773]
 
+[node name="Projectiles" type="Node3D" parent="." unique_id=888402942]
+
+[node name="RepairRobots" type="Node3D" parent="." unique_id=888402943]
+
 [node name="UI" type="CanvasLayer" parent="." unique_id=1466332981]
 
 [node name="GameHUD" parent="UI" unique_id=160203842 instance=ExtResource("3_hud")]

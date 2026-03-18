@@ -10,10 +10,9 @@ class_name MinimapPanel
 @export var enemy_color: Color = Color(1.0, 0.15, 0.15, 1.0)
 @export var edge_color: Color = Color(0.972549, 0.737255, 0.0156863, 0.95) # #f8bc04
 @export var disabled_edge_color: Color = Color(0.0196078, 0.0784314, 0.152941, 0.45) # #051427
-@export var camera_marker_color: Color = Color(0.972549, 0.737255, 0.0156863, 1.0) # #f8bc04
+@export var camera_marker_color: Color = Color(1.0, 1.0, 1.0, 1.0) # White
 @export var point_radius: float = 2.5
 @export var edge_width: float = 1.5
-@export var camera_marker_radius: float = 4.0
 
 var _main: Node3D = null
 var _rts_camera: Camera3D = null
@@ -25,7 +24,7 @@ var _asteroid_points: Array[Vector2] = []
 var _enemy_points: Array[Vector2] = []
 var _edge_segments_enabled: Array[PackedVector2Array] = []
 var _edge_segments_disabled: Array[PackedVector2Array] = []
-var _camera_point: Vector2 = Vector2.ZERO
+var _camera_view_polygon: PackedVector2Array = PackedVector2Array()
 
 
 func _ready() -> void:
@@ -64,7 +63,10 @@ func _draw() -> void:
 	for point in _enemy_points:
 		draw_circle(point, point_radius, enemy_color)
 
-	draw_circle(_camera_point, camera_marker_radius, camera_marker_color)
+	if _camera_view_polygon.size() >= 3:
+		draw_polyline(_camera_view_polygon, camera_marker_color, 1.5)
+		# Close the polygon by drawing from last point back to first
+		draw_line(_camera_view_polygon[-1], _camera_view_polygon[0], camera_marker_color, 1.5)
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -170,10 +172,46 @@ func _collect_edge_segments() -> void:
 
 
 func _update_camera_marker() -> void:
-	if _rts_camera != null and is_instance_valid(_rts_camera):
-		_camera_point = _world_to_minimap(_rts_camera.global_position)
-	else:
-		_camera_point = size * 0.5
+	_camera_view_polygon.clear()
+	if _rts_camera == null or not is_instance_valid(_rts_camera):
+		# Fallback: small centered rectangle
+		var half: float = 4.0
+		var center: Vector2 = size * 0.5
+		_camera_view_polygon = PackedVector2Array([
+			center + Vector2(-half, -half),
+			center + Vector2(half, -half),
+			center + Vector2(half, half),
+			center + Vector2(-half, half)
+		])
+		return
+
+	var viewport_size: Vector2 = _rts_camera.get_viewport().get_visible_rect().size
+	var plane: Plane = Plane(Vector3.UP, 0)
+	var corners: PackedVector2Array = PackedVector2Array([
+		Vector2(0, 0),
+		Vector2(viewport_size.x, 0),
+		Vector2(viewport_size.x, viewport_size.y),
+		Vector2(0, viewport_size.y)
+	])
+
+	for corner in corners:
+		var from: Vector3 = _rts_camera.project_ray_origin(corner)
+		var to: Vector3 = from + _rts_camera.project_ray_normal(corner) * 10000.0
+		var intersection: Variant = plane.intersects_ray(from, to - from)
+		if intersection:
+			_camera_view_polygon.append(_world_to_minimap(intersection))
+		else:
+			# Ray missed ground; use fallback centered rect
+			_camera_view_polygon.clear()
+			var half: float = 4.0
+			var center: Vector2 = _world_to_minimap(_rts_camera.global_position)
+			_camera_view_polygon = PackedVector2Array([
+				center + Vector2(-half, -half),
+				center + Vector2(half, -half),
+				center + Vector2(half, half),
+				center + Vector2(-half, half)
+			])
+			return
 
 
 func _get_world_bounds() -> Rect2:

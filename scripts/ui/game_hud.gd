@@ -56,7 +56,7 @@ func _connect_signals() -> void:
 
 func _setup_build_buttons() -> void:
 	# Get building types from BuildManager
-	_building_types = ["solar_panel", "power_node", "mining_station", "laser_turret"]
+	_building_types = ["solar_panel", "power_node", "mining_station", "laser_turret", "missile_turret", "repair_station"]
 	
 	for i in range(_building_types.size()):
 		var building_type: String = _building_types[i]
@@ -68,7 +68,8 @@ func _setup_build_buttons() -> void:
 		if i < HOTKEY_LABELS.size():
 			hotkey_text = " (%s)" % HOTKEY_LABELS[i]
 		
-		button.text = _format_building_name(building_type) + hotkey_text
+		var cost_text: String = _get_cost_text(building_type)
+		button.text = _format_building_name(building_type) + hotkey_text + cost_text
 		button.add_theme_font_size_override("font_size", 24)
 		button.pressed.connect(_on_build_button_pressed.bind(building_type))
 		button.mouse_entered.connect(_on_build_button_hovered)
@@ -104,6 +105,16 @@ func _on_menu_button_pressed() -> void:
 
 func _format_building_name(building_type: String) -> String:
 	return building_type.replace("_", " ").capitalize()
+
+
+func _get_cost_text(building_type: String) -> String:
+	if not BuildManager:
+		return ""
+	var data: Resource = BuildManager.get_building_data(building_type)
+	if not data or not "cost" in data:
+		return ""
+	var cost: int = data.cost
+	return "\n%d minerals" % cost
 
 
 func _update_resources() -> void:

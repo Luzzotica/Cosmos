@@ -7,6 +7,7 @@ extends Node3D
 @onready var ecs_world: Node = $ECSWorld
 @onready var camera: Camera3D = $RTSCamera
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
+@onready var sun_light: DirectionalLight3D = $DirectionalLight3D
 
 var _current_map_data: Resource = null
 var _structure_count: int = 0
@@ -39,6 +40,8 @@ enum CursorState {
 
 
 func _ready() -> void:
+	if GameWorld:
+		GameWorld.set_world(sun_light, null)
 	# ECS must be set up before map load so Entity structures (mining station, laser turret)
 	# get registered via MapLoader._spawn_structure -> ECS.world.add_entity.
 	# World._ready has already run (children before parent in Godot).
@@ -134,13 +137,23 @@ func _setup_ecs() -> void:
 
 
 func _center_camera_on_spawn() -> void:
-	if not camera:
+	if not camera or not camera.has_method("set_camera_position"):
 		return
+	var map_data: MapData = MapLoader.current_map as MapData if MapLoader else null
+	if map_data and not is_inf(map_data.camera_start_position.x):
+		camera.set_camera_position(Vector3(map_data.camera_start_position.x, 0, map_data.camera_start_position.y))
+		return
+	# Fallback: first structure
 	if structures_parent.get_child_count() == 0:
 		return
-	var first_structure: Node = structures_parent.get_child(0)
-	if first_structure and first_structure is Node3D and camera.has_method("set_camera_position"):
-		camera.set_camera_position((first_structure as Node3D).global_position)
+	var first: Node = structures_parent.get_child(0)
+	var pos: Vector3 = Vector3.ZERO
+	if first is Node3D:
+		pos = (first as Node3D).global_position
+	elif first.get_node_or_null("StructureBody") is Node3D:
+		pos = (first.get_node("StructureBody") as Node3D).global_position
+	if pos != Vector3.ZERO:
+		camera.set_camera_position(pos)
 
 
 func _physics_process(delta: float) -> void:
@@ -697,19 +710,31 @@ func _sign_2d(p1: Vector2, p2: Vector2, p3: Vector2) -> float:
 func _add_ecs_enemy_systems() -> void:
 	if not ECS or not ECS.world:
 		return
+	var beam_points_setup: Script = load("res://scripts/ecs/systems/beam_points_setup_system.gd") as Script
+	if beam_points_setup:
+		ECS.world.add_system(beam_points_setup.new(), true)
 	var targeting: Script = load("res://scripts/ecs/systems/enemy_targeting_system.gd") as Script
 	var saboteur: Script = load("res://scripts/ecs/systems/saboteur_system.gd") as Script
 	var saboteur_movement: Script = load("res://scripts/ecs/systems/saboteur_movement_system.gd") as Script
+	var reflector_movement: Script = load("res://scripts/ecs/systems/reflector_movement_system.gd") as Script
 	var movement: Script = load("res://scripts/ecs/systems/enemy_movement_system.gd") as Script
 	var collision_damage: Script = load("res://scripts/ecs/systems/collision_damage_system.gd") as Script
 	var attack: Script = load("res://scripts/ecs/systems/beam_weapon_system.gd") as Script
 	var structure_targeting: Script = load("res://scripts/ecs/systems/structure_targeting_system.gd") as Script
+	var missile_turret: Script = load("res://scripts/ecs/systems/missile_turret_system.gd") as Script
+	var repair_station: Script = load("res://scripts/ecs/systems/repair_station_system.gd") as Script
+	var repair_robot_targeting: Script = load("res://scripts/ecs/systems/repair_robot_targeting_system.gd") as Script
+	var repair_robot_movement: Script = load("res://scripts/ecs/systems/repair_robot_movement_system.gd") as Script
+	var repair_robot: Script = load("res://scripts/ecs/systems/repair_robot_system.gd") as Script
+	var repair_robot_heal: Script = load("res://scripts/ecs/systems/repair_robot_heal_system.gd") as Script
 	if targeting:
 		ECS.world.add_system(targeting.new(), true)
 	if saboteur:
 		ECS.world.add_system(saboteur.new(), true)
 	if saboteur_movement:
 		ECS.world.add_system(saboteur_movement.new(), true)
+	if reflector_movement:
+		ECS.world.add_system(reflector_movement.new(), true)
 	if movement:
 		ECS.world.add_system(movement.new(), true)
 	if collision_damage:
@@ -718,6 +743,18 @@ func _add_ecs_enemy_systems() -> void:
 		ECS.world.add_system(attack.new(), true)
 	if structure_targeting:
 		ECS.world.add_system(structure_targeting.new(), true)
+	if missile_turret:
+		ECS.world.add_system(missile_turret.new(), true)
+	if repair_station:
+		ECS.world.add_system(repair_station.new(), true)
+	if repair_robot_targeting:
+		ECS.world.add_system(repair_robot_targeting.new(), true)
+	if repair_robot_movement:
+		ECS.world.add_system(repair_robot_movement.new(), true)
+	if repair_robot:
+		ECS.world.add_system(repair_robot.new(), true)
+	if repair_robot_heal:
+		ECS.world.add_system(repair_robot_heal.new(), true)
 	var mining: Script = load("res://scripts/ecs/systems/mining_system.gd") as Script
 	if mining:
 		ECS.world.add_system(mining.new(), true)

@@ -11,7 +11,6 @@ description = "Generates and stores power for your base."
 scene = ExtResource("1_iy0sp")
 cost = 250
 construction_time = 3.0
-placement_sphere_radius = 1.5
 max_health = 75.0
 max_connections = 20
 energy_production = 10.0

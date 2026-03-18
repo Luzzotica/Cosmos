@@ -47,6 +47,9 @@ const CURRENT_SCHEMA_VERSION: int = 1
 @export var procedural_seed: int = 0
 @export var allow_procedural_fill: bool = false
 
+## Optional camera look-at position [x, z] when map loads. INF means unset (fall back to first structure).
+@export var camera_start_position: Vector2 = Vector2(INF, INF)
+
 
 ## Load map from JSON file
 static func load_from_json(path: String) -> MapData:
@@ -98,7 +101,11 @@ static func _create_from_dict(data: Dictionary) -> MapData:
 	map_data.allow_partial_extraction = bool(data.get("allow_partial_extraction", true))
 	map_data.procedural_seed = int(data.get("procedural_seed", 0))
 	map_data.allow_procedural_fill = bool(data.get("allow_procedural_fill", false))
-	
+
+	var cam_arr: Array = data.get("camera_start", [])
+	if cam_arr.size() >= 2:
+		map_data.camera_start_position = Vector2(float(cam_arr[0]), float(cam_arr[1]))
+
 	# Parse asteroids
 	var asteroids_data: Array = data.get("asteroids", [])
 	for asteroid_dict in asteroids_data:
@@ -221,6 +228,9 @@ func _to_dict() -> Dictionary:
 		"waves": []
 	}
 	
+	if not is_inf(camera_start_position.x):
+		data["camera_start"] = [camera_start_position.x, camera_start_position.y]
+
 	for asteroid in asteroids:
 		data.asteroids.append({
 			"position": [asteroid.position.x, asteroid.position.y, asteroid.position.z],

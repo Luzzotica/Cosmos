@@ -1,27 +1,29 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://dc0judbi1ojxc"]
 
-[ext_resource type="Script" path="res://scripts/ecs/entities/enemy_entity.gd" id="1_entity"]
-[ext_resource type="Script" path="res://scripts/enemies/enemy_ship_base.gd" id="2_body"]
+[ext_resource type="Script" uid="uid://dw4gsx63ym87r" path="res://scripts/ecs/entities/enemy_entity.gd" id="1_entity"]
+[ext_resource type="Script" uid="uid://cw5fbrg3f1oue" path="res://scripts/enemies/enemy_ship_base.gd" id="2_body"]
 [ext_resource type="PackedScene" uid="uid://r1vhglyeysme" path="res://scenes/components/selectable_component.tscn" id="4_selectable"]
 [ext_resource type="PackedScene" path="res://scenes/components/selection_visuals.tscn" id="5_selection"]
-[ext_resource type="Shader" uid="uid://0lybihpyhvn6" path="res://shaders/enemy_energy_crackle.gdshader" id="6_shader"]
-[ext_resource type="Script" path="res://addons/gecs/ecs/component.gd" id="7_component"]
-[ext_resource type="Script" path="res://scripts/ecs/components/c_health.gd" id="8_health"]
-[ext_resource type="Script" path="res://scripts/ecs/components/c_team.gd" id="9_team"]
-[ext_resource type="Script" path="res://scripts/ecs/components/c_transform3d.gd" id="10_transform"]
-[ext_resource type="Script" path="res://scripts/ecs/components/c_enemy_state.gd" id="11_state"]
-[ext_resource type="Script" path="res://scripts/ecs/components/c_targeting.gd" id="12_targeting"]
-[ext_resource type="Script" path="res://scripts/ecs/components/c_physics_body_ref.gd" id="13_bodyref"]
-[ext_resource type="Script" path="res://scripts/ecs/components/c_collision_damage.gd" id="14_collision"]
-[ext_resource type="Script" path="res://scripts/ecs/components/c_fighter_movement.gd" id="15_fighter"]
-[ext_resource type="Script" path="res://scripts/ecs/components/c_beam_weapon.gd" id="16_weapon"]
-[ext_resource type="Script" path="res://scripts/ecs/components/c_targeting_profile.gd" id="17_tprofile"]
+[ext_resource type="Script" uid="uid://b6k13gc2m4e5s" path="res://addons/gecs/ecs/component.gd" id="7_component"]
+[ext_resource type="Script" uid="uid://s0m0va7uhacv" path="res://scripts/ecs/components/c_health.gd" id="8_health"]
+[ext_resource type="Script" uid="uid://m4qryo881oo4" path="res://scripts/ecs/components/c_team.gd" id="9_team"]
+[ext_resource type="Script" uid="uid://ciuam2tjt75s5" path="res://scripts/ecs/components/c_transform3d.gd" id="10_transform"]
+[ext_resource type="Script" uid="uid://cdv6vol8ttyk6" path="res://scripts/ecs/components/c_enemy_state.gd" id="11_state"]
+[ext_resource type="Script" uid="uid://d4d31qgmh5c3j" path="res://scripts/ecs/components/c_targeting.gd" id="12_targeting"]
+[ext_resource type="Script" uid="uid://bwqcpjqbp5xu0" path="res://scripts/ecs/components/c_physics_body_ref.gd" id="13_bodyref"]
+[ext_resource type="Script" uid="uid://dlt0xs167dvph" path="res://scripts/ecs/components/c_collision_damage.gd" id="14_collision"]
+[ext_resource type="Script" uid="uid://ctwk3l6w5e65a" path="res://scripts/ecs/components/c_reflector_movement.gd" id="15_reflector"]
+[ext_resource type="Script" uid="uid://bxqem0gvi25gs" path="res://scripts/ecs/components/c_beam_weapon.gd" id="16_weapon"]
+[ext_resource type="Script" uid="uid://dgianx45rhbef" path="res://scripts/ecs/components/c_targeting_profile.gd" id="17_tprofile"]
+[ext_resource type="Script" uid="uid://dp67bgqtkite4" path="res://scripts/enemies/reflector_visual_handler.gd" id="18_handler"]
 
 [sub_resource type="Resource" id="Resource_health"]
 script = ExtResource("8_health")
 current = 70.0
 maximum = 70.0
-resistance_profile = { "laser": 0.0 }
+resistance_profile = {
+"laser": 0.0
+}
 
 [sub_resource type="Resource" id="Resource_team"]
 script = ExtResource("9_team")
@@ -46,71 +48,70 @@ script = ExtResource("13_bodyref")
 script = ExtResource("14_collision")
 amount = 24.0
 
-[sub_resource type="Resource" id="Resource_fighter"]
-script = ExtResource("15_fighter")
-turn_rate_deg = 90.0
+[sub_resource type="Resource" id="Resource_reflector"]
+script = ExtResource("15_reflector")
 
 [sub_resource type="Resource" id="Resource_weapon"]
 script = ExtResource("16_weapon")
 damage = 12.0
-damage_type = "physical"
+attack_range = 13.0
+attack_cooldown = 2.6
 
 [sub_resource type="Resource" id="Resource_tprofile"]
 script = ExtResource("17_tprofile")
-mode = "nearest"
 
-[sub_resource type="BoxMesh" id="BoxMesh_fuselage"]
-size = Vector3(0.32, 1, 0.45)
+[sub_resource type="TorusMesh" id="TorusMesh_body"]
+inner_radius = 0.35
+outer_radius = 0.5
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_energy"]
-render_priority = 0
-shader = ExtResource("6_shader")
-shader_parameter/emission_color = Color(1, 0.05, 0.2, 1)
-shader_parameter/emission_energy = 2.5
-shader_parameter/crackle_speed = 3.0
-shader_parameter/crackle_density = 28.0
-shader_parameter/crackle_sharpness = 8.0
-shader_parameter/core_brightness = 0.6
-shader_parameter/pulse_amount = 0.2
-shader_parameter/fresnel_power = 2.5
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_torus"]
+albedo_color = Color(0.95, 0.85, 0.2, 1)
+emission_enabled = true
+emission = Color(0.9, 0.8, 0.15, 1)
+emission_energy_multiplier = 1.8
 
-[sub_resource type="BoxMesh" id="BoxMesh_arm"]
-size = Vector3(0.12, 1, 0.22)
+[sub_resource type="SphereMesh" id="SphereMesh_orb"]
+radius = 0.2
+height = 0.4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_orb"]
+albedo_color = Color(1, 0.15, 0.2, 1)
+emission_enabled = true
+emission = Color(1, 0.1, 0.2, 1)
+emission_energy_multiplier = 2.5
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_collision"]
 height = 1.2
 
-[node name="EnemyLaserImmune" type="Node"]
+[node name="EnemyLaserImmune" type="Node" unique_id=10776991]
 script = ExtResource("1_entity")
-component_resources = Array[ExtResource("7_component")]([SubResource("Resource_health"), SubResource("Resource_team"), SubResource("Resource_transform"), SubResource("Resource_state"), SubResource("Resource_targeting"), SubResource("Resource_bodyref"), SubResource("Resource_collision"), SubResource("Resource_fighter"), SubResource("Resource_weapon"), SubResource("Resource_tprofile")])
+component_resources = Array[ExtResource("7_component")]([SubResource("Resource_health"), SubResource("Resource_team"), SubResource("Resource_transform"), SubResource("Resource_state"), SubResource("Resource_targeting"), SubResource("Resource_bodyref"), SubResource("Resource_collision"), SubResource("Resource_reflector"), SubResource("Resource_weapon"), SubResource("Resource_tprofile")])
 
-[node name="ShipBody" type="CharacterBody3D" parent="."]
+[node name="ShipBody" type="CharacterBody3D" parent="." unique_id=1060264135]
 collision_mask = 5
 script = ExtResource("2_body")
-speed = 10.0
 
-[node name="Body" type="Node3D" parent="ShipBody"]
-transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0.75, 0)
+[node name="Body" type="Node3D" parent="ShipBody" unique_id=1600531556]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0)
 
-[node name="Fuselage" type="MeshInstance3D" parent="ShipBody/Body"]
-mesh = SubResource("BoxMesh_fuselage")
-surface_material_override/0 = SubResource("ShaderMaterial_energy")
+[node name="Torus" type="MeshInstance3D" parent="ShipBody/Body" unique_id=133316923]
+transform = Transform3D(1, 0, 0, 0, -4.371139e-08, -1, 0, 1, -4.371139e-08, 0, 0, 0)
+mesh = SubResource("TorusMesh_body")
+surface_material_override/0 = SubResource("StandardMaterial3D_torus")
 
-[node name="ArmL" type="MeshInstance3D" parent="ShipBody/Body"]
-transform = Transform3D(-0.707, 0.707, 0, -0.707, -0.707, 0, 0, 0, 1, -0.38, 0.08, 0)
-mesh = SubResource("BoxMesh_arm")
-surface_material_override/0 = SubResource("ShaderMaterial_energy")
+[node name="CenterOrb" type="MeshInstance3D" parent="ShipBody/Body" unique_id=302159009]
+cast_shadow = 0
+mesh = SubResource("SphereMesh_orb")
+surface_material_override/0 = SubResource("StandardMaterial3D_orb")
 
-[node name="ArmR" type="MeshInstance3D" parent="ShipBody/Body"]
-transform = Transform3D(-0.707, -0.707, 0, 0.707, -0.707, 0, 0, 0, 1, 0.38, 0.08, 0)
-mesh = SubResource("BoxMesh_arm")
-surface_material_override/0 = SubResource("ShaderMaterial_energy")
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="ShipBody"]
-transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0.75, 0)
+[node name="CollisionShape3D" type="CollisionShape3D" parent="ShipBody" unique_id=233635315]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0)
 shape = SubResource("CapsuleShape3D_collision")
 
-[node name="SelectableComponent" parent="ShipBody" instance=ExtResource("4_selectable")]
+[node name="VisualHandler" type="Node" parent="ShipBody" unique_id=911863024]
+script = ExtResource("18_handler")
+
+[node name="SelectableComponent" parent="ShipBody" unique_id=1893779348 instance=ExtResource("4_selectable")]
 selection_kind = "enemy"
 
-[node name="SelectionVisuals" parent="ShipBody" instance=ExtResource("5_selection")]
+[node name="SelectionVisuals" parent="ShipBody" unique_id=1990778928 instance=ExtResource("5_selection")]

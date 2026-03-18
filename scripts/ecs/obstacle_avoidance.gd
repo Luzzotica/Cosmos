@@ -14,10 +14,11 @@ static func compute(
 	ship_radius: float,
 	obstacle_radius: float,
 	steer_force: float,
-	include_debug: bool = false
+	include_debug: bool = false,
+	exclude_rids: Array[RID] = []
 ) -> Dictionary:
 	var empty_result: Dictionary = {"force": Vector3.ZERO, "closest_dist": INF}
-	var obstacles: Array = _get_obstacles_in_range(body, forward, avoid_radius)
+	var obstacles: Array = _get_obstacles_in_range(body, forward, avoid_radius, exclude_rids)
 	if obstacles.is_empty():
 		if include_debug:
 			_empty_result_add_debug(empty_result, body, forward, avoid_radius)
@@ -91,7 +92,7 @@ static func _empty_result_add_debug(out: Dictionary, body: CharacterBody3D, forw
 	out["debug_sphere_radius"] = avoid_radius * 0.6
 
 
-static func _get_obstacles_in_range(body: CharacterBody3D, forward: Vector3, avoid_radius: float) -> Array:
+static func _get_obstacles_in_range(body: CharacterBody3D, forward: Vector3, avoid_radius: float, exclude_rids: Array[RID] = []) -> Array:
 	var space_state: PhysicsDirectSpaceState3D = body.get_world_3d().direct_space_state
 	var sphere: SphereShape3D = SphereShape3D.new()
 	sphere.radius = avoid_radius * 0.6
@@ -110,7 +111,9 @@ static func _get_obstacles_in_range(body: CharacterBody3D, forward: Vector3, avo
 	params.shape = sphere
 	params.transform = xform
 	params.collision_mask = OBSTACLE_COLLISION_LAYER
-	params.exclude = [body.get_rid()]
+	var rids: Array[RID] = [body.get_rid()]
+	rids.append_array(exclude_rids)
+	params.exclude = rids
 
 	var results: Array = space_state.intersect_shape(params, 24)
 	var colliders: Array = []

@@ -9,6 +9,7 @@
   "chapter": "chapter_01_first_light",
   "tags": ["story", "tutorial", "official"],
   "size": [500, 500],
+  "camera_start": [0, 0],
   "initial_wave_delay": 45.0,
   "wave_interval": 60.0,
   "allow_partial_extraction": true,

@@ -1,0 +1,78 @@
+[gd_scene format=3 uid="uid://c5x6kkmy3xcwv"]
+
+[ext_resource type="Script" uid="uid://d23oh43vh122i" path="res://scripts/ecs/entities/repair_robot_entity.gd" id="1_entity"]
+[ext_resource type="Script" uid="uid://brfehifff5sxb" path="res://scripts/repair_robot_body.gd" id="2_body"]
+[ext_resource type="Script" uid="uid://b6k13gc2m4e5s" path="res://addons/gecs/ecs/component.gd" id="7_component"]
+[ext_resource type="Script" uid="uid://s0m0va7uhacv" path="res://scripts/ecs/components/c_health.gd" id="8_health"]
+[ext_resource type="Script" uid="uid://m4qryo881oo4" path="res://scripts/ecs/components/c_team.gd" id="9_team"]
+[ext_resource type="Script" uid="uid://ciuam2tjt75s5" path="res://scripts/ecs/components/c_transform3d.gd" id="10_transform"]
+[ext_resource type="Script" uid="uid://d4d31qgmh5c3j" path="res://scripts/ecs/components/c_targeting.gd" id="12_targeting"]
+[ext_resource type="Script" uid="uid://bwqcpjqbp5xu0" path="res://scripts/ecs/components/c_physics_body_ref.gd" id="13_bodyref"]
+[ext_resource type="Script" uid="uid://cdcdxhj0627g5" path="res://scripts/ecs/components/c_repair_robot_movement.gd" id="15_movement"]
+[ext_resource type="Script" uid="uid://b8g5ec3dcq5g7" path="res://scripts/ecs/components/c_repair_robot_state.gd" id="16_state"]
+[ext_resource type="Script" uid="uid://crxdg86uv64bl" path="res://scripts/ecs/components/c_heal_beam.gd" id="17_heal"]
+
+[sub_resource type="Resource" id="Resource_health"]
+script = ExtResource("8_health")
+current = 20.0
+maximum = 20.0
+
+[sub_resource type="Resource" id="Resource_team"]
+script = ExtResource("9_team")
+
+[sub_resource type="Resource" id="Resource_transform"]
+script = ExtResource("10_transform")
+
+[sub_resource type="Resource" id="Resource_targeting"]
+script = ExtResource("12_targeting")
+
+[sub_resource type="Resource" id="Resource_bodyref"]
+script = ExtResource("13_bodyref")
+
+[sub_resource type="Resource" id="Resource_movement"]
+script = ExtResource("15_movement")
+speed = 3.0
+turn_rate_deg = 160.0
+avoid_radius = 4.0
+ship_radius = 0.3
+obstacle_radius = 2.0
+
+[sub_resource type="Resource" id="Resource_state"]
+script = ExtResource("16_state")
+
+[sub_resource type="Resource" id="Resource_heal"]
+script = ExtResource("17_heal")
+
+[sub_resource type="SphereMesh" id="SphereMesh_body"]
+radius = 0.25
+height = 0.5
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_metallic"]
+albedo_color = Color(0.85, 0.15, 0.1, 1)
+metallic = 0.9
+roughness = 0.35
+emission_enabled = true
+emission = Color(0.9, 0.1, 0.05, 1)
+emission_energy_multiplier = 2.0
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_collision"]
+radius = 0.3
+
+[node name="RepairRobot" type="Node" unique_id=407913095]
+script = ExtResource("1_entity")
+component_resources = Array[ExtResource("7_component")]([SubResource("Resource_health"), SubResource("Resource_team"), SubResource("Resource_transform"), SubResource("Resource_targeting"), SubResource("Resource_bodyref"), SubResource("Resource_movement"), SubResource("Resource_state"), SubResource("Resource_heal")])
+
+[node name="RobotBody" type="CharacterBody3D" parent="." unique_id=407913096]
+collision_mask = 5
+script = ExtResource("2_body")
+
+[node name="Body" type="Node3D" parent="RobotBody" unique_id=407913097]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
+
+[node name="Mesh" type="MeshInstance3D" parent="RobotBody/Body" unique_id=407913098]
+mesh = SubResource("SphereMesh_body")
+surface_material_override/0 = SubResource("StandardMaterial3D_metallic")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="RobotBody" unique_id=407913099]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
+shape = SubResource("SphereShape3D_collision")

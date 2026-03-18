@@ -13,6 +13,13 @@ var is_destroyed: bool:
 		var c: C_EnemyState = _get_component(C_EnemyState)
 		return c != null and c.is_destroyed
 
+var attack_range: float:
+	get:
+		var c_weapon = _get_component(C_BeamWeaponClass)
+		if c_weapon:
+			return maxf(float(c_weapon.get("attack_range")), 0.0)
+		return 0.0
+
 @onready var selectable_component: Node = get_node_or_null("SelectableComponent")
 @onready var visual_handler: ShipVisualHandler = get_node_or_null("VisualHandler") as ShipVisualHandler
 

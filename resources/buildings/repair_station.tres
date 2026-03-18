@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BuildingData" format=3 uid="uid://dcoucm7cs1eui"]
+
+[ext_resource type="Script" path="res://scripts/data/building_data.gd" id="1_building_data"]
+[ext_resource type="PackedScene" path="res://scenes/ecs/e_repair_station.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_building_data")
+id = "repair_station"
+display_name = "Repair Station"
+description = "Launches repair robots that heal damaged structures. Each robot costs 2 minerals."
+scene = ExtResource("2_scene")
+cost = 250
+construction_time = 4.0
+max_health = 100.0
+power_radius = 100.0
+max_connections = 1
+use_power_cost = 4.0
+power_buffer_capacity = 12.0

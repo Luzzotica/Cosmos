@@ -3,6 +3,7 @@ class_name EnemyTargetingSystem
 ## Batch targeting: fetches player structures once per frame, assigns targets to enemies.
 
 const TargetingBehaviorClass: Script = preload("res://scripts/enemies/behaviors/targeting_behavior.gd")
+const C_RepairRobotStateClass = preload("res://scripts/ecs/components/c_repair_robot_state.gd")
 
 var _targeting_behavior: RefCounted
 var _player_structures_cache: Array[Node3D] = []
@@ -35,6 +36,15 @@ func _refresh_structures_cache() -> void:
 			var c_structure: C_Structure = entity.get_component(C_Structure) as C_Structure
 			if c_structure and c_structure.structure_node and is_instance_valid(c_structure.structure_node) and not c_structure.is_destroyed:
 				_player_structures_cache.append(c_structure.structure_node)
+		# Add repair robots so enemies can target them
+		var robot_entities = ECS.world.query.with_all([C_RepairRobotStateClass, C_PhysicsBodyRef, C_Health]).execute()
+		for entity in robot_entities:
+			var c_health: C_Health = entity.get_component(C_Health) as C_Health
+			if c_health and c_health.is_destroyed:
+				continue
+			var c_body: C_PhysicsBodyRef = entity.get_component(C_PhysicsBodyRef) as C_PhysicsBodyRef
+			if c_body and c_body.body and is_instance_valid(c_body.body):
+				_player_structures_cache.append(c_body.body)
 		if not _player_structures_cache.is_empty():
 			return
 	var main: Node = Engine.get_main_loop().root.get_node_or_null("Main")
