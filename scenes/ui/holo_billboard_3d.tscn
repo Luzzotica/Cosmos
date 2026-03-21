@@ -1,0 +1,100 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/holo_billboard_3d.gd" id="1_script"]
+[ext_resource type="Shader" uid="uid://c0mjobgkgtxpe" path="res://shaders/holo_panel.gdshader" id="2_shader"]
+[ext_resource type="Theme" uid="uid://bu4hu8ilwpu5g" path="res://themes/cosmos_ui_theme.tres" id="3_theme"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_holo"]
+shader = ExtResource("2_shader")
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_billboard"]
+size = Vector3(1.2, 0.75, 0.04)
+
+[node name="HoloBillboard3D" type="Node3D"]
+script = ExtResource("1_script")
+
+[node name="SubViewport" type="SubViewport" parent="."]
+transparent_bg = true
+size = Vector2i(400, 250)
+render_target_update_mode = 4
+
+[node name="HoloPanel" type="Control" parent="SubViewport"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("3_theme")
+
+[node name="HoloBG" type="ColorRect" parent="SubViewport/HoloPanel"]
+material = SubResource("ShaderMaterial_holo")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 1)
+
+[node name="VBox" type="VBoxContainer" parent="SubViewport/HoloPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 16.0
+offset_right = -20.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 8
+
+[node name="LevelTitle" type="Label" parent="SubViewport/HoloPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.35, 1, 0.45, 1)
+theme_override_font_sizes/font_size = 28
+text = "Extraction Site"
+horizontal_alignment = 1
+
+[node name="LevelDescription" type="Label" parent="SubViewport/HoloPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.9, 0.65, 0.85)
+theme_override_font_sizes/font_size = 16
+text = "Select a level."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="Spacer" type="Control" parent="SubViewport/HoloPanel/VBox"]
+custom_minimum_size = Vector2(0, 6)
+layout_mode = 2
+
+[node name="ButtonRow" type="HBoxContainer" parent="SubViewport/HoloPanel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="BackButton" type="Button" parent="SubViewport/HoloPanel/VBox/ButtonRow"]
+custom_minimum_size = Vector2(150, 44)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Back"
+
+[node name="LaunchButton" type="Button" parent="SubViewport/HoloPanel/VBox/ButtonRow"]
+custom_minimum_size = Vector2(150, 44)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Launch"
+
+[node name="Sprite3D" type="Sprite3D" parent="."]
+pixel_size = 0.003
+render_priority = 10
+no_depth_test = true
+
+[node name="Area3D" type="Area3D" parent="."]
+collision_layer = 2
+collision_mask = 0
+input_ray_pickable = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Area3D"]
+shape = SubResource("BoxShape3D_billboard")

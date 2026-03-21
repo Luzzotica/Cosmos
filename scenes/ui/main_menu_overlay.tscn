@@ -66,12 +66,6 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Story Levels"
 
-[node name="MapEditorButton" type="Button" parent="LeftPanel/CenterV/VBox"]
-custom_minimum_size = Vector2(400, 64)
-layout_mode = 2
-theme_override_font_sizes/font_size = 22
-text = "Map Editor"
-
 [node name="QuitButton" type="Button" parent="LeftPanel/CenterV/VBox"]
 custom_minimum_size = Vector2(400, 64)
 layout_mode = 2

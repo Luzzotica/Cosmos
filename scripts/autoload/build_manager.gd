@@ -143,8 +143,18 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 
 
+const _BUILDING_PATHS: PackedStringArray = [
+	"res://resources/buildings/solar_panel.tres",
+	"res://resources/buildings/power_node.tres",
+	"res://resources/buildings/mining_station.tres",
+	"res://resources/buildings/laser_turret.tres",
+	"res://resources/buildings/missile_turret.tres",
+	"res://resources/buildings/repair_station.tres",
+	"res://resources/buildings/monolith.tres",
+]
+
+
 func _load_building_data() -> void:
-	# Load all building data resources
 	var buildings_dir: String = "res://resources/buildings/"
 	var dir: DirAccess = DirAccess.open(buildings_dir)
 	if dir:
@@ -156,6 +166,12 @@ func _load_building_data() -> void:
 				if resource:
 					_building_data[resource.id] = resource
 			file_name = dir.get_next()
+	# Fallback for web export: DirAccess may not work, load from explicit paths
+	if _building_data.is_empty():
+		for path in _BUILDING_PATHS:
+			var resource: Resource = load(path)
+			if resource and resource.get("id"):
+				_building_data[resource.id] = resource
 
 
 ## Check if currently in build mode
@@ -229,15 +245,15 @@ func update_placement_preview(world_position: Vector3) -> void:
 	
 	# Update connection range indicator position
 	if _connection_range_indicator:
-		_connection_range_indicator.global_position = Vector3(world_position.x, 0.2, world_position.z)
+		_connection_range_indicator.global_position = Vector3(world_position.x, 0.0, world_position.z)
 	
 	# Update mining range indicator position
 	if _mining_range_indicator:
-		_mining_range_indicator.global_position = Vector3(world_position.x, 0.15, world_position.z)
+		_mining_range_indicator.global_position = Vector3(world_position.x, 0.0, world_position.z)
 	
 	# Update action range indicator position
 	if _action_range_indicator:
-		_action_range_indicator.global_position = Vector3(world_position.x, 0.18, world_position.z)
+		_action_range_indicator.global_position = Vector3(world_position.x, 0.0, world_position.z)
 	
 	# Update connection line to nearest power node
 	_update_connection_preview(world_position)
@@ -465,7 +481,7 @@ func _create_range_indicator(building_type: String) -> void:
 	# Connection range indicator (for all buildings) - uses PowerNode's constant
 	_connection_range_indicator = _create_ring_mesh(PowerNodeClass.CONNECTION_RANGE, Color(0.2, 0.72, 1.0, 0.42))
 	get_tree().root.add_child(_connection_range_indicator)
-	_connection_range_indicator.global_position = Vector3(_drag_position.x, 0.2, _drag_position.z)
+	_connection_range_indicator.global_position = Vector3(_drag_position.x, 0.0, _drag_position.z)
 	
 	var placement_info: Dictionary = _get_scene_placement_info(building_type)
 	_preview_action_range = float(placement_info.get("action_range", 0.0))
@@ -476,11 +492,11 @@ func _create_range_indicator(building_type: String) -> void:
 	if _preview_show_asteroid_targeting and _preview_action_range > 0.0:
 		_mining_range_indicator = _create_ring_mesh(_preview_action_range, Color(1.0, 0.8, 0.2, 0.32))
 		get_tree().root.add_child(_mining_range_indicator)
-		_mining_range_indicator.global_position = Vector3(_drag_position.x, 0.15, _drag_position.z)
+		_mining_range_indicator.global_position = Vector3(_drag_position.x, 0.0, _drag_position.z)
 	elif _preview_show_enemy_targeting and _preview_action_range > 0.0:
 		_action_range_indicator = _create_ring_mesh(_preview_action_range, Color(1.0, 0.35, 0.3, 0.35))
 		get_tree().root.add_child(_action_range_indicator)
-		_action_range_indicator.global_position = Vector3(_drag_position.x, 0.18, _drag_position.z)
+		_action_range_indicator.global_position = Vector3(_drag_position.x, 0.0, _drag_position.z)
 	
 	_preview_max_connections = _get_preview_max_connections(building_type)
 
@@ -737,73 +753,63 @@ func _rebuild_preview_tapered_line(
 	
 	var max_taper_each_side: float = maxf((visible_length - POWER_LINE_MIN_SEGMENT_LENGTH) * 0.5, 0.0)
 	var taper_length: float = minf(POWER_LINE_TAPER_LENGTH, max_taper_each_side)
-	var start_taper_end: Vector3 = stop_start + direction * taper_length
-	var end_taper_start: Vector3 = stop_end - direction * taper_length
 	
-	if taper_length >= POWER_LINE_MIN_SEGMENT_LENGTH:
-		_add_preview_line_segment(
-			line_container,
-			stop_start,
-			start_taper_end,
-			0.0,
-			POWER_LINE_RENDER_RADIUS,
-			material
-		)
-		_add_preview_line_segment(
-			line_container,
-			end_taper_start,
-			stop_end,
-			POWER_LINE_RENDER_RADIUS,
-			0.0,
-			material
-		)
-	
-	var center_length: float = start_taper_end.distance_to(end_taper_start)
-	if center_length >= POWER_LINE_MIN_SEGMENT_LENGTH:
-		_add_preview_line_segment(
-			line_container,
-			start_taper_end,
-			end_taper_start,
-			POWER_LINE_RENDER_RADIUS,
-			POWER_LINE_RENDER_RADIUS,
-			material
-		)
-
-
-func _add_preview_line_segment(
-	line_container: MeshInstance3D,
-	start_pos: Vector3,
-	end_pos: Vector3,
-	start_radius: float,
-	end_radius: float,
-	material: StandardMaterial3D
-) -> void:
-	var segment_length: float = start_pos.distance_to(end_pos)
-	if segment_length < POWER_LINE_MIN_SEGMENT_LENGTH:
-		return
-	
-	var segment: MeshInstance3D = MeshInstance3D.new()
-	var cylinder: CylinderMesh = CylinderMesh.new()
-	cylinder.bottom_radius = end_radius
-	cylinder.top_radius = start_radius
-	cylinder.height = segment_length
-	segment.mesh = cylinder
-	segment.material_override = material
-	segment.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	
-	# Add to tree first — global_position and look_at require is_inside_tree()
-	line_container.add_child(segment)
-	
-	var midpoint: Vector3 = (start_pos + end_pos) / 2.0
-	segment.global_position = midpoint
-	
-	var direction: Vector3 = (end_pos - start_pos).normalized()
-	if direction.length() > 0.01:
+	var merged_mesh: ArrayMesh = _create_preview_merged_tapered_line_mesh(
+		taper_length, visible_length
+	)
+	if merged_mesh != null:
+		line_container.mesh = merged_mesh
+		line_container.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		# Match power_graph_manager: 270° rotation, position at stop_end, look at stop_start
+		line_container.global_position = stop_end
 		var up: Vector3 = Vector3.UP
 		if abs(direction.dot(up)) > 0.99:
 			up = Vector3.RIGHT
-		segment.look_at_from_position(midpoint, midpoint + direction, up)
-		segment.rotate_object_local(Vector3(1, 0, 0), PI / 2)
+		line_container.look_at(stop_start, up)
+		line_container.rotate_object_local(Vector3(1, 0, 0), 3 * PI / 2)
+
+
+func _create_preview_merged_tapered_line_mesh(taper_length: float, visible_length: float) -> ArrayMesh:
+	const RADIAL_SEGMENTS: int = 12
+	const MIN_CAP_RADIUS: float = 0.001
+	var start_radius: float = MIN_CAP_RADIUS if taper_length >= POWER_LINE_MIN_SEGMENT_LENGTH else POWER_LINE_RENDER_RADIUS
+	var end_radius: float = MIN_CAP_RADIUS if taper_length >= POWER_LINE_MIN_SEGMENT_LENGTH else POWER_LINE_RENDER_RADIUS
+	var center_radius: float = POWER_LINE_RENDER_RADIUS
+	var y0: float = 0.0
+	var y1: float = taper_length
+	var y2: float = visible_length - taper_length
+	var y3: float = visible_length
+	var radii: Array[float] = [start_radius, center_radius, center_radius, end_radius]
+	var heights: Array[float] = [y0, y1, y2, y3]
+	if taper_length < POWER_LINE_MIN_SEGMENT_LENGTH:
+		radii = [center_radius, center_radius]
+		heights = [y0, y3]
+	var st: SurfaceTool = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for ring_idx in range(heights.size()):
+		var y: float = heights[ring_idx]
+		var r: float = radii[ring_idx]
+		for j in range(RADIAL_SEGMENTS):
+			var angle: float = TAU * float(j) / float(RADIAL_SEGMENTS)
+			var x: float = r * cos(angle)
+			var z: float = r * sin(angle)
+			st.add_vertex(Vector3(x, y, z))
+	for ring_idx in range(heights.size() - 1):
+		var base: int = ring_idx * RADIAL_SEGMENTS
+		for j in range(RADIAL_SEGMENTS):
+			var j_next: int = (j + 1) % RADIAL_SEGMENTS
+			var a: int = base + j
+			var b: int = base + j_next
+			var c: int = base + RADIAL_SEGMENTS + j
+			var d: int = base + RADIAL_SEGMENTS + j_next
+			st.add_index(a)
+			st.add_index(b)
+			st.add_index(c)
+			st.add_index(b)
+			st.add_index(d)
+			st.add_index(c)
+	st.generate_normals()
+	return st.commit()
 
 
 func _get_preview_taper_radius() -> float:
@@ -1146,6 +1152,8 @@ func _get_structure_top_anchor(structure_node: Node3D, fallback_position: Vector
 		return fallback_position
 	
 	var connection_point: Node3D = structure_node.get_node_or_null("ConnectionPoint") as Node3D
+	if not connection_point:
+		connection_point = structure_node.get_node_or_null("VisualRoot/ConnectionPoint") as Node3D
 	if connection_point and connection_point.is_inside_tree():
 		return connection_point.global_position
 	

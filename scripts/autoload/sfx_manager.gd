@@ -86,7 +86,7 @@ func _connect_global_events() -> void:
 	PowerGraphManager.node_removed.connect(_on_power_node_removed)
 
 
-func _on_build_completed(_building_type: String, _position: Vector3) -> void:
+func _on_build_completed(_building_type: String, _position: Vector3, _building: Node = null) -> void:
 	play_sfx("structure_place", SFX_VOLUME_DB)
 
 

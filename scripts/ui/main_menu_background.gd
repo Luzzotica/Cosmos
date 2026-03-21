@@ -16,6 +16,8 @@ const SUN_ROTATION_SPEED: float = 0.08  # Radians per second
 func _ready() -> void:
 	if GameWorld:
 		GameWorld.set_world(sun_light, power_lines_parent)
+	if PowerGraphManager:
+		PowerGraphManager.reset_for_game_scene()
 	_setup_ecs()
 	_build_preview_level()
 

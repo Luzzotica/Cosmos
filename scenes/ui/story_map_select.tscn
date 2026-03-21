@@ -1,0 +1,104 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/story_map_select.gd" id="1_script"]
+[ext_resource type="Theme" path="res://themes/cosmos_ui_theme.tres" id="2_theme"]
+[ext_resource type="Script" path="res://scripts/ui/story_map_path_draw.gd" id="3_path_script"]
+
+[node name="StoryMapSelect" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_script")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.02, 0.078, 0.153, 1)
+
+[node name="MapCanvas" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="PathDraw" type="Control" parent="MapCanvas"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("3_path_script")
+
+[node name="NodesContainer" type="Control" parent="MapCanvas"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="UILayer" type="CanvasLayer" parent="."]
+layer = 10
+
+[node name="Margin" type="MarginContainer" parent="UILayer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = 24.0
+offset_right = -24.0
+offset_bottom = -24.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 48
+theme_override_constants/margin_top = 48
+theme_override_constants/margin_right = 48
+theme_override_constants/margin_bottom = 48
+
+[node name="VBox" type="VBoxContainer" parent="UILayer/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="TitleLabel" type="Label" parent="UILayer/Margin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 36
+text = "Select Extraction Site"
+horizontal_alignment = 1
+
+[node name="InfoLabel" type="Label" parent="UILayer/Margin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Select a level to begin."
+horizontal_alignment = 1
+
+[node name="ButtonRow" type="HBoxContainer" parent="UILayer/Margin/VBox"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 16
+
+[node name="PlayButton" type="Button" parent="UILayer/Margin/VBox/ButtonRow"]
+custom_minimum_size = Vector2(200, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Launch"
+
+[node name="BackButton" type="Button" parent="UILayer/Margin/VBox/ButtonRow"]
+custom_minimum_size = Vector2(200, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Back"

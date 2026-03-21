@@ -9,12 +9,14 @@ enum LaunchMode {
 
 var launch_mode: LaunchMode = LaunchMode.STORY
 var selected_story_map_path: String = ""
+var selected_story_map_id: String = ""
 var selected_editor_map_path: String = ""
 
 
-func start_story(map_path: String = "") -> void:
+func start_story(map_path: String = "", map_id: String = "") -> void:
 	launch_mode = LaunchMode.STORY
 	selected_story_map_path = map_path
+	selected_story_map_id = map_id
 	selected_editor_map_path = ""
 
 

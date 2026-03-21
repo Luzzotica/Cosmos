@@ -31,6 +31,7 @@ EnemyManager="*res://scripts/autoload/enemy_manager.gd"
 MapLoader="*res://scripts/autoload/map_loader.gd"
 SelectionManager="*res://scripts/autoload/selection_manager.gd"
 StoryCampaignManager="*res://scripts/autoload/story_campaign_manager.gd"
+SaveManager="*res://scripts/autoload/save_manager.gd"
 GameSession="*res://scripts/autoload/game_session.gd"
 ECS="*uid://dfqwl5njvdnmq"
 LineBatchManager="*res://scripts/autoload/line_batch_manager.gd"
@@ -47,7 +48,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/gecs/plugin.cfg", "res://addons/gut/plugin.cfg")
+enabled=PackedStringArray("res://addons/gecs/plugin.cfg", "res://addons/gut/plugin.cfg", "res://addons/cosmos_export/plugin.cfg")
 
 [input]
 
@@ -89,4 +90,5 @@ camera_zoom_out={
 
 [rendering]
 
-renderer/rendering_method="mobile"
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"

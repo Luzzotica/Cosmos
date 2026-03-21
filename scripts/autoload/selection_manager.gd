@@ -388,6 +388,8 @@ func _on_selectable_selection_requested(selectable: Node) -> void:
 
 
 func _on_selectable_input_event(_camera: Node, event: InputEvent, _position: Vector3, _normal: Vector3, _shape_idx: int, selectable: Node) -> void:
+	if not _is_gameplay_active():
+		return
 	if selectable == null or not is_instance_valid(selectable):
 		return
 	if not selectable.is_selectable:
@@ -402,6 +404,8 @@ func _on_selectable_input_event(_camera: Node, event: InputEvent, _position: Vec
 
 
 func _on_selectable_mouse_entered(selectable: Node) -> void:
+	if not _is_gameplay_active():
+		return
 	if selectable == null or not is_instance_valid(selectable):
 		return
 	if selectable.has_method("handle_mouse_entered"):
@@ -409,6 +413,8 @@ func _on_selectable_mouse_entered(selectable: Node) -> void:
 
 
 func _on_selectable_mouse_exited(selectable: Node) -> void:
+	if not _is_gameplay_active():
+		return
 	if selectable == null or not is_instance_valid(selectable):
 		return
 	if selectable.has_method("handle_mouse_exited"):

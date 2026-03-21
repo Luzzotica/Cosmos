@@ -49,6 +49,11 @@ func _ready() -> void:
 
 
 func _ensure_lines_parent_in_scene() -> void:
+	# Recreate if freed (e.g. after scene change/restart)
+	if _lines_parent == null or not is_instance_valid(_lines_parent):
+		_lines_parent = Node3D.new()
+		_lines_parent.name = "PowerLines"
+		add_child(_lines_parent)
 	var main: Node = get_tree().root.get_node_or_null("Main")
 	if main and main is Node3D and _lines_parent:
 		if _lines_parent.get_parent() != main:
@@ -904,7 +909,9 @@ func _create_edge(node1: Node3D, node2: Node3D) -> void:
 		_ensure_lines_parent_in_scene()
 		# Use legacy mesh path so lines render in the 3D scene (LineBatchManager has visibility issues)
 		line = _create_line_mesh(node1, node2)
-		_lines_parent.add_child(line)
+		if line:
+			_lines_parent.add_child(line)
+			_apply_line_transform(line, node1, node2)
 	
 	if not _edges.has(node1):
 		_edges[node1] = {}
@@ -921,7 +928,7 @@ func _create_edge(node1: Node3D, node2: Node3D) -> void:
 	_edges[node2][node1] = edge_data
 
 
-## Create a line mesh between two nodes
+## Create a line mesh between two nodes (single merged mesh: cone + cylinder + cone)
 func _create_line_mesh(node1: Node3D, node2: Node3D) -> MeshInstance3D:
 	var line_instance: MeshInstance3D = MeshInstance3D.new()
 	
@@ -938,7 +945,6 @@ func _create_line_mesh(node1: Node3D, node2: Node3D) -> MeshInstance3D:
 	material.disable_receive_shadows = true
 	line_instance.material_override = material
 	line_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	line_instance.mesh = null
 	
 	var delta: Vector3 = pos2 - pos1
 	var distance: float = delta.length()
@@ -965,53 +971,87 @@ func _create_line_mesh(node1: Node3D, node2: Node3D) -> MeshInstance3D:
 	
 	var max_taper_each_side: float = maxf((visible_length - POWER_LINE_MIN_SEGMENT_LENGTH) * 0.5, 0.0)
 	var taper_length: float = minf(POWER_LINE_TAPER_LENGTH, max_taper_each_side)
-	var start_taper_end: Vector3 = stop_start + direction * taper_length
-	var end_taper_start: Vector3 = stop_end - direction * taper_length
 	
-	if taper_length >= POWER_LINE_MIN_SEGMENT_LENGTH:
-		_add_tapered_line_segment(line_instance, stop_start, start_taper_end, 0.0, POWER_LINE_RENDER_RADIUS, material)
-		_add_tapered_line_segment(line_instance, end_taper_start, stop_end, POWER_LINE_RENDER_RADIUS, 0.0, material)
-	
-	var center_length: float = start_taper_end.distance_to(end_taper_start)
-	if center_length >= POWER_LINE_MIN_SEGMENT_LENGTH:
-		_add_tapered_line_segment(line_instance, start_taper_end, end_taper_start, POWER_LINE_RENDER_RADIUS, POWER_LINE_RENDER_RADIUS, material)
+	var merged_mesh: ArrayMesh = _create_merged_tapered_line_mesh(taper_length, visible_length)
+	if merged_mesh != null:
+		line_instance.mesh = merged_mesh
 	
 	return line_instance
 
 
-func _add_tapered_line_segment(
-	line_parent: MeshInstance3D,
-	start_pos: Vector3,
-	end_pos: Vector3,
-	start_radius: float,
-	end_radius: float,
-	material: StandardMaterial3D
-) -> void:
-	var segment_length: float = start_pos.distance_to(end_pos)
-	if segment_length < POWER_LINE_MIN_SEGMENT_LENGTH:
+## Apply position and rotation to a line mesh after it's in the tree (uses global coords for correct placement).
+func _apply_line_transform(line: MeshInstance3D, node1: Node3D, node2: Node3D) -> void:
+	if line == null or not line.is_inside_tree():
 		return
-	
-	var segment_instance: MeshInstance3D = MeshInstance3D.new()
-	var segment_mesh: CylinderMesh = CylinderMesh.new()
-	segment_mesh.bottom_radius = end_radius
-	segment_mesh.top_radius = start_radius
-	segment_mesh.height = segment_length
-	segment_instance.mesh = segment_mesh
-	segment_instance.material_override = material
-	segment_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	
-	var midpoint: Vector3 = (start_pos + end_pos) / 2.0
-	segment_instance.position = midpoint
-	
-	var direction: Vector3 = (end_pos - start_pos).normalized()
-	if direction.length() > 0.01:
-		var up: Vector3 = Vector3.UP
-		if abs(direction.dot(up)) > 0.99:
-			up = Vector3.RIGHT
-		segment_instance.look_at_from_position(midpoint, midpoint + direction, up)
-		segment_instance.rotate_object_local(Vector3(1, 0, 0), PI / 2)
-	
-	line_parent.add_child(segment_instance)
+	var pos1: Vector3 = _get_connection_anchor(node1)
+	var pos2: Vector3 = _get_connection_anchor(node2)
+	var delta: Vector3 = pos2 - pos1
+	var distance: float = delta.length()
+	if distance < POWER_LINE_MIN_SEGMENT_LENGTH:
+		delta = Vector3.FORWARD * POWER_LINE_MIN_SEGMENT_LENGTH
+		distance = POWER_LINE_MIN_SEGMENT_LENGTH
+	var direction: Vector3 = delta / distance
+	var start_stop_radius: float = maxf(_get_taper_radius_for_power_node(node1), 0.0)
+	var end_stop_radius: float = maxf(_get_taper_radius_for_power_node(node2), 0.0)
+	var max_stop_total: float = maxf(distance - POWER_LINE_MIN_SEGMENT_LENGTH, 0.0)
+	var stop_total: float = start_stop_radius + end_stop_radius
+	if stop_total > max_stop_total and stop_total > 0.0:
+		var stop_scale: float = max_stop_total / stop_total
+		start_stop_radius *= stop_scale
+		end_stop_radius *= stop_scale
+	var stop_start: Vector3 = pos1 + direction * start_stop_radius
+	var stop_end: Vector3 = pos2 - direction * end_stop_radius
+	# 270° rotation makes mesh +Y point toward node1; position at stop_end so line spans stop_start→stop_end
+	line.global_position = stop_end
+	var up: Vector3 = Vector3.UP
+	if abs(direction.dot(up)) > 0.99:
+		up = Vector3.RIGHT
+	line.look_at(stop_start, up)
+	line.rotate_object_local(Vector3(1, 0, 0), 3 * PI / 2)
+
+
+## Build a single ArrayMesh for tapered line (cone + cylinder + cone) to avoid seams and visual artifacts.
+func _create_merged_tapered_line_mesh(taper_length: float, visible_length: float) -> ArrayMesh:
+	const RADIAL_SEGMENTS: int = 12
+	const MIN_CAP_RADIUS: float = 0.001
+	var start_radius: float = MIN_CAP_RADIUS if taper_length >= POWER_LINE_MIN_SEGMENT_LENGTH else POWER_LINE_RENDER_RADIUS
+	var end_radius: float = MIN_CAP_RADIUS if taper_length >= POWER_LINE_MIN_SEGMENT_LENGTH else POWER_LINE_RENDER_RADIUS
+	var center_radius: float = POWER_LINE_RENDER_RADIUS
+	var y0: float = 0.0
+	var y1: float = taper_length
+	var y2: float = visible_length - taper_length
+	var y3: float = visible_length
+	var radii: Array[float] = [start_radius, center_radius, center_radius, end_radius]
+	var heights: Array[float] = [y0, y1, y2, y3]
+	if taper_length < POWER_LINE_MIN_SEGMENT_LENGTH:
+		radii = [center_radius, center_radius]
+		heights = [y0, y3]
+	var st: SurfaceTool = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for ring_idx in range(heights.size()):
+		var y: float = heights[ring_idx]
+		var r: float = radii[ring_idx]
+		for j in range(RADIAL_SEGMENTS):
+			var angle: float = TAU * float(j) / float(RADIAL_SEGMENTS)
+			var x: float = r * cos(angle)
+			var z: float = r * sin(angle)
+			st.add_vertex(Vector3(x, y, z))
+	for ring_idx in range(heights.size() - 1):
+		var base: int = ring_idx * RADIAL_SEGMENTS
+		for j in range(RADIAL_SEGMENTS):
+			var j_next: int = (j + 1) % RADIAL_SEGMENTS
+			var a: int = base + j
+			var b: int = base + j_next
+			var c: int = base + RADIAL_SEGMENTS + j
+			var d: int = base + RADIAL_SEGMENTS + j_next
+			st.add_index(a)
+			st.add_index(b)
+			st.add_index(c)
+			st.add_index(b)
+			st.add_index(d)
+			st.add_index(c)
+	st.generate_normals()
+	return st.commit()
 
 
 func _get_taper_radius_for_power_node(power_node: Node3D) -> float:
@@ -1093,6 +1133,17 @@ func is_node_enabled(node: Node3D) -> bool:
 ## Get all edges for visualization
 func get_edges() -> Dictionary:
 	return _edges
+
+
+## Reset for new game scene (e.g. restart). Clears graph and recreates lines parent.
+## Call from main_game when the game scene loads, before structures are spawned.
+func reset_for_game_scene() -> void:
+	clear()
+	if _lines_parent == null or not is_instance_valid(_lines_parent):
+		_lines_parent = Node3D.new()
+		_lines_parent.name = "PowerLines"
+		add_child(_lines_parent)
+	_ensure_lines_parent_in_scene()
 
 
 ## Clear all data (for testing/reset)

@@ -51,11 +51,28 @@ const CURRENT_SCHEMA_VERSION: int = 1
 @export var camera_start_position: Vector2 = Vector2(INF, INF)
 
 
+## Resolve path for web/export: try given path, then fallbacks (include_filter may flatten paths).
+static func resolve_json_path(path: String) -> String:
+	if FileAccess.file_exists(path):
+		return path
+	var filename := path.get_file()
+	# Fallback: file at project root (e.g. include_filter *.json flattens)
+	var root_path := "res://" + filename
+	if FileAccess.file_exists(root_path):
+		return root_path
+	# Fallback: file in resources/ only
+	var resources_path := "res://resources/" + filename
+	if FileAccess.file_exists(resources_path):
+		return resources_path
+	return path  # Return original so error message is accurate
+
+
 ## Load map from JSON file
 static func load_from_json(path: String) -> MapData:
-	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	var resolved := resolve_json_path(path)
+	var file: FileAccess = FileAccess.open(resolved, FileAccess.READ)
 	if not file:
-		push_error("Failed to open map file: " + path)
+		push_error("Failed to open map file: " + path + " (tried: " + resolved + ")")
 		return null
 	
 	var json_text: String = file.get_as_text()

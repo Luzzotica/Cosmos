@@ -113,7 +113,7 @@ shape = SubResource("SphereShape3D_collision")
 script = ExtResource("19_visual")
 
 [node name="ObstacleBody" type="StaticBody3D" parent="StructureBody" unique_id=1972139933]
-collision_layer = 4
+collision_layer = 524292
 collision_mask = 0
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="StructureBody/ObstacleBody" unique_id=1651282584]

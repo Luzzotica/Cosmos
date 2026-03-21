@@ -59,6 +59,8 @@ func _ready() -> void:
 
 func _setup_startup_map() -> void:
 	GameState.reset()
+	if PowerGraphManager:
+		PowerGraphManager.reset_for_game_scene()
 	_is_editor_mode = false
 	var session: Node = get_node_or_null("/root/GameSession")
 	var story_manager: Node = get_node_or_null("/root/StoryCampaignManager")
@@ -73,11 +75,16 @@ func _setup_startup_map() -> void:
 	elif session and not String(session.get("selected_story_map_path")).is_empty():
 		_configure_story_mode()
 		selected_map_path = String(session.get("selected_story_map_path"))
+		# map_id already set by story_map_select
 	elif story_manager and story_manager.has_method("get_current_story_map_path"):
 		_configure_story_mode()
 		var story_map: String = story_manager.call("get_current_story_map_path")
 		if not story_map.is_empty():
 			selected_map_path = story_map
+			# Set map_id for GameOverScreen / SaveManager
+			var entry: Dictionary = story_manager.call("get_current_story_entry")
+			if not entry.is_empty() and session:
+				session.set("selected_story_map_id", String(entry.get("id", "")))
 	else:
 		_configure_story_mode()
 

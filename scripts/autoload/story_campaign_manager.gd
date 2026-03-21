@@ -11,10 +11,27 @@ var finale_choice: String = "continue"
 
 func _ready() -> void:
 	load_manifest(DEFAULT_MANIFEST_PATH)
+	var save_mgr: Node = get_node_or_null("/root/SaveManager")
+	if save_mgr and save_mgr.has_method("get_flag"):
+		var saved: Variant = save_mgr.call("get_flag", "finale_choice")
+		if saved != null and (saved == "continue" or saved == "break_chain"):
+			finale_choice = str(saved)
+
+
+func _resolve_json_path_for_export(path: String) -> String:
+	if FileAccess.file_exists(path):
+		return path
+	var filename := path.get_file()
+	if FileAccess.file_exists("res://" + filename):
+		return "res://" + filename
+	if FileAccess.file_exists("res://resources/" + filename):
+		return "res://resources/" + filename
+	return path
 
 
 func load_manifest(path: String) -> bool:
-	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	var resolved: String = _resolve_json_path_for_export(path)
+	var file: FileAccess = FileAccess.open(resolved, FileAccess.READ)
 	if not file:
 		push_warning("Story campaign manifest missing: %s" % path)
 		return false
@@ -42,9 +59,19 @@ func reset_progress() -> void:
 	finale_choice = "continue"
 
 
+func set_current_by_map_id(map_id: String) -> void:
+	var ordered: Array = manifest.get("ordered_map_ids", [])
+	var idx: int = ordered.find(map_id)
+	if idx >= 0:
+		current_index = idx
+
+
 func set_finale_choice(choice: String) -> void:
 	if choice == "continue" or choice == "break_chain":
 		finale_choice = choice
+		var save_mgr: Node = get_node_or_null("/root/SaveManager")
+		if save_mgr and save_mgr.has_method("set_flag"):
+			save_mgr.call("set_flag", "finale_choice", choice)
 
 
 func get_current_story_map_path() -> String:

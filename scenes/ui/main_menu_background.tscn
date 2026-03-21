@@ -77,8 +77,11 @@ light_color = Color(0.9, 0.9, 1, 1)
 light_energy = 1.5
 shadow_enabled = true
 
-[node name="Camera3D" type="Camera3D" parent="." unique_id=1980602606]
+[node name="CameraRig" type="Node3D" parent="." unique_id=1980602605]
 transform = Transform3D(1, 0, 0, 0, 0.50000024, 0.8660253, 0, -0.8660253, 0.50000024, 6.0675826, 12.865622, 7.654375)
+
+[node name="Camera3D" type="Camera3D" parent="CameraRig" unique_id=1980602606]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 current = true
 
 [node name="Structures" type="Node3D" parent="." unique_id=779806733]

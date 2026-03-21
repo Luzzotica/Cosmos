@@ -22,9 +22,14 @@ func query() -> QueryBuilder:
 func process(entities: Array[Entity], _components: Array, delta: float) -> void:
 	if _robot_scene == null:
 		_robot_scene = load(ROBOT_SCENE_PATH) as PackedScene
-	if _robots_parent == null:
+	if _robots_parent == null or not is_instance_valid(_robots_parent):
 		var root: Node = Engine.get_main_loop().root
-		_robots_parent = root.get_node_or_null("RepairRobots")
+		var tree: SceneTree = Engine.get_main_loop() as SceneTree
+		var current: Node = tree.current_scene if tree else null
+		if current:
+			_robots_parent = current.get_node_or_null("RepairRobots")
+		if _robots_parent == null:
+			_robots_parent = root.get_node_or_null("Main/RepairRobots")
 		if _robots_parent == null:
 			_robots_parent = root.get_node_or_null("Projectiles")
 		if _robots_parent == null:

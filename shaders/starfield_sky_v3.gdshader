@@ -65,7 +65,8 @@ float hash3(vec3 p) {
 }
 
 // --- STAR GENERATION (flat plane: uv = plane coords, no cuboid/edge_fade) ---
-vec3 stars_plane(vec2 uv, float cell_count, float threshold, float brightness, float seed_offset, float zoom_scale) {
+// TIME passed as param: compatibility renderer doesn't expose built-ins inside custom functions.
+vec3 stars_plane(vec2 uv, float cell_count, float threshold, float brightness, float seed_offset, float zoom_scale, float shader_time) {
 	vec2 grid = uv * cell_count * star_grid_density * zoom_scale;
 	vec2 cell = floor(grid);
 	vec2 local = fract(grid) - 0.5;
@@ -84,9 +85,9 @@ vec3 stars_plane(vec2 uv, float cell_count, float threshold, float brightness, f
 	float d = length(local);
 	float core = smoothstep(star_size, 0.0, d);
 	float glow = smoothstep(star_size * star_glow_radius_mult, 0.0, d) * star_glow_intensity;
-	float twinkle = star_twinkle_min + star_twinkle_amount * sin(TIME * (star_twinkle_speed + pick * star_twinkle_freq_scale) + pick * star_twinkle_phase);
+	float twinkle = star_twinkle_min + star_twinkle_amount * sin(shader_time * (star_twinkle_speed + pick * star_twinkle_freq_scale) + pick * star_twinkle_phase);
 	float oscillation = 1.0 + star_oscillation_strength * sin(
-		TIME * (star_oscillation_speed + pick * star_oscillation_phase_scale) + dot(cell, star_oscillation_cell_scale)
+		shader_time * (star_oscillation_speed + pick * star_oscillation_phase_scale) + dot(cell, star_oscillation_cell_scale)
 	);
 
 	float color_hash = hash3(seed3 + vec3(77.0, 33.0, 11.0));
@@ -101,13 +102,17 @@ void sky() {
 	vec3 col = space_color;
 
 	// Fade plane near horizon (EYEDIR.y near 0 => division blows up)
-	float blend = smoothstep(star_blend, 1.0, abs(EYEDIR.y));
+	float abs_y = abs(EYEDIR.y);
+	float blend = smoothstep(star_blend, 1.0, abs_y);
 
-	// Flat plane: project 3D direction onto 2D plane above/below viewer
-	vec2 uv = EYEDIR.xz / EYEDIR.y * star_height;
+	// Flat plane: project 3D direction onto 2D plane above/below viewer.
+	// Use safe divisor to avoid inf/nan on WebGL when EYEDIR.y is near zero.
+	float safe_y = max(abs_y, 0.001);
+	vec2 uv = EYEDIR.xz / safe_y * star_height;
 
 	// Parallax + drift for twinkle when stationary
-	vec3 drift = vec3(sin(TIME * parallax_drift_speed_x) * parallax_drift_strength, 0.0, cos(TIME * parallax_drift_speed_z) * parallax_drift_strength);
+	float shader_time = TIME;
+	vec3 drift = vec3(sin(shader_time * parallax_drift_speed_x) * parallax_drift_strength, 0.0, cos(shader_time * parallax_drift_speed_z) * parallax_drift_strength);
 	vec3 effective_parallax = parallax_offset + drift;
 	vec2 parallax_2d = -effective_parallax.xz * parallax_strength;
 
@@ -117,10 +122,10 @@ void sky() {
 	vec2 uv3 = uv + parallax_2d * star_layer3_parallax;
 	vec2 uv4 = uv + parallax_2d * star_layer4_parallax;
 
-	vec3 s1 = stars_plane(uv1, star_layer1_cells, star_layer1_threshold, star_layer1_brightness, star_layer1_seed, star_zoom_scale);
-	vec3 s2 = stars_plane(uv2, star_layer2_cells, star_layer2_threshold, star_layer2_brightness, star_layer2_seed, star_zoom_scale);
-	vec3 s3 = stars_plane(uv3, star_layer3_cells, star_layer3_threshold, star_layer3_brightness, star_layer3_seed, star_zoom_scale);
-	vec3 s4 = stars_plane(uv4, star_layer4_cells, star_layer4_threshold, star_layer4_brightness, star_layer4_seed, star_zoom_scale);
+	vec3 s1 = stars_plane(uv1, star_layer1_cells, star_layer1_threshold, star_layer1_brightness, star_layer1_seed, star_zoom_scale, shader_time);
+	vec3 s2 = stars_plane(uv2, star_layer2_cells, star_layer2_threshold, star_layer2_brightness, star_layer2_seed, star_zoom_scale, shader_time);
+	vec3 s3 = stars_plane(uv3, star_layer3_cells, star_layer3_threshold, star_layer3_brightness, star_layer3_seed, star_zoom_scale, shader_time);
+	vec3 s4 = stars_plane(uv4, star_layer4_cells, star_layer4_threshold, star_layer4_brightness, star_layer4_seed, star_zoom_scale, shader_time);
 
 	col += (s1 + s2 + s3 + s4) * star_output_scale * blend;
 

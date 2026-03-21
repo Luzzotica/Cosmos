@@ -57,7 +57,10 @@ func _on_restart_pressed() -> void:
 
 func _on_quit_pressed() -> void:
 	_play_sfx_method("play_ui_confirm")
-	get_tree().quit()
+	GameState.reset()
+	var tree: SceneTree = get_tree()
+	if tree:
+		tree.change_scene_to_file("res://scenes/ui/main_menu.tscn")
 
 
 func _restart_game() -> void:

@@ -19,6 +19,7 @@
       "map_path": "res://resources/maps/tutorial_map.json",
       "act": "act_01",
       "chapter": "chapter_01_first_light",
+      "description": "Learn the basics of extraction.",
       "supports_partial_extraction": true
     },
     {
@@ -26,6 +27,7 @@
       "map_path": "res://resources/maps/tutorial_map.json",
       "act": "act_01",
       "chapter": "chapter_02_the_pattern",
+      "description": "Discover the pattern.",
       "supports_partial_extraction": true
     },
     {
@@ -82,6 +84,7 @@
       "map_path": "res://resources/maps/story/site_10_finale.json",
       "act": "act_04",
       "chapter": "chapter_07_the_dilemma",
+      "description": "The final choice.",
       "supports_partial_extraction": false
     },
     {

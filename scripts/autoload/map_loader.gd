@@ -149,6 +149,20 @@ func clear_current_map() -> void:
 		for child in enemies_parent.get_children():
 			child.queue_free()
 	
+	# Clear repair robots and projectiles (remove from ECS first, then free)
+	var repair_robots_parent: Node = main.get_node_or_null("RepairRobots")
+	if repair_robots_parent:
+		for child in repair_robots_parent.get_children():
+			if ECS and ECS.world and child is Entity:
+				ECS.world.remove_entity(child as Entity)
+			child.queue_free()
+	var projectiles_parent: Node = main.get_node_or_null("Projectiles")
+	if projectiles_parent:
+		for child in projectiles_parent.get_children():
+			if ECS and ECS.world and child is Entity:
+				ECS.world.remove_entity(child as Entity)
+			child.queue_free()
+	
 	current_map = null
 	map_cleared.emit()
 

@@ -56,7 +56,7 @@ shape = SubResource("SphereShape3D_collision")
 [node name="SelectionVisuals" parent="AsteroidBody" unique_id=1334159508 instance=ExtResource("4_selection")]
 
 [node name="ObstacleBody" type="StaticBody3D" parent="AsteroidBody" unique_id=758790100]
-collision_layer = 4
+collision_layer = 524292
 collision_mask = 0
 input_ray_pickable = false
 

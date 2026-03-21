@@ -15,7 +15,7 @@
     "energy": 100.0,
     "energy_capacity": 150.0
   },
-  "asteroids": [{ "position": [20, 0, 0], "size": 3.5, "minerals": 60 }],
+  "asteroids": [{ "position": [20, 0, 0], "size": 3.5, "minerals": 10000 }],
   "starting_structures": [
     { "type": "solar_panel", "position": [0, 0, 0], "pre_built": true },
     { "type": "power_node", "position": [6, 0, 0], "pre_built": true },
