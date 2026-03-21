@@ -200,13 +200,41 @@ func _register_with_render_manager() -> void:
 	var body: Node3D = get_parent() as Node3D
 	if body == null or not has_node("/root/StructureRenderManager"):
 		return
-	var accent_mesh_names: Array[String] = _resolve_accent_mesh_names()
+	var batch_meshes: Array[MeshInstance3D] = _get_mesh_instances_for_render_manager()
+	if batch_meshes.is_empty():
+		return
+	var accent_mesh_names: Array[String] = _accent_names_in_mesh_list(
+		batch_meshes, _resolve_accent_mesh_names())
 	var props: Dictionary = _get_register_structure_props()
 	var render_manager: Node = get_node_or_null("/root/StructureRenderManager")
 	if render_manager and render_manager.has_method("register_structure"):
-		render_manager.call("register_structure", body, _mesh_instances, accent_mesh_names, props)
+		render_manager.call("register_structure", body, batch_meshes, accent_mesh_names, props)
 		render_manager.call("set_structure_powered", body, _is_powered_visual)
 	_registered_with_render_manager = true
+	_sync_non_batched_mesh_power_visuals()
+
+
+## Subclasses may omit meshes from batching so those instances stay live (e.g. mining puck flash).
+func _get_mesh_instances_for_render_manager() -> Array[MeshInstance3D]:
+	return _mesh_instances
+
+
+func _accent_names_in_mesh_list(
+	meshes: Array[MeshInstance3D], accent_mesh_names: Array[String]) -> Array[String]:
+	var present: Dictionary = {}
+	for m in meshes:
+		if m:
+			present[m.name] = true
+	var out: Array[String] = []
+	for n in accent_mesh_names:
+		if present.has(String(n)):
+			out.append(String(n))
+	return out
+
+
+## Called after registering with StructureRenderManager and when powered state changes (batched path).
+func _sync_non_batched_mesh_power_visuals() -> void:
+	pass
 
 
 ## Override to pass props to StructureRenderManager (e.g. accent_no_shadow_mesh_names).
@@ -303,6 +331,7 @@ func set_powered_visual_state(is_powered: bool) -> void:
 			var render_manager: Node = get_node_or_null("/root/StructureRenderManager")
 			if render_manager and render_manager.has_method("set_structure_powered"):
 				render_manager.call("set_structure_powered", body, is_powered)
+		_sync_non_batched_mesh_power_visuals()
 		return
 	for i in range(_mesh_instances.size()):
 		var mesh_inst: MeshInstance3D = _mesh_instances[i]

@@ -54,12 +54,14 @@ func show_game_over() -> void:
 	var minutes: int = int(time_survived / 60.0)
 	var seconds: int = int(time_survived) % 60
 	
-	stats_label.text = "Waves Survived: %d\nTime: %02d:%02d\nMinerals Collected: %d\nMinerals Mined: %d" % [
+	stats_label.text = "Waves Survived: %d\nTime: %02d:%02d\nMinerals (balance): %d\nMinerals mined: %d\nMinerals spent: %d\nPower generated: %.0f" % [
 		waves_survived,
 		minutes,
 		seconds,
 		GameState.minerals,
-		GameState.total_minerals_mined
+		GameState.total_minerals_mined,
+		GameState.total_minerals_spent,
+		GameState.total_power_generated
 	]
 
 

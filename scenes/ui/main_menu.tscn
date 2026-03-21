@@ -10,6 +10,8 @@
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_menu"]
 shader = ExtResource("4_gradient_shader")
 
+[sub_resource type="ButtonGroup" id="ButtonGroup_save_slots"]
+
 [node name="MainMenu" type="Node3D" unique_id=1917420130]
 script = ExtResource("1_script")
 
@@ -17,6 +19,14 @@ script = ExtResource("1_script")
 
 [node name="UILayer" type="CanvasLayer" parent="." unique_id=1289209086]
 layer = 10
+
+[node name="EraseSaveConfirmDialog" type="ConfirmationDialog" parent="UILayer" unique_id=771001007]
+theme = ExtResource("2_theme")
+title = "Erase save"
+ok_button_text = "Delete"
+cancel_button_text = "Cancel"
+min_size = Vector2i(520, 220)
+dialog_text = "Delete this save file? This cannot be undone."
 
 [node name="LeftUIContainer" type="Control" parent="UILayer" unique_id=471812564]
 layout_mode = 3
@@ -79,56 +89,95 @@ horizontal_alignment = 1
 custom_minimum_size = Vector2(0, 36)
 layout_mode = 2
 
-[node name="SlotPicker" type="HBoxContainer" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox" unique_id=1925056483]
+[node name="HomePanel" type="VBoxContainer" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox" unique_id=771001001]
 layout_mode = 2
-theme_override_constants/separation = 12
-alignment = 1
+theme_override_constants/separation = 28
 
-[node name="Slot1" type="Button" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/SlotPicker" unique_id=2122963208]
-custom_minimum_size = Vector2(120, 48)
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Slot 1"
-
-[node name="Slot2" type="Button" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/SlotPicker" unique_id=973384677]
-custom_minimum_size = Vector2(120, 48)
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Slot 2"
-
-[node name="Slot3" type="Button" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/SlotPicker" unique_id=547579027]
-custom_minimum_size = Vector2(120, 48)
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Slot 3"
-
-[node name="StoryLevelsButton" type="Button" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox" unique_id=571611101]
+[node name="PlayButton" type="Button" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/HomePanel" unique_id=571611101]
 custom_minimum_size = Vector2(400, 64)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "Story Levels"
+text = "Play"
 
-[node name="NewGameButton" type="Button" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox" unique_id=1277029962]
-custom_minimum_size = Vector2(400, 64)
-layout_mode = 2
-theme_override_font_sizes/font_size = 22
-text = "New Game"
-
-[node name="QuitButton" type="Button" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox" unique_id=286512396]
+[node name="QuitButton" type="Button" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/HomePanel" unique_id=286512396]
 custom_minimum_size = Vector2(400, 64)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Quit"
 
-[node name="LevelSelectBack" type="Control" parent="UILayer" unique_id=535367831]
+[node name="SaveSelectPanel" type="VBoxContainer" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox" unique_id=771001002]
 visible = false
-layout_mode = 3
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="SaveSelectLabel" type="Label" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/SaveSelectPanel" unique_id=771001003]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Choose a save slot"
+horizontal_alignment = 1
+
+[node name="SlotPicker" type="HBoxContainer" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/SaveSelectPanel" unique_id=1925056483]
+layout_mode = 2
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="Slot1" type="Button" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/SaveSelectPanel/SlotPicker" unique_id=2122963208]
+custom_minimum_size = Vector2(120, 48)
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+toggle_mode = true
+button_group = SubResource("ButtonGroup_save_slots")
+text = "Slot 1"
+
+[node name="Slot2" type="Button" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/SaveSelectPanel/SlotPicker" unique_id=973384677]
+custom_minimum_size = Vector2(120, 48)
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+toggle_mode = true
+button_group = SubResource("ButtonGroup_save_slots")
+text = "Slot 2"
+
+[node name="Slot3" type="Button" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/SaveSelectPanel/SlotPicker" unique_id=547579027]
+custom_minimum_size = Vector2(120, 48)
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+toggle_mode = true
+button_group = SubResource("ButtonGroup_save_slots")
+text = "Slot 3"
+
+[node name="ContinueButton" type="Button" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/SaveSelectPanel" unique_id=771001005]
+custom_minimum_size = Vector2(400, 64)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Continue"
+
+[node name="EraseSaveButton" type="Button" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/SaveSelectPanel" unique_id=771001004]
+custom_minimum_size = Vector2(400, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+disabled = true
+text = "Erase save"
+
+[node name="BackFromSaveButton" type="Button" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/SaveSelectPanel" unique_id=771001006]
+custom_minimum_size = Vector2(400, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Back"
+
+[node name="LevelSelectBack" type="Control" parent="UILayer" unique_id=535367831]
+modulate = Color(1, 1, 1, 0)
+visible = false
+layout_mode = 1
 anchors_preset = 0
-offset_left = 24.0
-offset_top = 24.0
-offset_right = 124.0
-offset_bottom = 72.0
-grow_horizontal = 0
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -220.0
+offset_top = -88.0
+offset_right = 220.0
+offset_bottom = -20.0
+grow_horizontal = 2
 grow_vertical = 0
 theme = ExtResource("2_theme")
 
@@ -139,6 +188,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+custom_minimum_size = Vector2(400, 56)
 theme_override_font_sizes/font_size = 18
 text = "← Back to Menu"
 

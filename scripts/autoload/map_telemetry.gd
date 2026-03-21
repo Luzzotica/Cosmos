@@ -10,7 +10,8 @@ func _ready() -> void:
 		MapLoader.map_load_failed.connect(_on_map_load_failed)
 		MapLoader.map_loaded.connect(_on_map_loaded)
 	if GameState:
-		GameState.game_over.connect(_on_game_over)
+		GameState.game_over.connect(_on_defeat)
+		GameState.victory.connect(_on_victory)
 
 
 func track_event(event_name: String, payload: Dictionary = {}) -> void:
@@ -49,7 +50,15 @@ func _on_map_load_failed(errors: PackedStringArray) -> void:
 	track_event("map_load_failed", {"errors": Array(errors)})
 
 
-func _on_game_over() -> void:
+func _on_defeat() -> void:
+	_track_map_run_finished(false)
+
+
+func _on_victory() -> void:
+	_track_map_run_finished(true)
+
+
+func _track_map_run_finished(victory: bool) -> void:
 	var current_map_id: String = ""
 	if MapLoader and MapLoader.current_map:
 		current_map_id = MapLoader.current_map.map_id
@@ -57,7 +66,10 @@ func _on_game_over() -> void:
 		"map_run_finished",
 		{
 			"map_id": current_map_id,
+			"victory": victory,
 			"wave_reached": GameState.current_wave,
-			"minerals_remaining": GameState.minerals
+			"minerals_remaining": GameState.minerals,
+			"minerals_spent": GameState.total_minerals_spent,
+			"power_generated": GameState.total_power_generated
 		}
 	)

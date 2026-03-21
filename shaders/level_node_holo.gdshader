@@ -5,6 +5,7 @@ uniform vec4 color : source_color = vec4(0.35, 1.0, 0.45, 0.95);
 uniform float dot_density : hint_range(8.0, 64.0) = 24.0;
 uniform float glow_strength : hint_range(0.0, 4.0) = 1.8;
 uniform float is_locked : hint_range(0.0, 1.0) = 0.0;
+uniform float display_alpha : hint_range(0.0, 1.0) = 1.0;
 uniform float outline_radius : hint_range(0.2, 0.5) = 0.45;
 uniform float outline_width : hint_range(0.01, 0.1) = 0.045;
 
@@ -27,5 +28,5 @@ void fragment() {
 	}
 	ALBEDO = base_color;
 	EMISSION = base_color * glow_strength;
-	ALPHA = clamp(alpha, 0.0, 0.95);
+	ALPHA = clamp(alpha * display_alpha, 0.0, 0.95);
 }

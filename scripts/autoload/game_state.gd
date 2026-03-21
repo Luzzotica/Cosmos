@@ -2,6 +2,7 @@ extends Node
 ## GameState Singleton - Manages global game state
 
 signal minerals_changed(amount: int)
+signal minerals_spent_changed(total_spent: int)
 signal energy_changed(current: float, capacity: float)
 signal wave_started(wave_number: int)
 signal wave_ended(wave_number: int)
@@ -37,6 +38,9 @@ var is_paused: bool = false
 var is_game_over: bool = false
 var is_victory: bool = false
 var total_minerals_mined: int = 0
+var total_minerals_spent: int = 0
+## Cumulative grid power generated this level (integral of PowerGraphManager generation rate over time).
+var total_power_generated: float = 0.0
 
 # Config
 const DEFAULT_INITIAL_DELAY: float = 20.0  # 20 seconds before first wave
@@ -67,8 +71,11 @@ func add_minerals_from_mining(amount: float) -> void:
 
 
 func consume_minerals(amount: float) -> bool:
-	if minerals >= int(amount):
-		minerals -= int(amount)
+	var cost: int = int(amount)
+	if minerals >= cost:
+		minerals -= cost
+		total_minerals_spent += cost
+		minerals_spent_changed.emit(total_minerals_spent)
 		return true
 	return false
 
@@ -118,6 +125,10 @@ func _update_wave_timer(delta: float) -> void:
 
 
 func _update_energy_balance(delta: float) -> void:
+	var gen_rate: float = energy_production
+	if PowerGraphManager:
+		gen_rate = PowerGraphManager.get_power_generation()
+	total_power_generated += gen_rate * delta
 	var net_energy: float = (energy_production - energy_consumption) * delta
 	add_energy(net_energy)
 
@@ -151,6 +162,9 @@ func reset() -> void:
 	is_game_over = false
 	is_victory = false
 	total_minerals_mined = 0
+	total_minerals_spent = 0
+	total_power_generated = 0.0
+	minerals_spent_changed.emit(total_minerals_spent)
 	set_paused(false)
 
 
@@ -178,6 +192,9 @@ func apply_map_settings(map_data: MapData) -> void:
 	is_game_over = false
 	is_victory = false
 	total_minerals_mined = 0
+	total_minerals_spent = 0
+	total_power_generated = 0.0
+	minerals_spent_changed.emit(total_minerals_spent)
 	set_paused(false)
 
 

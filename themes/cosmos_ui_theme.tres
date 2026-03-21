@@ -98,6 +98,17 @@ corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_window_titlebar"]
+bg_color = Color(0.0196078, 0.0784314, 0.152941, 1)
+border_width_bottom = 2
+border_color = Color(0.643137, 0.262745, 0.133333, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+content_margin_left = 14
+content_margin_top = 10
+content_margin_right = 14
+content_margin_bottom = 8
+
 [resource]
 Button/colors/font_color = Color(0.972549, 0.737255, 0.0156863, 1)
 Button/colors/font_disabled_color = Color(0.643137, 0.262745, 0.133333, 0.55)
@@ -128,3 +139,10 @@ OptionButton/colors/font_color = Color(0.972549, 0.737255, 0.0156863, 1)
 PanelContainer/styles/panel = SubResource("StyleBoxFlat_panel")
 ProgressBar/styles/background = SubResource("StyleBoxFlat_progress_bg")
 ProgressBar/styles/fill = SubResource("StyleBoxFlat_progress_fill")
+Window/colors/title_color = Color(0.972549, 0.737255, 0.0156863, 1)
+Window/colors/title_outline_modulate = Color(0, 0, 0, 0.6)
+Window/constants/title_height = 36
+Window/styles/embedded_border = SubResource("StyleBoxFlat_panel")
+Window/styles/embedded_unfocused_border = SubResource("StyleBoxFlat_panel")
+Window/styles/titlebar = SubResource("StyleBoxFlat_window_titlebar")
+Window/styles/titlebar_unfocused = SubResource("StyleBoxFlat_window_titlebar")

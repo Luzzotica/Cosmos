@@ -20,7 +20,7 @@
     "energy": 90.0,
     "energy_capacity": 110.0
   },
-  "win_minerals_mined": 25000,
+  "win_minerals": 12000,
   "win_monolith_power_required": 500,
   "win_mode": "both",
   "asteroid_clouds": [

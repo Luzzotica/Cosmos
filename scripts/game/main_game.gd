@@ -237,10 +237,10 @@ func _check_win_conditions() -> void:
 	var win_mode: String = map_data.win_mode
 	if win_mode == "none":
 		return
-	var win_minerals: int = map_data.win_minerals_mined
+	var win_minerals_target: int = map_data.win_minerals
 	var win_monolith: float = map_data.win_monolith_power_required
 
-	var minerals_met: bool = (win_minerals <= 0) or (GameState.total_minerals_mined >= win_minerals)
+	var minerals_met: bool = (win_minerals_target <= 0) or (GameState.minerals >= win_minerals_target)
 	var monolith_met: bool = (win_monolith <= 0)
 	if win_monolith > 0 and ECS and ECS.world:
 		const C_MonolithChargeClass = preload("res://scripts/ecs/components/c_monolith_charge.gd")

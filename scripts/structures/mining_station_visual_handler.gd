@@ -6,6 +6,8 @@ const C_MiningStationClass = preload("res://scripts/ecs/components/c_mining_stat
 
 var _mining_beam: MeshInstance3D = null
 var _active_collector: MeshInstance3D = null
+## Duplicated from scene material after build; used for powered/off + mine flash on live puck mesh.
+var _collector_power_template: StandardMaterial3D = null
 var _collector_rest_emission: float = 2.1
 var _beam_visible_timer: float = 0.0
 const BEAM_BRIGHT_DURATION: float = 0.5  ## Stay full brightness
@@ -15,32 +17,58 @@ const BEAM_FADE_DURATION: float = 0.35   ## Fade out time
 @export var laser_origin: Node3D  ## Beam origin; falls back to body + Vector3(0, 1.5, 0) if unset
 
 
-func _get_register_structure_props() -> Dictionary:
-	return {"accent_no_shadow_mesh_names": ["ActiveCollector"]}
+## Keep ActiveCollector out of StructureRenderManager so mine flashes only the puck (batched hull stays stable).
+func _get_mesh_instances_for_render_manager() -> Array[MeshInstance3D]:
+	var out: Array[MeshInstance3D] = []
+	for inst in _mesh_instances:
+		if inst and inst.name != "ActiveCollector":
+			out.append(inst)
+	return out
 
 
 func init(entity: Node) -> void:
-	super.init(entity)
+	# Resolve before super.init() so _register_with_render_manager() can sync the live puck.
 	var body: Node3D = get_parent() as Node3D
 	if body:
 		_active_collector = body.get_node_or_null("VisualRoot/ActiveCollector") as MeshInstance3D
 		if _active_collector:
 			_active_collector.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			var mat: StandardMaterial3D = _active_collector.get_active_material(0) as StandardMaterial3D
-			if mat:
-				_collector_rest_emission = mat.emission_energy_multiplier
+	super.init(entity)
 	_create_mining_beam()
+
+
+func _ensure_collector_power_template() -> void:
+	if _collector_power_template != null or _active_collector == null:
+		return
+	var mat: StandardMaterial3D = _active_collector.get_active_material(0) as StandardMaterial3D
+	if mat == null:
+		return
+	_collector_power_template = mat.duplicate()
+	_collector_rest_emission = _collector_power_template.emission_energy_multiplier
+
+
+func _sync_non_batched_mesh_power_visuals() -> void:
+	_ensure_collector_power_template()
+	if _active_collector == null or _collector_power_template == null:
+		return
+	if _is_powered_visual:
+		var on_mat: StandardMaterial3D = _collector_power_template.duplicate()
+		on_mat.emission_energy_multiplier = _collector_rest_emission
+		_active_collector.set_surface_override_material(0, on_mat)
+	else:
+		var off_mat: StandardMaterial3D = _collector_power_template.duplicate()
+		off_mat.albedo_color = off_mat.albedo_color.lerp(Color(0.2, 0.22, 0.26, 1.0), 0.75)
+		off_mat.emission_enabled = false
+		off_mat.emission = Color(0.0, 0.0, 0.0, 1.0)
+		off_mat.emission_energy_multiplier = 0.0
+		_active_collector.set_surface_override_material(0, off_mat)
 
 
 func fire_mining_beam() -> void:
 	_beam_visible_timer = BEAM_BRIGHT_DURATION + BEAM_FADE_DURATION
-	var body: Node3D = get_parent() as Node3D
-	if body:
-		var render_manager: Node = get_tree().root.get_node_or_null("StructureRenderManager")
-		if render_manager and render_manager.has_method("pulse_structure"):
-			render_manager.call("pulse_structure", body, 0.18)
-	# Pulse the collector light when firing
-	if _active_collector:
+	_ensure_collector_power_template()
+	# Pulse only the top puck (live mesh; hull stays batched and unchanged).
+	if _active_collector and _collector_power_template:
 		var mat: StandardMaterial3D = _active_collector.get_active_material(0) as StandardMaterial3D
 		if mat:
 			mat.emission_energy_multiplier = 5.5
@@ -82,6 +110,11 @@ func _create_mining_beam() -> void:
 	_mining_beam.visible = false
 	_mining_beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_mining_beam)
+
+
+func start_upgrade_animation() -> void:
+	_collector_power_template = null
+	super.start_upgrade_animation()
 
 
 func _process(delta: float) -> void:

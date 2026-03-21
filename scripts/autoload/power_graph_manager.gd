@@ -26,7 +26,7 @@ var _lines_parent: Node3D = null
 
 # Power flow animation - edges being animated
 var _pulsing_edges: Dictionary = {}  # edge_key -> remaining_time
-const PULSE_DURATION: float = 0.3  # How long the pulse lasts
+const PULSE_DURATION: float = 0.12  # How long the flash stays at full brightness before snapping back
 const RECONNECT_SCAN_INTERVAL: float = 0.5
 const LEAF_RECONNECT_COOLDOWN: float = 1.25
 const POWER_LINE_RENDER_RADIUS: float = 0.15
@@ -678,11 +678,9 @@ func _update_all_edge_visuals() -> void:
 				mat.emission_energy_multiplier = 1.2
 				mat.albedo_color = Color(0.9, 0.2, 0.2, 0.75)
 			elif _pulsing_edges.has(edge_key) and endpoints_enabled:
-				# Pulsing - bright yellow/white
-				var remaining: float = _pulsing_edges[edge_key]
-				var intensity: float = remaining / PULSE_DURATION  # 1.0 to 0.0
-				mat.emission = Color(1.0, 0.9 * intensity, 0.2 * intensity)
-				mat.emission_energy_multiplier = 3.0 + 5.0 * intensity
+				# Power-flow flash: full brightness, then snap back when timer expires (no color fade).
+				mat.emission = Color(1.0, 0.9, 0.2)
+				mat.emission_energy_multiplier = 8.0
 				mat.albedo_color = Color(1.0, 0.9, 0.4, 0.9)
 			else:
 				# Normal - blue (dimmer when endpoint nodes are disabled)

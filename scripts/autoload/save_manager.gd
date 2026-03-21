@@ -216,6 +216,9 @@ func record_level_complete(map_id: String, outcome: String, extraction: String =
 		"extraction": extraction if extraction in ["full", "partial", "none"] else "full",
 		"timestamp": int(Time.get_unix_time_from_system())
 	}
+	if GameState:
+		entry["minerals_spent"] = GameState.total_minerals_spent
+		entry["power_generated"] = GameState.total_power_generated
 	levels_beaten[map_id] = entry
 	if outcome == "victory":
 		_update_highest_unlocked(map_id)

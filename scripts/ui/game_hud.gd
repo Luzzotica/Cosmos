@@ -9,6 +9,7 @@ const BUILD_HOTKEYS: Array[int] = [KEY_Q, KEY_E, KEY_R, KEY_T, KEY_Y, KEY_U]
 const HOTKEY_LABELS: Array[String] = ["Q", "E", "R", "T", "Y", "U"]
 
 @onready var minerals_label: Label = $Margin/VBox/TopBar/ResourcesPanel/MarginContainer/VBoxContainer/MineralsLabel
+@onready var minerals_spent_label: Label = $Margin/VBox/TopBar/ResourcesPanel/MarginContainer/VBoxContainer/MineralsSpentLabel
 @onready var energy_label: Label = $Margin/VBox/TopBar/ResourcesPanel/MarginContainer/VBoxContainer/EnergyLabel
 @onready var wave_label: Label = $Margin/VBox/TopBar/WavePanel/MarginContainer/VBoxContainer/WaveLabel
 @onready var wave_timer_label: Label = $Margin/VBox/TopBar/WavePanel/MarginContainer/VBoxContainer/WaveTimerLabel
@@ -49,6 +50,7 @@ func _process(_delta: float) -> void:
 
 func _connect_signals() -> void:
 	GameState.minerals_changed.connect(_on_minerals_changed)
+	GameState.minerals_spent_changed.connect(_on_minerals_spent_changed)
 	GameState.energy_changed.connect(_on_energy_changed)
 	GameState.wave_started.connect(_on_wave_started)
 	GameState.wave_ended.connect(_on_wave_ended)
@@ -119,12 +121,18 @@ func _get_cost_text(building_type: String) -> String:
 
 func _update_resources() -> void:
 	_update_minerals_display()
+	_update_minerals_spent_display()
 	_update_energy_display()
 
 
 func _update_minerals_display() -> void:
 	if minerals_label:
 		minerals_label.text = "Minerals: %d" % GameState.minerals
+
+
+func _update_minerals_spent_display() -> void:
+	if minerals_spent_label:
+		minerals_spent_label.text = "Spent this level: %d" % GameState.total_minerals_spent
 
 
 func _update_energy_display() -> void:
@@ -161,6 +169,10 @@ func _update_wave_timer() -> void:
 
 func _on_minerals_changed(_amount: int) -> void:
 	_update_minerals_display()
+
+
+func _on_minerals_spent_changed(_total_spent: int) -> void:
+	_update_minerals_spent_display()
 
 
 func _on_energy_changed(_current: float, _capacity: float) -> void:

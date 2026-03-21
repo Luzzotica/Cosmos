@@ -60,11 +60,11 @@ horizontal_alignment = 1
 layout_mode = 2
 custom_minimum_size = Vector2(0, 36)
 
-[node name="StoryLevelsButton" type="Button" parent="LeftPanel/CenterV/VBox"]
+[node name="PlayButton" type="Button" parent="LeftPanel/CenterV/VBox"]
 custom_minimum_size = Vector2(400, 64)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "Story Levels"
+text = "Play"
 
 [node name="QuitButton" type="Button" parent="LeftPanel/CenterV/VBox"]
 custom_minimum_size = Vector2(400, 64)

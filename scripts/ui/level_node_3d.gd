@@ -73,6 +73,11 @@ func set_completed(completed: bool) -> void:
 		_material.set_shader_parameter("color", Color(0.3, 0.8, 0.35, 0.8))
 
 
+func set_menu_fade_alpha(a: float) -> void:
+	if _material:
+		_material.set_shader_parameter("display_alpha", clampf(a, 0.0, 1.0))
+
+
 func set_hovered(hovered: bool) -> void:
 	if _material:
 		_material.set_shader_parameter("glow_strength", 3.0 if hovered else 1.8)
