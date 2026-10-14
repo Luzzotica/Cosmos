@@ -29,6 +29,8 @@ BuildManager="*res://scripts/autoload/build_manager.gd"
 StructureRenderManager="*res://scripts/autoload/structure_render_manager.gd"
 EnemyManager="*res://scripts/autoload/enemy_manager.gd"
 MapLoader="*res://scripts/autoload/map_loader.gd"
+DialogueManager="*res://addons/dialogue_manager/dialogue_manager.gd"
+MapDialogueRunner="*res://scripts/autoload/map_dialogue_runner.gd"
 SelectionManager="*res://scripts/autoload/selection_manager.gd"
 StoryCampaignManager="*res://scripts/autoload/story_campaign_manager.gd"
 SaveManager="*res://scripts/autoload/save_manager.gd"
@@ -48,7 +50,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/gecs/plugin.cfg", "res://addons/gut/plugin.cfg", "res://addons/cosmos_export/plugin.cfg")
+enabled=PackedStringArray("res://addons/gecs/plugin.cfg", "res://addons/gut/plugin.cfg", "res://addons/cosmos_export/plugin.cfg", "res://addons/dialogue_manager/plugin.cfg")
 
 [input]
 

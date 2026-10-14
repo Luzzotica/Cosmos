@@ -2,9 +2,7 @@ extends Node
 ## Global music playback and transitions.
 
 enum TrackId {
-	BUILD,
-	COMBAT_LIGHT,
-	COMBAT_HEAVY
+	BUILD
 }
 
 const CROSSFADE_SECONDS: float = 2.5
@@ -13,8 +11,6 @@ const MUSIC_VOLUME_DB: float = -8.0
 const SILENCE_DB: float = -80.0
 
 const TRACK_BUILD: String = "res://assets/audio/music/main_loop_build.mp3"
-const TRACK_COMBAT_LIGHT: String = "res://assets/generated/audio/music/combat_loop_light.mp3"
-const TRACK_COMBAT_HEAVY: String = "res://assets/generated/audio/music/combat_loop_heavy.mp3"
 const STING_VICTORY: String = "res://assets/generated/audio/music/victory_sting.mp3"
 const STING_DEFEAT: String = "res://assets/generated/audio/music/defeat_sting.mp3"
 
@@ -22,7 +18,6 @@ var _players: Array[AudioStreamPlayer] = []
 var _active_player_index: int = 0
 var _crossfade_tween: Tween = null
 var _current_track: TrackId = TrackId.BUILD
-var _combat_intensity_threshold_wave: int = 3
 var _stopped_for_sting: bool = false
 
 
@@ -37,14 +32,6 @@ func play_build_music(immediate: bool = false) -> void:
 	_transition_to_track(TrackId.BUILD, immediate)
 
 
-func play_combat_music(wave_number: int = 0, immediate: bool = false) -> void:
-	_stopped_for_sting = false
-	var target_track: TrackId = TrackId.COMBAT_LIGHT
-	if wave_number >= _combat_intensity_threshold_wave:
-		target_track = TrackId.COMBAT_HEAVY
-	_transition_to_track(target_track, immediate)
-
-
 func play_victory_sting() -> void:
 	_play_sting(STING_VICTORY)
 
@@ -54,7 +41,6 @@ func play_defeat_sting() -> void:
 
 
 func _connect_game_signals() -> void:
-	GameState.wave_started.connect(_on_wave_started)
 	GameState.wave_ended.connect(_on_wave_ended)
 	GameState.game_over.connect(_on_defeat)
 	GameState.victory.connect(_on_victory)
@@ -67,10 +53,6 @@ func _on_victory() -> void:
 func _on_defeat() -> void:
 	if not GameState.is_victory:
 		play_defeat_sting()
-
-
-func _on_wave_started(wave_number: int) -> void:
-	play_combat_music(wave_number, false)
 
 
 func _on_wave_ended(_wave_number: int) -> void:
@@ -147,17 +129,8 @@ func _on_player_finished(player_index: int) -> void:
 	active_player.play()
 
 
-func _load_looping_track(track: TrackId) -> AudioStream:
-	var path: String = ""
-	match track:
-		TrackId.BUILD:
-			path = TRACK_BUILD
-		TrackId.COMBAT_LIGHT:
-			path = TRACK_COMBAT_LIGHT
-		TrackId.COMBAT_HEAVY:
-			path = TRACK_COMBAT_HEAVY
-
-	var stream: AudioStream = load(path) as AudioStream
+func _load_looping_track(_track: TrackId) -> AudioStream:
+	var stream: AudioStream = load(TRACK_BUILD) as AudioStream
 	return _prepare_looping_stream(stream)
 
 

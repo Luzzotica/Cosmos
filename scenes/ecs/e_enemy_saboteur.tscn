@@ -20,8 +20,8 @@
 
 [sub_resource type="Resource" id="Resource_health"]
 script = ExtResource("8_health")
-current = 38.0
-maximum = 38.0
+current = 60.0
+maximum = 60.0
 
 [sub_resource type="Resource" id="Resource_team"]
 script = ExtResource("9_team")

@@ -27,6 +27,12 @@ func _ready() -> void:
 
 
 func _on_game_ended() -> void:
+	_present_after_map_dialogue.call_deferred()
+
+
+func _present_after_map_dialogue() -> void:
+	if MapDialogueRunner:
+		await MapDialogueRunner.play_map_end_if_any(GameState.is_victory)
 	show_game_over()
 
 

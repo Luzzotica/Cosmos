@@ -6,7 +6,11 @@ class_name MissileBody
 const BeamPointResolverClass = preload("res://scripts/ecs/beam_point_resolver.gd")
 const IMPACT_DISTANCE: float = 0.5
 const EXPLOSION_DURATION: float = 0.5
-const EXPLOSION_SCALE_END: float = 3.0
+## SphereMesh uses this radius; world radius = mesh.radius * mesh.scale
+const EXPLOSION_SPHERE_MESH_RADIUS: float = 0.5
+const EXPLOSION_START_SCALE_FRAC: float = 0.12
+## Visual-only: blast sphere is this fraction of [member aoe_radius] (0.7 = 30% smaller than full radius).
+const EXPLOSION_VISUAL_SCALE: float = 0.7
 
 const LAUNCH_UP_HEIGHT: float = 0.5
 const LAUNCH_ACCEL: float = 35.0
@@ -15,7 +19,7 @@ const CRUISE_SPEED: float = 22.0
 const TURN_RATE: float = 6.0
 
 var target_node: Node3D = null
-var damage: float = 25.0
+var damage: float = 200.0
 var aoe_radius: float = 9.0
 var damage_type: String = "physical"
 var source: Node = null
@@ -53,6 +57,17 @@ func _find_collision_area() -> Area3D:
 	return null
 
 
+func _look_along_velocity() -> void:
+	if _velocity.length_squared() < 1e-8:
+		return
+	var forward: Vector3 = _velocity.normalized()
+	var up: Vector3 = Vector3.UP
+	# look_at() defaults to World UP; vertical velocity is colinear with that and triggers a warning.
+	if absf(forward.dot(up)) > 0.999:
+		up = Vector3.FORWARD
+	look_at(global_position + _velocity, up)
+
+
 func _process(delta: float) -> void:
 	if _exploded:
 		return
@@ -88,7 +103,7 @@ func _process(delta: float) -> void:
 		var move: Vector3 = _velocity * delta
 		_launch_height_traveled += move.y
 		global_position += move
-		look_at(global_position + _velocity)
+		_look_along_velocity()
 		if _launch_height_traveled >= LAUNCH_UP_HEIGHT:
 			_phase = 1
 			_velocity = _velocity.normalized() * CRUISE_SPEED
@@ -98,7 +113,7 @@ func _process(delta: float) -> void:
 		var blended: Vector3 = current_dir.lerp(desired_dir, TURN_RATE * delta).normalized()
 		_velocity = blended * CRUISE_SPEED
 		global_position += _velocity * delta
-		look_at(global_position + _velocity)
+		_look_along_velocity()
 
 
 func _on_body_entered(body: Node3D) -> void:
@@ -179,6 +194,9 @@ func _explode(pos: Vector3) -> void:
 		queue_free()
 		return
 
+	if SfxManager and SfxManager.has_method("play_sfx_at"):
+		SfxManager.play_sfx_at(pos, "missile_explosion", -4.0, 1.0, SfxManager.EXPLOSION_SFX_MAX_DISTANCE)
+
 	_apply_damage_at(pos)
 	_spawn_explosion(pos)
 	queue_free()
@@ -199,12 +217,6 @@ func _apply_damage_at(pos: Vector3) -> void:
 	if area:
 		params.exclude = [area.get_rid()]
 	var results: Array = space_state.intersect_shape(params, 32)
-	var packet: Dictionary = {
-		"amount": damage,
-		"damage_type": damage_type,
-		"source": source,
-		"tags": PackedStringArray()
-	}
 	var seen: Dictionary = {}
 	for result in results:
 		var collider: Object = result.get("collider", null)
@@ -214,10 +226,17 @@ func _apply_damage_at(pos: Vector3) -> void:
 		if not _is_enemy(node):
 			continue
 		var target: Node = _find_damageable(node)
-		if target != null and not seen.get(target.get_instance_id(), false):
-			seen[target.get_instance_id()] = true
-			if target.has_method("take_damage_event"):
-				target.take_damage_event(packet)
+		if target == null or seen.get(target.get_instance_id(), false):
+			continue
+		seen[target.get_instance_id()] = true
+		var packet: Dictionary = {
+			"amount": damage,
+			"damage_type": damage_type,
+			"source": source,
+			"tags": PackedStringArray()
+		}
+		if target.has_method("take_damage_event"):
+			target.take_damage_event(packet)
 
 
 func _find_damageable(node: Node) -> Node:
@@ -251,19 +270,22 @@ func _spawn_explosion(pos: Vector3) -> void:
 	mat.set_shader_parameter("pulse_amount", 0.4)
 	mat.set_shader_parameter("fresnel_power", 1.8)
 	mesh.material_override = mat
-	mesh.scale = Vector3(0.2, 0.2, 0.2)
+	# Visual sphere radius = aoe_radius * EXPLOSION_VISUAL_SCALE (smaller than damage radius for readability).
+	var peak_scale: float = (aoe_radius * EXPLOSION_VISUAL_SCALE) / maxf(EXPLOSION_SPHERE_MESH_RADIUS, 0.001)
+	var start_scale: float = peak_scale * EXPLOSION_START_SCALE_FRAC
+	mesh.scale = Vector3.ONE * start_scale
 	explosion_root.add_child(mesh)
 	root.add_child(explosion_root)
 	explosion_root.global_position = pos
 	var shrink_duration: float = 0.35
 	var tween: Tween = explosion_root.create_tween()
 	tween.tween_method(func(t: float) -> void:
-		var s: float = lerpf(0.2, EXPLOSION_SCALE_END, t)
+		var s: float = lerpf(start_scale, peak_scale, t)
 		mesh.scale = Vector3(s, s, s)
 		mat.set_shader_parameter("emission_energy", lerpf(8.0, 2.0, t))
 	, 0.0, 1.0, EXPLOSION_DURATION).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
 	tween.tween_method(func(t: float) -> void:
-		var s: float = lerpf(EXPLOSION_SCALE_END, 0.05, t)
+		var s: float = lerpf(peak_scale, peak_scale * 0.05, t)
 		mesh.scale = Vector3(s, s, s)
 		mat.set_shader_parameter("emission_energy", lerpf(2.0, 0.0, t))
 	, 0.0, 1.0, shrink_duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)

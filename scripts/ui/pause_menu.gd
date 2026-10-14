@@ -16,7 +16,7 @@ func _ready() -> void:
 	restart_button.pressed.connect(_on_restart_pressed)
 	quit_button.pressed.connect(_on_quit_pressed)
 
-	GameState.pause_changed.connect(_on_pause_changed)
+	GameState.session_state_changed.connect(_on_session_state_changed)
 	GameState.game_over.connect(_on_game_over)
 
 
@@ -30,12 +30,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 
-func _on_pause_changed(paused: bool) -> void:
-	if GameState.is_game_over:
+func _on_session_state_changed(_prev: GameState.SessionState, next: GameState.SessionState) -> void:
+	if next == GameState.SessionState.WON or next == GameState.SessionState.LOST:
 		visible = false
 		return
-	visible = paused
-	if paused:
+	visible = (next == GameState.SessionState.PAUSED)
+	if visible:
 		resume_button.grab_focus()
 
 
@@ -46,7 +46,7 @@ func _on_game_over() -> void:
 
 func _on_resume_pressed() -> void:
 	_play_sfx_method("play_ui_confirm")
-	GameState.set_paused(false)
+	GameState.set_session_state(GameState.SessionState.PLAYING)
 
 
 func _on_restart_pressed() -> void:

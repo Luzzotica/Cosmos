@@ -85,9 +85,10 @@ func fire_mining_beam() -> void:
 		if mat:
 			mat.emission_energy_multiplier = 5.0
 			mat.albedo_color.a = 1.0
-	var sfx_manager: Node = get_tree().root.get_node_or_null("SfxManager")
-	if sfx_manager and sfx_manager.has_method("play_sfx"):
-		sfx_manager.call("play_sfx", "mining_pulse", -8.0)
+	var body: Node3D = get_parent() as Node3D
+	var sfx_pos: Vector3 = laser_origin.global_position if is_instance_valid(laser_origin) else (body.global_position + Vector3(0, 1.5, 0) if body else Vector3.ZERO)
+	if SfxManager and SfxManager.has_method("play_sfx_at"):
+		SfxManager.play_sfx_at(sfx_pos, "mining_pulse", -5.0)
 
 
 func _create_mining_beam() -> void:

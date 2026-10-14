@@ -51,8 +51,13 @@ func _find_structure_body() -> Node3D:
 
 
 func _on_health_destroyed() -> void:
-	add_component(C_DestroyedClass.new())
 	var c_structure: C_Structure = get_component(C_Structure) as C_Structure
+	if c_structure:
+		var invested: int = c_structure.minerals_spent_on_build + c_structure.minerals_spent_on_upgrades
+		var refund: int = int(floorf(float(invested) * 0.5))
+		if refund > 0:
+			GameState.add_minerals(refund)
+	add_component(C_DestroyedClass.new())
 	if c_structure:
 		c_structure.is_destroyed = true
 	destroyed.emit()

@@ -2,6 +2,12 @@ extends Node
 ## MapLoader - Handles loading and instantiating maps from MapData resources
 
 const MapValidatorClass: Script = preload("res://scripts/data/map_validator.gd")
+const C_VictoryMonolithClass = preload("res://scripts/ecs/components/c_victory_monolith.gd")
+
+## Same bitmask as ObstacleBody on structures and asteroids (see scenes/ecs/e_*.tscn).
+const OBSTACLE_COLLISION_MASK: int = 524292
+const ASTEROID_PLACEMENT_MARGIN: float = 0.4
+const MAX_ASTEROID_CLOUD_PLACEMENT_ATTEMPTS: int = 48
 
 signal map_loaded(map_data: MapData)
 signal map_cleared
@@ -81,18 +87,25 @@ func load_map_into_containers(map_data: MapData, structures_parent: Node3D, aste
 
 
 func _load_map_into(structures_parent: Node3D, asteroids_parent: Node3D, map_data: MapData, apply_game_state: bool, for_editor: bool = false) -> void:
+	# Structures first so asteroid placement queries can collide against ObstacleBody.
+	if structures_parent:
+		for structure_data in map_data.starting_structures:
+			_spawn_structure(structures_parent, structure_data)
+
+	var space_state: PhysicsDirectSpaceState3D = null
+	if asteroids_parent and asteroids_parent.is_inside_tree():
+		var world: World3D = asteroids_parent.get_world_3d()
+		if world:
+			space_state = world.direct_space_state
+
 	if asteroids_parent:
 		for asteroid_data in map_data.asteroids:
-			_spawn_asteroid(asteroids_parent, asteroid_data)
+			_spawn_asteroid(asteroids_parent, asteroid_data, space_state)
 		for cloud_data in map_data.asteroid_clouds:
 			if for_editor and _cloud_marker_scene:
 				_spawn_cloud_marker(asteroids_parent, cloud_data)
 			else:
-				_spawn_asteroid_cloud(asteroids_parent, cloud_data)
-
-	if structures_parent:
-		for structure_data in map_data.starting_structures:
-			_spawn_structure(structures_parent, structure_data)
+				_spawn_asteroid_cloud(asteroids_parent, cloud_data, space_state)
 
 	if apply_game_state:
 		current_map = map_data
@@ -167,9 +180,31 @@ func clear_current_map() -> void:
 	map_cleared.emit()
 
 
-## Spawn an asteroid from placement data
-func _spawn_asteroid(parent: Node3D, data: AsteroidPlacement) -> void:
+func _asteroid_probe_radius_for_size(size: float) -> float:
+	return maxf(size * 0.5 + ASTEROID_PLACEMENT_MARGIN, 0.75)
+
+
+func _is_asteroid_spawn_clear(space_state: PhysicsDirectSpaceState3D, world_pos: Vector3, size: float) -> bool:
+	if space_state == null:
+		return true
+	var sphere: SphereShape3D = SphereShape3D.new()
+	sphere.radius = _asteroid_probe_radius_for_size(size)
+	var params: PhysicsShapeQueryParameters3D = PhysicsShapeQueryParameters3D.new()
+	params.shape = sphere
+	params.transform = Transform3D(Basis(), world_pos)
+	params.collision_mask = OBSTACLE_COLLISION_MASK
+	params.collide_with_areas = false
+	params.collide_with_bodies = true
+	var results: Array = space_state.intersect_shape(params, 32)
+	return results.is_empty()
+
+
+## Spawn an asteroid from placement data. When [param space_state] is set, skips spawn if overlapping obstacle bodies.
+func _spawn_asteroid(parent: Node3D, data: AsteroidPlacement, space_state: PhysicsDirectSpaceState3D = null) -> void:
 	if not asteroid_scene:
+		return
+	if space_state != null and not _is_asteroid_spawn_clear(space_state, data.position, data.size):
+		push_warning("Asteroid placement overlaps obstacles at %s; skipped." % str(data.position))
 		return
 
 	var entity: Node = asteroid_scene.instantiate() as Node
@@ -199,7 +234,7 @@ func _spawn_cloud_marker(parent: Node3D, data: Resource) -> void:
 
 
 ## Spawn a deterministic asteroid cloud from placement data
-func _spawn_asteroid_cloud(parent: Node3D, data: Resource) -> void:
+func _spawn_asteroid_cloud(parent: Node3D, data: Resource, space_state: PhysicsDirectSpaceState3D = null) -> void:
 	if data.count <= 0:
 		return
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
@@ -211,15 +246,26 @@ func _spawn_asteroid_cloud(parent: Node3D, data: Resource) -> void:
 		rng.randomize()
 
 	for _i in range(data.count):
-		var angle: float = rng.randf_range(0.0, TAU)
-		var dist: float = rng.randf_range(0.0, data.radius)
-		var spawn_pos: Vector3 = data.center + Vector3(cos(angle) * dist, 0.0, sin(angle) * dist)
-
 		var placement: AsteroidPlacement = AsteroidPlacement.new()
-		placement.position = spawn_pos
-		placement.size = rng.randf_range(data.min_size, data.max_size)
-		placement.minerals = rng.randf_range(data.min_minerals, data.max_minerals)
-		_spawn_asteroid(parent, placement)
+		var placed: bool = false
+		for _attempt in range(MAX_ASTEROID_CLOUD_PLACEMENT_ATTEMPTS):
+			var angle: float = rng.randf_range(0.0, TAU)
+			var dist: float = rng.randf_range(0.0, data.radius)
+			var spawn_pos: Vector3 = data.center + Vector3(cos(angle) * dist, 0.0, sin(angle) * dist)
+			placement.position = spawn_pos
+			placement.size = rng.randf_range(data.min_size, data.max_size)
+			placement.minerals = rng.randf_range(data.min_minerals, data.max_minerals)
+			if space_state == null or _is_asteroid_spawn_clear(space_state, placement.position, placement.size):
+				_spawn_asteroid(parent, placement, null)
+				placed = true
+				break
+		if not placed:
+			push_warning(
+				"Asteroid cloud could not place a rock after %d attempts (center %s); skipped one." % [
+					MAX_ASTEROID_CLOUD_PLACEMENT_ATTEMPTS,
+					str(data.center)
+				]
+			)
 
 
 func spawn_asteroid_for_editor(parent: Node3D, world_position: Vector3, size: float, minerals: float) -> Node:
@@ -227,7 +273,7 @@ func spawn_asteroid_for_editor(parent: Node3D, world_position: Vector3, size: fl
 	data.position = world_position
 	data.size = size
 	data.minerals = minerals
-	_spawn_asteroid(parent, data)
+	_spawn_asteroid(parent, data, null)
 	var children: Array = parent.get_children()
 	if children.is_empty():
 		return null
@@ -235,7 +281,12 @@ func spawn_asteroid_for_editor(parent: Node3D, world_position: Vector3, size: fl
 
 
 func spawn_asteroid_cloud_for_editor(parent: Node3D, cloud_data: Resource) -> void:
-	_spawn_asteroid_cloud(parent, cloud_data)
+	var space_state: PhysicsDirectSpaceState3D = null
+	if parent.is_inside_tree():
+		var w: World3D = parent.get_world_3d()
+		if w:
+			space_state = w.direct_space_state
+	_spawn_asteroid_cloud(parent, cloud_data, space_state)
 
 
 ## Spawn non-interactive preview spheres for an asteroid cloud (editor Test Generate)
@@ -289,6 +340,8 @@ func _spawn_structure(parent: Node3D, data: StructurePlacement) -> void:
 			body.call("set_starter_panel", true)
 		if data.building_type == "monolith" and current_map and current_map.get("win_monolith_power_required") and current_map.win_monolith_power_required > 0 and structure.get("_pending_monolith_power_required") != null:
 			structure.set("_pending_monolith_power_required", float(current_map.win_monolith_power_required))
+		if data.building_type == "monolith" and data.victory_monolith and structure is Entity:
+			(structure as Entity).add_component(C_VictoryMonolithClass.new())
 		return
 	else:
 		return
@@ -324,12 +377,17 @@ func get_wave_data(wave_number: int) -> WaveData:
 		return null
 	
 	if wave_number < 0 or wave_number >= current_map.waves.size():
-		# Generate default wave for waves beyond defined ones
+		var ext_res: Resource = current_map.endless_extrapolation
+		if ext_res != null and ext_res.has_method("build_wave"):
+			return ext_res.call("build_wave", wave_number)
 		var wave: WaveData = WaveData.new()
+		var w: int = maxi(wave_number, 0)
 		wave.wave_number = wave_number
-		wave.enemy_count = 3 + (wave_number * 2)
-		wave.enemy_health_multiplier = 1.0 + (wave_number * 0.2)
-		wave.enemy_speed_multiplier = 1.0 + (wave_number * 0.05)
+		wave.enemy_count = int(mini(ceil(3.0 * pow(1.2, float(w))), 800))
+		wave.enemy_count = maxi(wave.enemy_count, 3)
+		wave.enemy_health_multiplier = 1.0 + float(w) * 0.22
+		wave.enemy_speed_multiplier = 1.0 + float(w) * 0.05
+		wave.spawn_delay = maxf(0.1, 1.35 - float(w) * 0.048)
 		return wave
 	
 	return current_map.waves[wave_number]

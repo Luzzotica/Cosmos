@@ -69,10 +69,9 @@ func _on_attack_fired(from_pos: Vector3, target_pos: Vector3, _beam_color: Color
 	var render_manager: Node = get_tree().root.get_node_or_null("StructureRenderManager")
 	if render_manager and render_manager.has_method("pulse_structure"):
 		render_manager.call("pulse_structure", _body, 0.1)
-	var sfx_manager: Node = get_tree().root.get_node_or_null("SfxManager")
-	if sfx_manager and sfx_manager.has_method("play_sfx"):
-		sfx_manager.call("play_sfx", "laser_shot", -6.0)
-		sfx_manager.call("play_sfx", "laser_impact", -8.0)
+	if SfxManager and SfxManager.has_method("play_sfx_at"):
+		SfxManager.play_sfx_at(from_pos, "laser_shot", -10.0)
+		SfxManager.play_sfx_at(target_pos, "laser_impact", -14.0)
 
 
 func _flash_active_orb(active_orb: MeshInstance3D, target_pos: Vector3, body: Node3D) -> void:

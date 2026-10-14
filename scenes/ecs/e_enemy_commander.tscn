@@ -32,7 +32,7 @@ script = ExtResource("10_transform")
 [sub_resource type="Resource" id="Resource_state"]
 script = ExtResource("11_state")
 speed = 4.2
-display_name = "Overseer"
+display_name = "Overlord"
 enemy_id = "enemy_commander"
 
 [sub_resource type="Resource" id="Resource_targeting"]
@@ -60,25 +60,29 @@ mode = "power_priority"
 power_priority_bias = 15.0
 
 [sub_resource type="BoxMesh" id="BoxMesh_fuselage"]
-size = Vector3(0.32, 1, 0.45)
+size = Vector3(0.56, 1.55, 0.68)
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_energy"]
 render_priority = 0
 shader = ExtResource("6_shader")
-shader_parameter/emission_color = Color(1, 0.05, 0.2, 1)
-shader_parameter/emission_energy = 2.5
-shader_parameter/crackle_speed = 3.0
-shader_parameter/crackle_density = 28.0
-shader_parameter/crackle_sharpness = 8.0
-shader_parameter/core_brightness = 0.6
-shader_parameter/pulse_amount = 0.2
-shader_parameter/fresnel_power = 2.5
+shader_parameter/emission_color = Color(1, 0.48, 0.08, 1)
+shader_parameter/emission_energy = 4.5
+shader_parameter/crackle_speed = 2.2
+shader_parameter/crackle_density = 16.0
+shader_parameter/crackle_sharpness = 6.0
+shader_parameter/core_brightness = 0.92
+shader_parameter/pulse_amount = 0.28
+shader_parameter/fresnel_power = 2.2
 
 [sub_resource type="BoxMesh" id="BoxMesh_arm"]
-size = Vector3(0.12, 1, 0.22)
+size = Vector3(0.22, 1.25, 0.38)
+
+[sub_resource type="BoxMesh" id="BoxMesh_spine"]
+size = Vector3(0.36, 1.4, 0.52)
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_collision"]
-height = 1.2
+radius = 0.48
+height = 1.85
 
 [node name="EnemyCommander" type="Node"]
 script = ExtResource("1_entity")
@@ -92,19 +96,30 @@ speed = 10.0
 [node name="Body" type="Node3D" parent="ShipBody"]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0.75, 0)
 
+[node name="Spine" type="MeshInstance3D" parent="ShipBody/Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, -0.12)
+mesh = SubResource("BoxMesh_spine")
+surface_material_override/0 = SubResource("ShaderMaterial_energy")
+
 [node name="Fuselage" type="MeshInstance3D" parent="ShipBody/Body"]
 mesh = SubResource("BoxMesh_fuselage")
 surface_material_override/0 = SubResource("ShaderMaterial_energy")
 
 [node name="ArmL" type="MeshInstance3D" parent="ShipBody/Body"]
-transform = Transform3D(-0.707, 0.707, 0, -0.707, -0.707, 0, 0, 0, 1, -0.38, 0.08, 0)
+transform = Transform3D(-0.707, 0.707, 0, -0.707, -0.707, 0, 0, 0, 1, -0.56, 0.1, 0)
 mesh = SubResource("BoxMesh_arm")
 surface_material_override/0 = SubResource("ShaderMaterial_energy")
 
 [node name="ArmR" type="MeshInstance3D" parent="ShipBody/Body"]
-transform = Transform3D(-0.707, -0.707, 0, 0.707, -0.707, 0, 0, 0, 1, 0.38, 0.08, 0)
+transform = Transform3D(-0.707, -0.707, 0, 0.707, -0.707, 0, 0, 0, 1, 0.56, 0.1, 0)
 mesh = SubResource("BoxMesh_arm")
 surface_material_override/0 = SubResource("ShaderMaterial_energy")
+
+[node name="BeamEmitPoint" type="Marker3D" parent="ShipBody/Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.72, 0)
+
+[node name="AttackPoint" type="Marker3D" parent="ShipBody/Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.72, 0)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="ShipBody"]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0.75, 0)

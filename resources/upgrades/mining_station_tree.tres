@@ -25,7 +25,7 @@ power_cost = 12.0
 upgrade_time = 4.0
 requires = Array[String]([])
 excludes = Array[String]([])
-stat_modifiers = [{"component": "C_MiningStation", "property": "mine_amount", "operation": "multiply", "value": 1.5}]
+stat_modifiers = [{"component": "C_MiningStation", "property": "mine_amount", "operation": "multiply", "value": 1.5}, {"component": "PowerUser", "property": "use_power_cost", "operation": "multiply", "value": 2.0}]
 
 [resource]
 script = ExtResource("1_tree")

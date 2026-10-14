@@ -8,6 +8,7 @@
   "act": "act_01",
   "chapter": "chapter_01_first_light",
   "tags": ["story", "tutorial", "official"],
+  "allowed_buildings": ["power_node", "mining_station", "laser_turret"],
   "size": [500, 500],
   "camera_start": [0, 0],
   "initial_wave_delay": 45.0,
@@ -22,6 +23,17 @@
   "win_minerals": 4500,
   "win_monolith_power_required": 0,
   "win_mode": "minerals",
+  "dialogue": {
+    "start": "~ start\nCaptain: Tutorial grid is live. Mine and hold the mineral target. [#emotion=neutral]\n=> END",
+    "end": {
+      "defeat": "~ start\nCaptain: The grid is lost. [#emotion=sad]\n=> END",
+      "victory": {
+        "monolith_complete": "~ start\nCaptain: Objectives met. [#emotion=neutral]\n=> END",
+        "monolith_90": "~ start\nCaptain: Solid work out there. [#emotion=neutral]\n=> END",
+        "monolith_100": "~ start\nCaptain: Flawless run. [#emotion=neutral]\n=> END"
+      }
+    }
+  },
   "asteroids": [
     { "position": [-20, 0, -12], "size": 3.5, "minerals": 1000 },
     { "position": [-10, 0, -20], "size": 2.5, "minerals": 800 },

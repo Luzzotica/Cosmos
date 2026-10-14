@@ -18,6 +18,9 @@ const CONNECTION_RANGE: float = 15.0
 
 @export var max_connection_distance: float = CONNECTION_RANGE
 @export var max_connections: int = 4
+## When true, PowerGraphManager.add_node registers this node without auto-linking to nodes in range.
+## Used for construction-only PowerNodes; edges are added via sync_construction_shadow_edges from the main PowerNode.
+@export var skip_auto_connect_on_register: bool = false
 @export var is_enabled: bool = true:
 	set(value):
 		var old_value: bool = is_enabled
@@ -47,7 +50,25 @@ func _exit_tree() -> void:
 
 func _register_with_power_graph() -> void:
 	if PowerGraphManager:
-		PowerGraphManager.add_node(self)
+		if not skip_auto_connect_on_register:
+			_disable_main_while_structure_under_construction()
+		if skip_auto_connect_on_register:
+			PowerGraphManager.add_node_without_auto_connect(self)
+		else:
+			PowerGraphManager.add_node(self)
+
+
+## Main PowerNode stays disabled until construction completes; shadow edges carry build power.
+func _disable_main_while_structure_under_construction() -> void:
+	var p: Node = get_parent()
+	if p == null:
+		return
+	for child in p.get_children():
+		if child is ConstructionComponent:
+			var cc: ConstructionComponent = child as ConstructionComponent
+			if not cc.is_built:
+				is_enabled = false
+			return
 
 
 func _unregister_from_power_graph() -> void:
@@ -61,16 +82,9 @@ func _notify_power_graph_enabled_changed() -> void:
 
 
 ## Get the type of this node (SOURCE, NODE, or LEAF)
-## Note: Unbuilt structures always act as LEAF (can't relay power)
+## Relay/source topology is determined by children. Power flow while unbuilt is gated by [member is_enabled]
+## (disabled main does not carry power over edges); do not force LEAF just because ConstructionComponent exists.
 func get_node_type() -> NodeType:
-	# Check if parent structure is under construction - if so, treat as LEAF
-	var parent_structure: Node3D = get_parent() as Node3D
-	if parent_structure:
-		# Check for ConstructionComponent sibling
-		for sibling in parent_structure.get_children():
-			if sibling.has_method("get_progress") and sibling.get("is_built") == false:
-				return NodeType.LEAF  # Under construction = can't relay power
-	
 	if _type_cached:
 		return _cached_node_type
 	
@@ -104,13 +118,16 @@ func invalidate_type_cache() -> void:
 
 
 ## Check if this node is a valid connection target for new buildings
-## Sources and Nodes can accept connections, Leaves cannot
+## Sources and relays are always valid while they have free slots. Leaf consumers are only valid when
+## isolated (no links yet) so a relay placed after them can connect; once linked, new structures skip
+## them so the grid extends through relays/sources instead (see PowerGraphManager.add_node).
+## Construction-only shadow nodes never accept auto-links (edges come from sync_construction_shadow_edges).
 func is_valid_connection_target() -> bool:
-	var node_type: NodeType = get_node_type()
-	# Leaves (consumers like mining stations) should not be connected TO
-	# Only sources and relay nodes can be targets
-	if node_type == NodeType.LEAF:
+	if skip_auto_connect_on_register:
 		return false
+	var node_type: NodeType = get_node_type()
+	if node_type == NodeType.LEAF:
+		return connected_nodes.is_empty() and can_accept_more_connections()
 	return can_accept_more_connections()
 
 

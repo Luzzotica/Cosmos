@@ -131,9 +131,18 @@ func add_node(node: Node3D) -> void:
 		node.get("max_connections")
 	)
 	
-	# Sort by: powered nodes first, then by distance (which is already the order from find_power_nodes_in_range)
-	# This is a stable sort, so distance order is preserved within each group
-	nodes_in_range.sort_custom(func(a: Node3D, b: Node3D) -> bool:
+	# Prefer relays and sources for extending the grid. Isolated leaf consumers (no links yet) are valid
+	# so a relay placed after them can connect; linked leaves are filtered in PowerNode.is_valid_connection_target.
+	var valid_targets: Array[Node3D] = []
+	for other_node in nodes_in_range:
+		if other_node == node:
+			continue
+		if other_node.has_method("is_valid_connection_target") and not other_node.is_valid_connection_target():
+			continue
+		valid_targets.append(other_node)
+	
+	# Sort by: subgraphs that have energy first (stored or generating), then by distance
+	valid_targets.sort_custom(func(a: Node3D, b: Node3D) -> bool:
 		var a_powered: bool = _is_node_powered(a)
 		var b_powered: bool = _is_node_powered(b)
 		if a_powered and not b_powered:
@@ -145,8 +154,7 @@ func add_node(node: Node3D) -> void:
 	)
 	
 	# Connect new node to existing nodes if within range
-	# Note: We connect to ANY node in range - power flow is controlled by isEnabled, not connections
-	for other_node in nodes_in_range:
+	for other_node in valid_targets:
 		if not node.can_accept_more_connections():
 			break
 		
@@ -166,6 +174,106 @@ func add_node(node: Node3D) -> void:
 	_nodes[node] = true
 	_identify_subgraphs()
 	node_added.emit(node)
+
+
+## Register a node in the graph without auto-connecting to neighbors (construction PowerNode only).
+## Edges are added via sync_construction_shadow_edges mirroring the main PowerNode.
+func add_node_without_auto_connect(node: Node3D) -> void:
+	if _nodes.has(node):
+		return
+	_graph[node] = {}
+	_edges[node] = {}
+	_nodes[node] = true
+	_identify_subgraphs()
+	node_added.emit(node)
+
+
+## Mirror main PowerNode graph edges onto construction PowerNode without consuming neighbor connection slots.
+## Link targets are always the neighbor's main PowerNode. While the neighbor is still building, that main
+## is disabled so the edge does not conduct; power cannot skip ahead through peer construction shadows.
+## Neighbors are ordered: energized subgraph first, then distance.
+func sync_construction_shadow_edges(main: PowerNode, construction: PowerNode) -> void:
+	if not is_instance_valid(main) or not is_instance_valid(construction):
+		return
+	if main.get_parent() != construction.get_parent():
+		return
+	if not _nodes.has(main) or not _nodes.has(construction):
+		return
+	var sorted_neighbors: Array[PowerNode] = []
+	for n in main.connected_nodes:
+		if n and is_instance_valid(n):
+			sorted_neighbors.append(n)
+	var max_shadow: int = maxi(1, int(construction.max_connections))
+	sorted_neighbors.sort_custom(func(a: PowerNode, b: PowerNode) -> bool:
+		var ta: PowerNode = _resolve_construction_link_target(a)
+		var tb: PowerNode = _resolve_construction_link_target(b)
+		var pa: bool = _is_node_powered(ta)
+		var pb: bool = _is_node_powered(tb)
+		if pa != pb:
+			return pa
+		var da: float = _distance_between_power_structures(construction, ta)
+		var db: float = _distance_between_power_structures(construction, tb)
+		return da < db
+	)
+	if sorted_neighbors.size() > max_shadow:
+		var trimmed: Array[PowerNode] = []
+		for i in range(max_shadow):
+			trimmed.append(sorted_neighbors[i])
+		sorted_neighbors = trimmed
+	var desired: Dictionary = {}
+	for neighbor_main in sorted_neighbors:
+		var link_target: PowerNode = _resolve_construction_link_target(neighbor_main)
+		desired[link_target] = true
+	for cn in construction.connected_nodes.duplicate():
+		if cn and not desired.has(cn):
+			_remove_construction_shadow_edge(construction, cn)
+	for neighbor_main in sorted_neighbors:
+		var link_target: PowerNode = _resolve_construction_link_target(neighbor_main)
+		if not _graph.get(construction, {}).has(link_target):
+			_add_construction_shadow_edge_pair(main, construction, neighbor_main, link_target)
+	_identify_subgraphs()
+
+
+func _resolve_construction_link_target(neighbor_main: PowerNode) -> PowerNode:
+	# Always use the neighbor's main hook. Connecting to peer construction shadows would create enabled
+	# shadow–shadow edges that let power bypass disabled mains and break sequential construction chains.
+	return neighbor_main
+
+
+func _distance_between_power_structures(from_pn: PowerNode, to_pn: PowerNode) -> float:
+	var sa: Node3D = from_pn.get_parent() as Node3D
+	var sb: Node3D = to_pn.get_parent() as Node3D
+	if sa == null or sb == null:
+		return INF
+	return sa.global_position.distance_to(sb.global_position)
+
+
+func _remove_construction_shadow_edge(construction: PowerNode, neighbor: PowerNode) -> void:
+	if _graph.has(construction):
+		_graph[construction].erase(neighbor)
+	if _graph.has(neighbor):
+		_graph[neighbor].erase(construction)
+	_remove_edge(construction, neighbor)
+	construction.disconnect_node(neighbor)
+
+
+func _add_construction_shadow_edge_pair(main: PowerNode, construction: PowerNode, neighbor_main: PowerNode, link_target: PowerNode) -> void:
+	if not _graph.has(main) or not _graph[main].has(neighbor_main):
+		return
+	if not construction.can_accept_more_connections():
+		return
+	if not construction.can_connect_to(link_target) or not link_target.can_connect_to(construction):
+		return
+	if _graph.has(construction) and _graph[construction].has(link_target):
+		return
+	if not _graph.has(construction):
+		_graph[construction] = {}
+	if not _graph.has(link_target):
+		_graph[link_target] = {}
+	_graph[construction][link_target] = true
+	_graph[link_target][construction] = true
+	construction.connect_node(link_target)
+	_create_edge(construction, link_target)
 
 
 ## Remove a power node from the grid
@@ -413,10 +521,13 @@ func remove_generator(generator: Node3D) -> void:
 		_identify_subgraphs()
 
 
-## Check if a node is powered (has power in its subgraph)
+## Check if a node is on a subgraph that can deliver power (stored energy or active generation).
+## Used to prefer linking new nodes into live grids vs dead-end relays with empty batteries.
 func _is_node_powered(node: Node3D) -> bool:
 	var subgraph: PowerSubgraph = find_subgraph_for_node(node)
-	return subgraph != null and subgraph.power_current > 0
+	if subgraph == null:
+		return false
+	return subgraph.power_current > 0.0 or subgraph.power_generation > 0.0
 
 
 ## Identify all disconnected subgraphs in the power grid using DFS
@@ -553,6 +664,10 @@ func draw_power_for_user(user: Node3D, amount: float) -> float:
 	
 	var subgraph: PowerSubgraph = find_subgraph_for_node(parent_node)
 	if not subgraph:
+		return 0.0
+	
+	# No energy stored in any source on this subgraph — nothing to draw; skip graph search.
+	if subgraph.power_current <= 0.0:
 		return 0.0
 	
 	var queue: Array = []

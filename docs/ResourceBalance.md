@@ -4,13 +4,13 @@ This document describes the math behind resource amounts per level, building cos
 
 ## Building Costs
 
-| Building       | Minerals | Notes                   |
-| -------------- | -------- | ----------------------- |
-| Power node     | 25       | Power grid extension    |
-| Solar panel    | 250      | Generates ~10 power/sec |
-| Mining station | 75       | Extracts from asteroids |
-| Laser turret   | 150      | Defensive structure     |
-| Monolith       | 0        | Map-placed only         |
+| Building       | Minerals | Notes                    |
+| -------------- | -------- | ------------------------ |
+| Power node     | 25       | Power grid extension     |
+| Solar panel    | 250      | Generates 10.0 power/sec |
+| Mining station | 75       | Extracts from asteroids  |
+| Laser turret   | 150      | Defensive structure      |
+| Monolith       | 0        | Map-placed only          |
 
 **Construction:** Each structure requires 10 power (one-time) from the grid during build.
 
@@ -52,7 +52,7 @@ Skilled players succeed by building efficiently, defending with minimal turrets,
 
 - Monolith absorbs power from the grid via `base_absorption_rate` (default 15/sec)
 - To charge 500 in ~60s, need ~8–10 power/sec surplus after consumers
-- Typically requires 2–3 solars + minimal turrets/mining for surplus
+- Typically requires 2–3 solars (~5.6/sec each) + minimal turrets/mining for surplus
 
 ## Map JSON Win Fields
 

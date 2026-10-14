@@ -17,13 +17,19 @@ const PREFAB_MAP: Dictionary = {
 }
 
 const BASE_ENEMIES_PER_WAVE: int = 3
-const SPAWN_DELAY: float = 2.0
+const SPAWN_DELAY: float = 1.05
+const LASER_IMMUNE_PACK_MIN: int = 5
+const LASER_IMMUNE_PACK_MAX: int = 10
 const SPAWN_EDGE_RADIUS: float = 170.0
 const GROUP_SIZE_MIN: int = 2
-const GROUP_SIZE_MAX: int = 4
+const GROUP_SIZE_MAX: int = 16
 const GROUP_SPREAD: float = 16.0
 const DEFAULT_ENEMY_ID: String = "enemy_standard"
 const COMMANDER_PERIOD: int = 3
+## Saboteur count scales with main wave size (before laser-immune pack). Skips physical-immune slot and commander slot.
+const SABOTEUR_RATIO: float = 0.10
+const SABOTEUR_MIN: int = 1
+const SABOTEUR_MAX: int = 50
 
 var _active_enemies: Array[Node3D] = []
 var _spawn_timer: float = 0.0
@@ -145,6 +151,11 @@ func _apply_wave_multipliers(entity: Node, health_mult: float, speed_mult: float
 	var c_state: C_EnemyState = entity.get_component(C_EnemyState) as C_EnemyState
 	if c_state:
 		c_state.speed *= speed_mult
+	var c_weapon: C_BeamWeapon = entity.get_component(C_BeamWeapon) as C_BeamWeapon
+	if c_weapon:
+		var atk_scale: float = maxf(speed_mult, 0.35)
+		c_weapon.attack_cooldown /= atk_scale
+		c_weapon.attack_cooldown = maxf(c_weapon.attack_cooldown, 0.12)
 
 
 func _on_ecs_enemy_destroyed(body: Node) -> void:
@@ -284,14 +295,53 @@ func _build_spawn_queue_for_wave(wave_number: int, wave_data: WaveData) -> void:
 	for _i in range(fallback_total):
 		_spawn_queue.append(DEFAULT_ENEMY_ID)
 
+	if fallback_total > 0:
+		var prefix: Array = _spawn_queue.slice(0, fallback_total)
+		prefix.shuffle()
+		for i in range(prefix.size()):
+			_spawn_queue[i] = prefix[i]
+
 	if wave_number >= COMMANDER_PERIOD and wave_number % COMMANDER_PERIOD == 0 and not _spawn_queue.is_empty():
 		_spawn_queue[_spawn_queue.size() - 1] = "enemy_commander"
-	if _spawn_queue.size() >= 1:
-		_spawn_queue[0] = "enemy_saboteur"
-	if wave_number >= 3 and _spawn_queue.size() >= 3:
-		_spawn_queue[1] = "enemy_laser_immune"
 	if wave_number >= 4 and _spawn_queue.size() >= 4:
 		_spawn_queue[2] = "enemy_physical_immune"
+	_apply_saboteur_slots(wave_number)
+
+	if wave_number >= 3:
+		var pack_size: int = randi_range(LASER_IMMUNE_PACK_MIN, LASER_IMMUNE_PACK_MAX)
+		for _p in range(pack_size):
+			_spawn_queue.append("enemy_laser_immune")
+
+
+func _saboteur_target_count(queue_size: int) -> int:
+	if queue_size <= 0:
+		return 0
+	var n: int = int(round(float(queue_size) * SABOTEUR_RATIO))
+	n = clampi(n, SABOTEUR_MIN, mini(SABOTEUR_MAX, queue_size))
+	return n
+
+
+func _apply_saboteur_slots(wave_number: int) -> void:
+	if _spawn_queue.is_empty():
+		return
+	var target: int = _saboteur_target_count(_spawn_queue.size())
+	var commander_last: bool = (
+		wave_number >= COMMANDER_PERIOD
+		and wave_number % COMMANDER_PERIOD == 0
+	)
+	var physical_at_2: bool = wave_number >= 4 and _spawn_queue.size() >= 4
+	var placed: int = 0
+	var idx: int = 0
+	while placed < target and idx < _spawn_queue.size():
+		if commander_last and idx == _spawn_queue.size() - 1:
+			idx += 1
+			continue
+		if physical_at_2 and idx == 2:
+			idx += 1
+			continue
+		_spawn_queue[idx] = "enemy_saboteur"
+		placed += 1
+		idx += 1
 
 
 func _cleanup_commander_auras() -> void:

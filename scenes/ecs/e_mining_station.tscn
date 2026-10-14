@@ -98,7 +98,7 @@ is_enabled = false
 
 [node name="PowerUser" type="Node3D" parent="StructureBody/PowerNode" unique_id=806382721]
 script = ExtResource("14_power_user")
-use_power_cost = 2.0
+use_power_cost = 1.4
 power_buffer_capacity = 6.0
 
 [node name="SelectableComponent" parent="StructureBody" unique_id=465420382 instance=ExtResource("15_selectable")]

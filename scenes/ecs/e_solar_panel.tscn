@@ -16,6 +16,7 @@
 [ext_resource type="Shader" uid="uid://518h4rttda2r" path="res://shaders/structure_hull.gdshader" id="18_hull"]
 [ext_resource type="Script" uid="uid://o4u7lytscml8" path="res://scripts/structures/solar_panel_visual_handler.gd" id="19_visual"]
 [ext_resource type="Script" uid="uid://cilf2qopdn8y5" path="res://scripts/ecs/components/c_upgrades.gd" id="20_upgrades"]
+[ext_resource type="Script" path="res://scripts/components/power_user.gd" id="21_power_user"]
 
 [sub_resource type="Resource" id="Resource_structure"]
 script = ExtResource("2_structure")
@@ -99,7 +100,12 @@ is_enabled = false
 [node name="PowerSource" parent="StructureBody/PowerNode" unique_id=490174112 instance=ExtResource("14_power_source")]
 
 [node name="PowerGenerator" parent="StructureBody/PowerNode/PowerSource" unique_id=1934779749 instance=ExtResource("15_power_gen")]
-power_output = 5.0
+power_output = 10.0
+
+[node name="PowerUser" type="Node3D" parent="StructureBody/PowerNode" unique_id=2100000001]
+script = ExtResource("21_power_user")
+use_power_cost = 0.0
+power_buffer_capacity = 1.0
 
 [node name="SelectableComponent" parent="StructureBody" unique_id=1650531544 instance=ExtResource("16_selectable")]
 selection_kind = "structure"

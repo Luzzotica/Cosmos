@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_enemy_data")
 enemy_id = "enemy_commander"
-display_name = "Overseer"
+display_name = "Overlord"
 max_health = 140.0
 speed = 4.2
 damage = 16.0
@@ -35,7 +35,7 @@ ability_profile = {
 "aura_speed_multiplier": 1.2,
 "type": "commander_aura"
 }
-hull_color = Color(0.95, 0.95, 0.2, 1)
-emission_color = Color(1, 1, 0.35, 1)
-emission_energy = 3.1
-mesh_scale = Vector3(1.4, 1.4, 1.4)
+hull_color = Color(0.45, 0.12, 0.02, 1)
+emission_color = Color(1, 0.5, 0.12, 1)
+emission_energy = 4.2
+mesh_scale = Vector3(1.75, 1.75, 1.75)

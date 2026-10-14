@@ -6,7 +6,7 @@ extends Component
 signal missile_fired(from_pos: Vector3, target_pos: Vector3, slot_index: int)
 signal missiles_stored_changed(new_count: int)
 
-@export var damage: float = 50.0
+@export var damage: float = 200.0
 @export var attack_range: float = 45.0
 @export var aoe_radius: float = 9.0
 @export var mineral_cost_per_shot: int = 1

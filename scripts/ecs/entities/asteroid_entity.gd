@@ -65,8 +65,12 @@ func mine_minerals(amount: int) -> int:
 	var c: C_Asteroid = get_component(C_Asteroid) as C_Asteroid
 	if c == null or c.is_depleted:
 		return 0
-	var actual: int = mini(amount, int(c.remaining_minerals))
-	c.remaining_minerals -= actual
+	# int(remaining) truncates; e.g. 0.9 -> 0 would yield 0 mined forever and lock mining.
+	var max_from_remaining: int = int(floorf(c.remaining_minerals))
+	if max_from_remaining < 1 and c.remaining_minerals > 0.0:
+		max_from_remaining = 1
+	var actual: int = mini(amount, max_from_remaining)
+	c.remaining_minerals -= float(actual)
 	minerals_changed.emit(c.remaining_minerals, c.total_minerals)
 	if c.remaining_minerals <= 0:
 		c.is_depleted = true

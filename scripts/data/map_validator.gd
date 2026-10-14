@@ -17,23 +17,42 @@ const _ALLOWED_TOP_LEVEL_KEYS: Array[String] = [
 	"preview_image_path",
 	"target_carryover_minerals",
 	"target_carryover_energy",
+	"win_minerals",
+	"win_monolith_power_required",
+	"win_mode",
+	"camera_start",
 	"initial_wave_delay",
 	"wave_interval",
 	"allow_partial_extraction",
 	"procedural_seed",
 	"allow_procedural_fill",
+	"dialogue",
+	"dialogue_realtime",
 	"asteroids",
 	"asteroid_clouds",
 	"starting_structures",
 	"starting_resources",
-	"waves"
+	"waves",
+	"allowed_buildings"
+]
+
+## All [BuildingData] ids (player build palette + monolith); aligns with BuildManager._BUILDING_PATHS.
+const _KNOWN_BUILDING_IDS: Array[String] = [
+	"solar_panel",
+	"power_node",
+	"mining_station",
+	"laser_turret",
+	"missile_turret",
+	"repair_station",
+	"monolith"
 ]
 
 const _ALLOWED_STRUCTURE_TYPES: Array[String] = [
 	"solar_panel",
 	"power_node",
 	"mining_station",
-	"laser_turret"
+	"laser_turret",
+	"monolith"
 ]
 
 
@@ -48,6 +67,24 @@ static func validate_json_dict(data: Dictionary) -> Dictionary:
 		var key_name: String = String(key)
 		if not _ALLOWED_TOP_LEVEL_KEYS.has(key_name):
 			_append_error(result, "Unknown top-level key: %s" % key_name)
+
+	if data.has("allowed_buildings"):
+		var ab: Variant = data.get("allowed_buildings")
+		if not (ab is Array):
+			_append_error(result, "allowed_buildings must be an array")
+		else:
+			var seen: Dictionary = {}
+			for j in range((ab as Array).size()):
+				var entry: Variant = (ab as Array)[j]
+				var bid: String = String(entry)
+				if bid.strip_edges().is_empty():
+					_append_error(result, "allowed_buildings[%d] is empty" % j)
+					continue
+				if not _KNOWN_BUILDING_IDS.has(bid):
+					_append_error(result, "allowed_buildings[%d] unknown building id '%s'" % [j, bid])
+				if seen.has(bid):
+					_append_warning(result, "allowed_buildings duplicates '%s'" % bid)
+				seen[bid] = true
 
 	return result
 
@@ -133,6 +170,19 @@ static func validate_map_data(map_data: MapData) -> Dictionary:
 			_append_error(result, "%s has unsupported type '%s'" % [label, structure.building_type])
 		if not _is_inside_bounds(structure.position, map_data.map_size):
 			_append_error(result, "%s position is outside map bounds" % label)
+
+	if map_data.allowed_buildings_defined:
+		var seen_ids: Dictionary = {}
+		for i in range(map_data.allowed_buildings.size()):
+			var bid: String = map_data.allowed_buildings[i]
+			if bid.strip_edges().is_empty():
+				_append_error(result, "allowed_buildings[%d] is empty" % i)
+				continue
+			if not _KNOWN_BUILDING_IDS.has(bid):
+				_append_error(result, "allowed_buildings[%d] unknown building id '%s'" % [i, bid])
+			if seen_ids.has(bid):
+				_append_warning(result, "allowed_buildings duplicates '%s'" % bid)
+			seen_ids[bid] = true
 
 	for i in range(map_data.waves.size()):
 		var wave: WaveData = map_data.waves[i]

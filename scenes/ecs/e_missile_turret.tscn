@@ -33,7 +33,7 @@ script = ExtResource("5_transform")
 
 [sub_resource type="Resource" id="Resource_launcher"]
 script = ExtResource("7_launcher")
-damage = 50.0
+damage = 200.0
 attack_range = 45.0
 aoe_radius = 9.0
 mineral_cost_per_shot = 1
@@ -81,10 +81,11 @@ radius = 1.1788092
 [sub_resource type="SphereShape3D" id="SphereShape3D_obstacle"]
 radius = 1.0937948
 
-[sub_resource type="CylinderMesh" id="CylinderMesh_barrel_tube"]
-top_radius = 0.07
-bottom_radius = 0.11
-height = 0.5
+[sub_resource type="TorusMesh" id="TorusMesh_barrel_ring"]
+inner_radius = 0.095
+outer_radius = 0.165
+rings = 16
+ring_segments = 12
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_barrel_breech"]
 top_radius = 0.11
@@ -118,8 +119,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.55)
 
 [node name="BarrelTube" type="MeshInstance3D" parent="StructureBody/VisualRoot/MissileRack/HolderRing/Slot0" unique_id=530243062]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
-mesh = SubResource("CylinderMesh_barrel_tube")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)
+mesh = SubResource("TorusMesh_barrel_ring")
 surface_material_override/0 = SubResource("StandardMaterial3D_barrel")
 
 [node name="BarrelBreech" type="MeshInstance3D" parent="StructureBody/VisualRoot/MissileRack/HolderRing/Slot0" unique_id=530243063]
@@ -134,8 +135,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.52, 0, -0.17)
 
 [node name="BarrelTube" type="MeshInstance3D" parent="StructureBody/VisualRoot/MissileRack/HolderRing/Slot1" unique_id=530243066]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
-mesh = SubResource("CylinderMesh_barrel_tube")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)
+mesh = SubResource("TorusMesh_barrel_ring")
 surface_material_override/0 = SubResource("StandardMaterial3D_barrel")
 
 [node name="BarrelBreech" type="MeshInstance3D" parent="StructureBody/VisualRoot/MissileRack/HolderRing/Slot1" unique_id=530243067]
@@ -150,8 +151,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.32, 0, -0.45)
 
 [node name="BarrelTube" type="MeshInstance3D" parent="StructureBody/VisualRoot/MissileRack/HolderRing/Slot2" unique_id=530243070]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
-mesh = SubResource("CylinderMesh_barrel_tube")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)
+mesh = SubResource("TorusMesh_barrel_ring")
 surface_material_override/0 = SubResource("StandardMaterial3D_barrel")
 
 [node name="BarrelBreech" type="MeshInstance3D" parent="StructureBody/VisualRoot/MissileRack/HolderRing/Slot2" unique_id=530243071]
@@ -166,8 +167,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.32, 0, -0.45)
 
 [node name="BarrelTube" type="MeshInstance3D" parent="StructureBody/VisualRoot/MissileRack/HolderRing/Slot3" unique_id=530243074]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
-mesh = SubResource("CylinderMesh_barrel_tube")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)
+mesh = SubResource("TorusMesh_barrel_ring")
 surface_material_override/0 = SubResource("StandardMaterial3D_barrel")
 
 [node name="BarrelBreech" type="MeshInstance3D" parent="StructureBody/VisualRoot/MissileRack/HolderRing/Slot3" unique_id=530243075]
@@ -182,8 +183,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.52, 0, -0.17)
 
 [node name="BarrelTube" type="MeshInstance3D" parent="StructureBody/VisualRoot/MissileRack/HolderRing/Slot4" unique_id=530243078]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
-mesh = SubResource("CylinderMesh_barrel_tube")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)
+mesh = SubResource("TorusMesh_barrel_ring")
 surface_material_override/0 = SubResource("StandardMaterial3D_barrel")
 
 [node name="BarrelBreech" type="MeshInstance3D" parent="StructureBody/VisualRoot/MissileRack/HolderRing/Slot4" unique_id=530243079]

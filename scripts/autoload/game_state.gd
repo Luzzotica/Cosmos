@@ -8,7 +8,24 @@ signal wave_started(wave_number: int)
 signal wave_ended(wave_number: int)
 signal game_over
 signal victory
+## Emitted when [member SceneTree.paused] changes (backward compatible with pause UI).
 signal pause_changed(paused: bool)
+## Emitted after [member session_state] changes.
+signal session_state_changed(prev: SessionState, next: SessionState)
+
+enum SessionState {
+	PLAYING,
+	PAUSED,
+	## Tree paused; no pause menu (e.g. map dialogue).
+	DIALOGUE_PAUSE,
+	## Dialogue runs while the match keeps simulating (waves, economy, etc.).
+	DIALOGUE_REALTIME,
+	WON,
+	LOST,
+}
+
+## Current high-level session. Prefer this over legacy bools.
+var session_state: SessionState = SessionState.PLAYING
 
 # Resources
 var minerals: int = 10000:
@@ -31,12 +48,11 @@ var is_wave_in_progress: bool = false
 var time_until_next_wave: float = 30.0
 var map_initial_wave_delay: float = 20.0
 var map_wave_interval: float = 60.0
+## When false, [method _update_wave_timer] does not count down (e.g. during map intro dialogue).
+var wave_timer_enabled: bool = false
 
 # Game state
 var game_time: float = 0.0
-var is_paused: bool = false
-var is_game_over: bool = false
-var is_victory: bool = false
 var total_minerals_mined: int = 0
 var total_minerals_spent: int = 0
 ## Cumulative grid power generated this level (integral of PowerGraphManager generation rate over time).
@@ -46,15 +62,48 @@ var total_power_generated: float = 0.0
 const DEFAULT_INITIAL_DELAY: float = 20.0  # 20 seconds before first wave
 const DEFAULT_WAVE_INTERVAL: float = 60.0  # 60 seconds between waves
 
+## Default HUD/build bar order when map does not set [member MapData.allowed_buildings_defined].
+const DEFAULT_BUILDABLE_ORDER: Array[String] = [
+	"solar_panel",
+	"power_node",
+	"mining_station",
+	"laser_turret",
+	"missile_turret",
+	"repair_station",
+]
+
+## When false, [member build_allowed_buildings] is ignored (full default order, filtered by loaded BuildingData).
+## When true, only [member build_allowed_buildings] may be built (empty = nothing buildable).
+var build_allowed_buildings_defined: bool = false
+var build_allowed_buildings: PackedStringArray = PackedStringArray()
+
+
+## True when the match ended in victory or defeat.
+var is_game_over: bool:
+	get:
+		return session_state == SessionState.WON or session_state == SessionState.LOST
+
+
+## True when the player won the current level.
+var is_victory: bool:
+	get:
+		return session_state == SessionState.WON
+
+
+## True when the scene tree is paused (menu pause, dialogue freeze, or endgame).
+var is_paused: bool:
+	get:
+		return session_state != SessionState.PLAYING and session_state != SessionState.DIALOGUE_REALTIME
+
 
 func _ready() -> void:
 	reset()
 
 
 func _process(delta: float) -> void:
-	if is_paused or is_game_over:
+	if is_paused:
 		return
-	
+
 	game_time += delta
 	_update_wave_timer(delta)
 	_update_energy_balance(delta)
@@ -97,6 +146,8 @@ func increase_energy_capacity(amount: float) -> void:
 
 
 func start_wave() -> void:
+	if not wave_timer_enabled:
+		return
 	is_wave_in_progress = true
 	time_until_next_wave = map_wave_interval
 	wave_started.emit(current_wave)
@@ -117,6 +168,8 @@ func _update_wave_timer(delta: float) -> void:
 	var scene_path: String = tree.current_scene.scene_file_path
 	if scene_path != "res://scenes/game/main.tscn":
 		return
+	if not wave_timer_enabled:
+		return
 
 	if not is_wave_in_progress:
 		time_until_next_wave -= delta
@@ -134,16 +187,12 @@ func _update_energy_balance(delta: float) -> void:
 
 
 func trigger_game_over() -> void:
-	is_game_over = true
-	is_victory = false
-	set_paused(true)
+	set_session_state(SessionState.LOST)
 	game_over.emit()
 
 
 func trigger_victory() -> void:
-	is_game_over = true
-	is_victory = true
-	set_paused(true)
+	set_session_state(SessionState.WON)
 	victory.emit()
 
 
@@ -159,13 +208,14 @@ func reset() -> void:
 	is_wave_in_progress = false
 	time_until_next_wave = map_initial_wave_delay
 	game_time = 0.0
-	is_game_over = false
-	is_victory = false
 	total_minerals_mined = 0
 	total_minerals_spent = 0
 	total_power_generated = 0.0
 	minerals_spent_changed.emit(total_minerals_spent)
-	set_paused(false)
+	wave_timer_enabled = false
+	build_allowed_buildings_defined = false
+	build_allowed_buildings = PackedStringArray()
+	set_session_state(SessionState.PLAYING)
 
 
 func apply_map_settings(map_data: MapData) -> void:
@@ -189,26 +239,84 @@ func apply_map_settings(map_data: MapData) -> void:
 		energy = 100.0
 
 	game_time = 0.0
-	is_game_over = false
-	is_victory = false
 	total_minerals_mined = 0
 	total_minerals_spent = 0
 	total_power_generated = 0.0
 	minerals_spent_changed.emit(total_minerals_spent)
-	set_paused(false)
+	wave_timer_enabled = false
+	if map_data.allowed_buildings_defined:
+		build_allowed_buildings_defined = true
+		build_allowed_buildings = map_data.allowed_buildings.duplicate()
+	else:
+		build_allowed_buildings_defined = false
+		build_allowed_buildings = PackedStringArray()
+	set_session_state(SessionState.PLAYING)
 
 
-func set_paused(paused: bool) -> void:
-	if is_paused == paused:
-		return
-	is_paused = paused
+## Types shown in the build bar and accepted by [method is_building_allowed_for_current_map].
+func get_effective_buildable_types() -> PackedStringArray:
+	var out: PackedStringArray = PackedStringArray()
+	var mgr: Node = get_node_or_null("/root/BuildManager")
+	if not build_allowed_buildings_defined:
+		for bid: String in DEFAULT_BUILDABLE_ORDER:
+			if mgr and mgr.has_method("get_building_data") and mgr.call("get_building_data", bid):
+				out.append(bid)
+		return out
+	for bid in build_allowed_buildings:
+		if mgr and mgr.has_method("get_building_data") and mgr.call("get_building_data", bid):
+			out.append(bid)
+	return out
+
+
+## True if [param building_type] is in the current session build palette (HUD + [method BuildManager.start_building]).
+func is_building_type_in_session_build_palette(building_type: String) -> bool:
+	return get_effective_buildable_types().has(building_type)
+
+
+func set_wave_timer_enabled(enabled: bool) -> void:
+	wave_timer_enabled = enabled
+
+
+func set_session_state(next: SessionState) -> void:
 	var tree: SceneTree = get_tree()
+	var should_pause_tree: bool = next in [
+		SessionState.PAUSED,
+		SessionState.DIALOGUE_PAUSE,
+		SessionState.WON,
+		SessionState.LOST,
+	]
+	# Always sync SceneTree.paused to the target state, even when session_state is already `next`.
+	# Otherwise we can desync (e.g. reset() requests PLAYING while already PLAYING after tree stayed paused).
+	if session_state == next:
+		if tree and tree.paused != should_pause_tree:
+			tree.paused = should_pause_tree
+			pause_changed.emit(tree.paused)
+		return
+	var prev: SessionState = session_state
+	session_state = next
 	if tree:
-		tree.paused = paused
-	pause_changed.emit(is_paused)
+		tree.paused = should_pause_tree
+	session_state_changed.emit(prev, next)
+	pause_changed.emit(tree.paused if tree else false)
+
+
+## Backward compatible: [code]set_paused(true)[/code] opens the pause menu; [code]set_paused(true, false)[/code] is dialogue freeze.
+func set_paused(paused: bool, show_pause_menu: bool = true) -> void:
+	if paused:
+		set_session_state(SessionState.PAUSED if show_pause_menu else SessionState.DIALOGUE_PAUSE)
+	else:
+		set_session_state(SessionState.PLAYING)
 
 
 func toggle_pause() -> void:
-	if is_game_over:
+	if session_state == SessionState.WON or session_state == SessionState.LOST:
 		return
-	set_paused(not is_paused)
+	if session_state == SessionState.DIALOGUE_PAUSE:
+		return
+	if session_state == SessionState.DIALOGUE_REALTIME:
+		set_session_state(SessionState.PAUSED)
+		return
+	if session_state == SessionState.PLAYING:
+		set_session_state(SessionState.PAUSED)
+	elif session_state == SessionState.PAUSED:
+		set_session_state(SessionState.PLAYING)

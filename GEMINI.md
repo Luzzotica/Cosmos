@@ -1,0 +1,1 @@
+/Users/sterlinglong/NonCloud/PAZA/Projects/cosmos-root/Cosmos/.k2/skills/k2so/SKILL.md

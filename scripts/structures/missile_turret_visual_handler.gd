@@ -99,10 +99,11 @@ func _create_slot_for_upgrade(index: int, holder_cyl: CylinderMesh, holder_mat: 
 	slot_node.name = "Slot%d" % index
 	slot_node.position = Vector3(x, 0.0, z)
 	_holder_ring.add_child(slot_node)
-	var barrel_tube: CylinderMesh = CylinderMesh.new()
-	barrel_tube.top_radius = 0.07
-	barrel_tube.bottom_radius = 0.11
-	barrel_tube.height = 0.5
+	var barrel_ring: TorusMesh = TorusMesh.new()
+	barrel_ring.inner_radius = 0.095
+	barrel_ring.outer_radius = 0.165
+	barrel_ring.rings = 16
+	barrel_ring.ring_segments = 12
 	var barrel_breech: CylinderMesh = CylinderMesh.new()
 	barrel_breech.top_radius = 0.11
 	barrel_breech.bottom_radius = 0.13
@@ -113,9 +114,9 @@ func _create_slot_for_upgrade(index: int, holder_cyl: CylinderMesh, holder_mat: 
 	barrel_mat.roughness = 0.45
 	var tube_mi: MeshInstance3D = MeshInstance3D.new()
 	tube_mi.name = "BarrelTube"
-	tube_mi.mesh = barrel_tube
+	tube_mi.mesh = barrel_ring
 	tube_mi.set_surface_override_material(0, barrel_mat.duplicate())
-	tube_mi.position = Vector3(0, 0.25, 0)
+	tube_mi.position = Vector3(0, 0.2, 0)
 	slot_node.add_child(tube_mi)
 	var breech_mi: MeshInstance3D = MeshInstance3D.new()
 	breech_mi.name = "BarrelBreech"
@@ -180,6 +181,5 @@ func _on_missile_fired(_from_pos: Vector3, _target_pos: Vector3, slot_index: int
 	var render_manager: Node = get_tree().root.get_node_or_null("StructureRenderManager")
 	if render_manager and render_manager.has_method("pulse_structure"):
 		render_manager.call("pulse_structure", _body, 0.1)
-	var sfx_manager: Node = get_tree().root.get_node_or_null("SfxManager")
-	if sfx_manager and sfx_manager.has_method("play_sfx"):
-		sfx_manager.call("play_sfx", "laser_shot", -8.0)
+	if SfxManager and SfxManager.has_method("play_sfx_at"):
+		SfxManager.play_sfx_at(_body.global_position, "missile_launch", -12.0)

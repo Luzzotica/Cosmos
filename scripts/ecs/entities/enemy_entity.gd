@@ -72,6 +72,8 @@ func _on_health_destroyed() -> void:
 			var c_transform: C_Transform3D = get_component(C_Transform3D) as C_Transform3D
 			explosion_pos = c_transform.position if c_transform else Vector3.ZERO
 		_spawn_death_explosion(explosion_pos, _get_emission_color(body))
+		if SfxManager and SfxManager.has_method("play_sfx_at"):
+			SfxManager.play_sfx_at(explosion_pos, "enemy_death", -5.0)
 	var enemy_manager: Node = Engine.get_main_loop().root.get_node_or_null("EnemyManager")
 	if enemy_manager:
 		if enemy_manager.has_method("clear_enemy_from_blackboard"):

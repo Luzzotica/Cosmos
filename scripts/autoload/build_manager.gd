@@ -7,10 +7,11 @@ const C_BeamWeaponClass: GDScript = preload("res://scripts/ecs/components/c_beam
 const C_MiningStationClass: GDScript = preload("res://scripts/ecs/components/c_mining_station.gd")
 const C_MissileLauncherClass: GDScript = preload("res://scripts/ecs/components/c_missile_launcher.gd")
 const C_RepairStationClass: GDScript = preload("res://scripts/ecs/components/c_repair_station.gd")
+const C_StructureScript: GDScript = preload("res://scripts/ecs/components/c_structure.gd")
 const PLACEMENT_HOLO_SHADER_PATH: String = "res://shaders/placement_holo.gdshader"
 
 signal build_started(building_type: String)
-signal build_cancelled
+signal build_cancelled(at_position: Vector3)
 signal build_completed(building_type: String, position: Vector3, building: Node)
 signal placement_valid_changed(is_valid: bool)
 
@@ -205,6 +206,8 @@ func get_placement_sphere_radius(building_type: String) -> float:
 
 ## Start dragging a building for placement
 func start_building(building_type: String, position: Vector3 = Vector3.ZERO) -> void:
+	if GameState and not GameState.is_building_type_in_session_build_palette(building_type):
+		return
 	if not can_place_building(building_type):
 		return
 	
@@ -276,7 +279,7 @@ func confirm_placement() -> void:
 		return
 	
 	if not _is_placement_valid:
-		_play_sfx("structure_invalid_place", -8.0)
+		_play_sfx("structure_invalid_place", SfxManager.SFX_VOLUME_DB - 4.0)
 		return
 	
 	var data: Resource = get_building_data(_dragging_building_type)
@@ -291,6 +294,10 @@ func confirm_placement() -> void:
 	
 	# Place the building
 	var building: Node = _place_building(_dragging_building_type, _drag_position)
+	if building is Entity:
+		var c_struct: C_Structure = building.get_component(C_StructureScript) as C_Structure
+		if c_struct:
+			c_struct.minerals_spent_on_build = int(data.cost)
 	
 	# Start cooldown to prevent auto-selection
 	_placement_cooldown = PLACEMENT_COOLDOWN_DURATION
@@ -302,7 +309,7 @@ func confirm_placement() -> void:
 ## Cancel the current build
 func cancel_placement() -> void:
 	if current_state != BuildState.IDLE:
-		build_cancelled.emit()
+		build_cancelled.emit(_drag_position)
 		_reset_build_state()
 
 
@@ -1501,10 +1508,10 @@ func is_hover_blocked() -> bool:
 	return current_state != BuildState.IDLE
 
 
-func _play_sfx(sfx_id: String, volume_db: float = -6.0) -> void:
+func _play_sfx(sfx_id: String, volume_db: float = SfxManager.SFX_VOLUME_DB) -> void:
 	var sfx_manager: Node = get_node_or_null("/root/SfxManager")
-	if sfx_manager and sfx_manager.has_method("play_sfx"):
-		sfx_manager.call("play_sfx", sfx_id, volume_db)
+	if sfx_manager and sfx_manager.has_method("play_sfx_at"):
+		sfx_manager.call("play_sfx_at", _drag_position, sfx_id, volume_db)
 
 
 func _is_gameplay_active() -> bool:

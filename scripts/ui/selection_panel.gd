@@ -24,6 +24,8 @@ const C_UpgradesScript = preload("res://scripts/ecs/components/c_upgrades.gd")
 const COLOR_SELL_BG: Color = Color(0.22, 0.06, 0.06, 0.95)
 const COLOR_SELL_BORDER: Color = Color(0.9, 0.25, 0.25, 0.8)
 
+const UPGRADE_HOTKEY_COLUMN_WIDTH: float = 32.0
+
 @onready var title_label: Label = $MarginContainer/VBoxContainer/TitleLabel
 @onready var faction_tag_label: Label = $MarginContainer/VBoxContainer/FactionTagLabel
 @onready var info_container: VBoxContainer = $MarginContainer/VBoxContainer/InfoContainer
@@ -42,9 +44,11 @@ var _selected_entity: Entity = null
 var _upgrade_refresh_timer: float = 0.0
 var _was_upgrading: bool = false
 const UPGRADE_REFRESH_INTERVAL: float = 0.25
+var _hotkey_upgrade_ids: PackedStringArray = []
 
 
 func _ready() -> void:
+	set_process_unhandled_input(true)
 	# Create unique stylebox for color changes
 	_style_box = StyleBoxFlat.new()
 	_style_box.bg_color = COLOR_PANEL_BG
@@ -86,8 +90,51 @@ func _ready() -> void:
 	SelectionManager.selection_details_changed.connect(_on_selection_details_changed)
 	SelectionManager.selection_changed.connect(_on_selection_changed)
 	SelectionManager.selection_cleared.connect(_on_selection_cleared)
-	GameState.pause_changed.connect(_on_pause_changed)
+	GameState.session_state_changed.connect(_on_session_state_changed)
 	GameState.game_over.connect(_on_game_over)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not event is InputEventKey:
+		return
+	var key_event := event as InputEventKey
+	if not key_event.pressed or key_event.echo:
+		return
+	if not _is_shown:
+		return
+	if _selected_entity == null or not is_instance_valid(_selected_entity):
+		return
+	var c_upgrades = _selected_entity.get_component(C_UpgradesScript)
+	if c_upgrades == null or c_upgrades.is_upgrading:
+		return
+	if _is_selected_structure_under_construction():
+		return
+	var hotkey_index := -1
+	match key_event.keycode:
+		KEY_1:
+			hotkey_index = 0
+		KEY_2:
+			hotkey_index = 1
+		KEY_3:
+			hotkey_index = 2
+		KEY_4:
+			hotkey_index = 3
+		KEY_5:
+			hotkey_index = 4
+		_:
+			return
+	if hotkey_index >= _hotkey_upgrade_ids.size():
+		return
+	var upgrade_id: String = _hotkey_upgrade_ids[hotkey_index]
+	var mgr: Node = _get_upgrade_manager()
+	if mgr == null:
+		return
+	var tree: Resource = mgr.get_tree_for_building(c_upgrades.upgrade_tree_id)
+	var node_data: Resource = mgr.get_node_data(tree, upgrade_id)
+	if node_data == null or not mgr.can_afford(node_data):
+		return
+	if _try_purchase_upgrade(upgrade_id):
+		get_viewport().set_input_as_handled()
 
 
 func _set_mouse_filter_recursive(node: Node) -> void:
@@ -95,6 +142,14 @@ func _set_mouse_filter_recursive(node: Node) -> void:
 		node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for child in node.get_children():
 		_set_mouse_filter_recursive(child)
+
+
+func _clear_children_immediate(container: Node) -> void:
+	var kids: Array = container.get_children()
+	for child in kids:
+		container.remove_child(child)
+		# queue_free() is safe during signals; synchronous free() triggers "locked object" errors.
+		child.queue_free()
 
 
 func show_panel() -> void:
@@ -179,8 +234,8 @@ func _on_selection_cleared() -> void:
 	hide_panel()
 
 
-func _on_pause_changed(paused: bool) -> void:
-	if paused:
+func _on_session_state_changed(_prev: GameState.SessionState, next: GameState.SessionState) -> void:
+	if next != GameState.SessionState.PLAYING and next != GameState.SessionState.DIALOGUE_REALTIME:
 		hide_panel()
 
 
@@ -226,6 +281,7 @@ func _update_from_details(details: Dictionary) -> void:
 	_rebuild_info_rows(details)
 	_rebuild_upgrade_rows()
 	_rebuild_sell_button(details)
+	reset_size()
 
 
 func _update_primary_bar(details: Dictionary) -> void:
@@ -257,8 +313,7 @@ func _rebuild_info_rows(details: Dictionary) -> void:
 	if not info_container:
 		return
 
-	for child in info_container.get_children():
-		child.queue_free()
+	_clear_children_immediate(info_container)
 
 	_add_info_row("Category", str(details.get("category", "entity")).capitalize())
 	_add_info_row("Faction", str(details.get("faction", "neutral")).capitalize())
@@ -339,9 +394,9 @@ func _resolve_selected_entity() -> void:
 func _rebuild_upgrade_rows() -> void:
 	if _upgrade_container == null:
 		return
-	for child in _upgrade_container.get_children():
-		child.queue_free()
+	_clear_children_immediate(_upgrade_container)
 	_upgrade_progress_bar = null
+	_hotkey_upgrade_ids.clear()
 
 	if _selected_entity == null or not is_instance_valid(_selected_entity):
 		return
@@ -378,8 +433,12 @@ func _rebuild_upgrade_rows() -> void:
 			continue
 
 	var available: Array = mgr.get_available_upgrades(_selected_entity)
-	for node_data in available:
-		_add_upgrade_button(node_data)
+	var under_construction: bool = _is_selected_structure_under_construction()
+	if not under_construction:
+		for i in range(mini(available.size(), 5)):
+			_hotkey_upgrade_ids.append(available[i].id)
+	for slot_index in range(available.size()):
+		_add_upgrade_button(available[slot_index], slot_index, under_construction)
 
 
 func _build_upgrade_progress_ui(c_upgrades) -> void:
@@ -438,24 +497,56 @@ func _add_purchased_label(node_data: Resource) -> void:
 	_upgrade_container.add_child(label)
 
 
-func _add_upgrade_button(node_data: Resource) -> void:
+func _is_selected_structure_under_construction() -> bool:
+	if _selected_entity == null or not is_instance_valid(_selected_entity):
+		return false
+	var mgr: Node = _get_upgrade_manager()
+	if mgr and mgr.has_method("is_structure_under_construction"):
+		return mgr.is_structure_under_construction(_selected_entity)
+	return false
+
+
+func _add_upgrade_button(node_data: Resource, slot_index: int, under_construction: bool) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+
+	var hotkey_column: Control
+	if slot_index < 5:
+		var cc := CenterContainer.new()
+		cc.custom_minimum_size.x = UPGRADE_HOTKEY_COLUMN_WIDTH
+		var hk := Label.new()
+		hk.text = str(slot_index + 1)
+		hk.add_theme_font_size_override("font_size", 22)
+		hk.add_theme_color_override("font_color", Color(0.75, 0.65, 1.0, 1.0))
+		hk.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+		hk.add_theme_constant_override("outline_size", 1)
+		cc.add_child(hk)
+		hotkey_column = cc
+	else:
+		var spacer := Control.new()
+		spacer.custom_minimum_size.x = UPGRADE_HOTKEY_COLUMN_WIDTH
+		hotkey_column = spacer
+	row.add_child(hotkey_column)
+
 	var btn := Button.new()
 	btn.text = "%s - %d minerals" % [node_data.display_name, node_data.mineral_cost]
 	btn.tooltip_text = node_data.description
 	btn.mouse_filter = Control.MOUSE_FILTER_STOP
 	btn.add_theme_font_size_override("font_size", 22)
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	var mgr: Node = _get_upgrade_manager()
 	var can_afford: bool = mgr.can_afford(node_data) if mgr else false
-	btn.disabled = not can_afford
+	var can_activate: bool = can_afford and not under_construction
+	btn.disabled = not can_activate
 
 	var btn_style := StyleBoxFlat.new()
-	btn_style.bg_color = COLOR_UPGRADE_BG if can_afford else Color(0.08, 0.08, 0.12, 0.9)
+	btn_style.bg_color = COLOR_UPGRADE_BG if can_activate else Color(0.08, 0.08, 0.12, 0.9)
 	btn_style.border_width_left = 1
 	btn_style.border_width_top = 1
 	btn_style.border_width_right = 1
 	btn_style.border_width_bottom = 1
-	btn_style.border_color = COLOR_UPGRADE_BORDER if can_afford else COLOR_UPGRADE_DISABLED
+	btn_style.border_color = COLOR_UPGRADE_BORDER if can_activate else COLOR_UPGRADE_DISABLED
 	btn_style.corner_radius_top_left = 4
 	btn_style.corner_radius_top_right = 4
 	btn_style.corner_radius_bottom_left = 4
@@ -473,18 +564,24 @@ func _add_upgrade_button(node_data: Resource) -> void:
 
 	var upgrade_id: String = node_data.id
 	btn.pressed.connect(_on_upgrade_button_pressed.bind(upgrade_id))
-	_upgrade_container.add_child(btn)
+	row.add_child(btn)
+	_upgrade_container.add_child(row)
 
 
-func _on_upgrade_button_pressed(upgrade_id: String) -> void:
+func _try_purchase_upgrade(upgrade_id: String) -> bool:
 	if _selected_entity == null or not is_instance_valid(_selected_entity):
-		return
+		return false
 	var mgr: Node = _get_upgrade_manager()
 	if mgr == null:
-		return
+		return false
 	var success: bool = mgr.start_upgrade(_selected_entity, upgrade_id)
 	if success:
 		_rebuild_upgrade_rows()
+	return success
+
+
+func _on_upgrade_button_pressed(upgrade_id: String) -> void:
+	_try_purchase_upgrade(upgrade_id)
 
 
 func _get_upgrade_manager() -> Node:
@@ -494,8 +591,7 @@ func _get_upgrade_manager() -> Node:
 func _rebuild_sell_button(details: Dictionary) -> void:
 	if _sell_container == null:
 		return
-	for child in _sell_container.get_children():
-		child.queue_free()
+	_clear_children_immediate(_sell_container)
 
 	if _selected_entity == null or not is_instance_valid(_selected_entity):
 		return

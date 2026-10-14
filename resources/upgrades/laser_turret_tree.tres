@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="UpgradeTreeData" load_steps=7 format=3]
+[gd_resource type="Resource" script_class="UpgradeTreeData" load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/data/upgrade_tree_data.gd" id="1_tree"]
 [ext_resource type="Script" path="res://scripts/data/upgrade_node_data.gd" id="2_node"]
@@ -13,7 +13,7 @@ power_cost = 10.0
 upgrade_time = 3.0
 requires = Array[String]([])
 excludes = Array[String](["heavy_beam"])
-stat_modifiers = [{"component": "C_BeamWeapon", "property": "attack_cooldown", "operation": "multiply", "value": 0.6}]
+stat_modifiers = [{"component": "C_BeamWeapon", "property": "attack_cooldown", "operation": "multiply", "value": 0.6}, {"component": "PowerUser", "property": "use_power_cost", "operation": "add", "value": 1.5}]
 
 [sub_resource type="Resource" id="node_heavy_beam"]
 script = ExtResource("2_node")
@@ -25,7 +25,7 @@ power_cost = 10.0
 upgrade_time = 3.0
 requires = Array[String]([])
 excludes = Array[String](["rapid_fire"])
-stat_modifiers = [{"component": "C_BeamWeapon", "property": "damage", "operation": "multiply", "value": 2.0}]
+stat_modifiers = [{"component": "C_BeamWeapon", "property": "damage", "operation": "multiply", "value": 2.0}, {"component": "PowerUser", "property": "use_power_cost", "operation": "add", "value": 2.0}]
 
 [sub_resource type="Resource" id="node_overcharge"]
 script = ExtResource("2_node")
@@ -37,7 +37,7 @@ power_cost = 15.0
 upgrade_time = 4.0
 requires = Array[String](["rapid_fire"])
 excludes = Array[String]([])
-stat_modifiers = [{"component": "C_BeamWeapon", "property": "attack_cooldown", "operation": "multiply", "value": 0.75}, {"component": "C_BeamWeapon", "property": "attack_range", "operation": "add", "value": 5.0}]
+stat_modifiers = [{"component": "C_BeamWeapon", "property": "attack_cooldown", "operation": "multiply", "value": 0.75}, {"component": "C_BeamWeapon", "property": "attack_range", "operation": "add", "value": 5.0}, {"component": "PowerUser", "property": "use_power_cost", "operation": "add", "value": 2.5}]
 
 [sub_resource type="Resource" id="node_piercing"]
 script = ExtResource("2_node")
@@ -49,9 +49,21 @@ power_cost = 15.0
 upgrade_time = 4.0
 requires = Array[String](["heavy_beam"])
 excludes = Array[String]([])
-stat_modifiers = [{"component": "C_BeamWeapon", "property": "damage_type", "operation": "set", "value": "piercing"}]
+stat_modifiers = [{"component": "C_BeamWeapon", "property": "damage_type", "operation": "set", "value": "piercing"}, {"component": "PowerUser", "property": "use_power_cost", "operation": "add", "value": 2.5}]
+
+[sub_resource type="Resource" id="node_smart_targeting"]
+script = ExtResource("2_node")
+id = "smart_targeting"
+display_name = "Smart Targeting"
+description = "Does not target enemies immune to your beam's damage type (saves power and cooldown)."
+mineral_cost = 125
+power_cost = 12.0
+upgrade_time = 3.5
+requires = Array[String](["rapid_fire"])
+excludes = Array[String]([])
+stat_modifiers = [{"component": "C_BeamWeapon", "property": "skip_untargetable_by_beam", "operation": "set", "value": true}, {"component": "PowerUser", "property": "use_power_cost", "operation": "add", "value": 2.0}]
 
 [resource]
 script = ExtResource("1_tree")
 tree_id = "laser_turret"
-nodes = [SubResource("node_rapid_fire"), SubResource("node_heavy_beam"), SubResource("node_overcharge"), SubResource("node_piercing")]
+nodes = [SubResource("node_rapid_fire"), SubResource("node_heavy_beam"), SubResource("node_overcharge"), SubResource("node_piercing"), SubResource("node_smart_targeting")]

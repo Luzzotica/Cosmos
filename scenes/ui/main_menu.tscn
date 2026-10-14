@@ -4,38 +4,27 @@
 [ext_resource type="Theme" uid="uid://bu4hu8ilwpu5g" path="res://themes/cosmos_ui_theme.tres" id="2_theme"]
 [ext_resource type="PackedScene" uid="uid://c2xk8m4oaqpwr" path="res://scenes/ui/main_menu_background.tscn" id="3_background"]
 [ext_resource type="Shader" uid="uid://dn1upb06bdsyf" path="res://shaders/menu_gradient.gdshader" id="4_gradient_shader"]
-[ext_resource type="PackedScene" path="res://scenes/ui/level_node_3d.tscn" id="5_level_node"]
-[ext_resource type="PackedScene" path="res://scenes/ui/holo_billboard_3d.tscn" id="8_billboard"]
+[ext_resource type="PackedScene" uid="uid://bxap5gcb1yj5d" path="res://scenes/ui/level_node_3d.tscn" id="5_level_node"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_menu"]
 shader = ExtResource("4_gradient_shader")
 
-[sub_resource type="ButtonGroup" id="ButtonGroup_save_slots"]
-
-[node name="MainMenu" type="Node3D" unique_id=1917420130]
+[node name="MainMenu" type="Node3D" unique_id=1906846754]
 script = ExtResource("1_script")
 
-[node name="MainMenuWorld" parent="." unique_id=1009030386 instance=ExtResource("3_background")]
+[node name="MainMenuWorld" parent="." unique_id=719770599 instance=ExtResource("3_background")]
 
-[node name="UILayer" type="CanvasLayer" parent="." unique_id=1289209086]
+[node name="UILayer" type="CanvasLayer" parent="." unique_id=1946338731]
 layer = 10
 
-[node name="EraseSaveConfirmDialog" type="ConfirmationDialog" parent="UILayer" unique_id=771001007]
-theme = ExtResource("2_theme")
-title = "Erase save"
-ok_button_text = "Delete"
-cancel_button_text = "Cancel"
-min_size = Vector2i(520, 220)
-dialog_text = "Delete this save file? This cannot be undone."
-
-[node name="LeftUIContainer" type="Control" parent="UILayer" unique_id=471812564]
+[node name="LeftUIContainer" type="Control" parent="UILayer" unique_id=2021765812]
 layout_mode = 3
 anchor_right = 0.333333
 anchor_bottom = 1.0
 grow_horizontal = 0
 grow_vertical = 2
 
-[node name="LeftGradient" type="ColorRect" parent="UILayer/LeftUIContainer" unique_id=876686009]
+[node name="LeftGradient" type="ColorRect" parent="UILayer/LeftUIContainer" unique_id=86503387]
 material = SubResource("ShaderMaterial_menu")
 layout_mode = 1
 anchors_preset = 15
@@ -45,7 +34,7 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0, 0, 0, 1)
 
-[node name="LeftPanel" type="Control" parent="UILayer/LeftUIContainer" unique_id=2035415833]
+[node name="LeftPanel" type="Control" parent="UILayer/LeftUIContainer" unique_id=354318022]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -54,7 +43,7 @@ grow_horizontal = 2
 grow_vertical = 2
 theme = ExtResource("2_theme")
 
-[node name="CenterV" type="CenterContainer" parent="UILayer/LeftUIContainer/LeftPanel" unique_id=1215950316]
+[node name="CenterV" type="CenterContainer" parent="UILayer/LeftUIContainer/LeftPanel" unique_id=2102862459]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -66,18 +55,18 @@ offset_bottom = -48.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="VBox" type="VBoxContainer" parent="UILayer/LeftUIContainer/LeftPanel/CenterV" unique_id=1684467233]
+[node name="VBox" type="VBoxContainer" parent="UILayer/LeftUIContainer/LeftPanel/CenterV" unique_id=1824987497]
 layout_mode = 2
 theme_override_constants/separation = 28
 
-[node name="Title" type="Label" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox" unique_id=1907050859]
+[node name="Title" type="Label" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox" unique_id=847102591]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 72
 text = "COSMOS"
 horizontal_alignment = 1
 
-[node name="Subtitle" type="Label" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox" unique_id=361177003]
+[node name="Subtitle" type="Label" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox" unique_id=811450737]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.643137, 0.262745, 0.133333, 1)
@@ -85,90 +74,31 @@ theme_override_font_sizes/font_size = 26
 text = "The Scholar's Dilemma"
 horizontal_alignment = 1
 
-[node name="Spacer" type="Control" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox" unique_id=420949053]
+[node name="Spacer" type="Control" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox" unique_id=1049899677]
 custom_minimum_size = Vector2(0, 36)
 layout_mode = 2
 
-[node name="HomePanel" type="VBoxContainer" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox" unique_id=771001001]
+[node name="HomePanel" type="VBoxContainer" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox" unique_id=1134493865]
 layout_mode = 2
 theme_override_constants/separation = 28
 
-[node name="PlayButton" type="Button" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/HomePanel" unique_id=571611101]
+[node name="EndlessButton" type="Button" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/HomePanel" unique_id=1089957010]
 custom_minimum_size = Vector2(400, 64)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "Play"
+text = "Endless"
 
-[node name="QuitButton" type="Button" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/HomePanel" unique_id=286512396]
+[node name="QuitButton" type="Button" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/HomePanel" unique_id=166184850]
 custom_minimum_size = Vector2(400, 64)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Quit"
 
-[node name="SaveSelectPanel" type="VBoxContainer" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox" unique_id=771001002]
+[node name="LevelSelectBack" type="Control" parent="UILayer" unique_id=2025066136]
 visible = false
-layout_mode = 2
-theme_override_constants/separation = 20
-
-[node name="SaveSelectLabel" type="Label" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/SaveSelectPanel" unique_id=771001003]
-layout_mode = 2
-theme_override_font_sizes/font_size = 20
-text = "Choose a save slot"
-horizontal_alignment = 1
-
-[node name="SlotPicker" type="HBoxContainer" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/SaveSelectPanel" unique_id=1925056483]
-layout_mode = 2
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="Slot1" type="Button" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/SaveSelectPanel/SlotPicker" unique_id=2122963208]
-custom_minimum_size = Vector2(120, 48)
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-toggle_mode = true
-button_group = SubResource("ButtonGroup_save_slots")
-text = "Slot 1"
-
-[node name="Slot2" type="Button" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/SaveSelectPanel/SlotPicker" unique_id=973384677]
-custom_minimum_size = Vector2(120, 48)
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-toggle_mode = true
-button_group = SubResource("ButtonGroup_save_slots")
-text = "Slot 2"
-
-[node name="Slot3" type="Button" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/SaveSelectPanel/SlotPicker" unique_id=547579027]
-custom_minimum_size = Vector2(120, 48)
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-toggle_mode = true
-button_group = SubResource("ButtonGroup_save_slots")
-text = "Slot 3"
-
-[node name="ContinueButton" type="Button" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/SaveSelectPanel" unique_id=771001005]
-custom_minimum_size = Vector2(400, 64)
-layout_mode = 2
-theme_override_font_sizes/font_size = 22
-text = "Continue"
-
-[node name="EraseSaveButton" type="Button" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/SaveSelectPanel" unique_id=771001004]
-custom_minimum_size = Vector2(400, 52)
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-disabled = true
-text = "Erase save"
-
-[node name="BackFromSaveButton" type="Button" parent="UILayer/LeftUIContainer/LeftPanel/CenterV/VBox/SaveSelectPanel" unique_id=771001006]
-custom_minimum_size = Vector2(400, 52)
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "Back"
-
-[node name="LevelSelectBack" type="Control" parent="UILayer" unique_id=535367831]
 modulate = Color(1, 1, 1, 0)
-visible = false
-layout_mode = 1
-anchors_preset = 0
+layout_mode = 3
+anchors_preset = 7
 anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
@@ -181,70 +111,45 @@ grow_horizontal = 2
 grow_vertical = 0
 theme = ExtResource("2_theme")
 
-[node name="BackToMenuButton" type="Button" parent="UILayer/LevelSelectBack" unique_id=2115629551]
+[node name="BackToMenuButton" type="Button" parent="UILayer/LevelSelectBack" unique_id=769757910]
+custom_minimum_size = Vector2(400, 56)
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-custom_minimum_size = Vector2(400, 56)
 theme_override_font_sizes/font_size = 18
 text = "← Back to Menu"
 
-[node name="CameraTarget" type="Camera3D" parent="." unique_id=1258150061]
-transform = Transform3D(0.99134666, -0.113338135, 0.06622946, -0.0261823, 0.32367328, 0.94580656, -0.12863266, -0.9393562, 0.31790498, 20.595516, 11.160118, 16.601059)
+[node name="CameraTargetEndless" type="Camera3D" parent="." unique_id=1909235427]
+transform = Transform3D(1, 0, 0, 0, 0.39695567, 0.9178378, 0, -0.9178378, 0.39695567, -7.958333, 7.610382, 15.27477)
 
-[node name="HoloBillboard" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 6.8, 15)
+[node name="EndlessArea" type="Node3D" parent="." unique_id=1050960099]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 6, 15)
 
-[node name="HoloBillboard3D" parent="HoloBillboard" instance=ExtResource("8_billboard")]
+[node name="EndlessNodes" type="Node3D" parent="EndlessArea" unique_id=48394157]
 
-[node name="LevelArea" type="Node3D" parent="." unique_id=753466153]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 6, 15)
+[node name="EndlessEasy" parent="EndlessArea/EndlessNodes" unique_id=1681023817 instance=ExtResource("5_level_node")]
+transform = Transform3D(0.35, 0, 0, 0, 0.35, 0, 0, 0, 0.35, -0.5095062, 0, -1.1447144)
+endless_difficulty_id = "easy"
+caption = "Easy"
+caption_blurb = "Longer breaks, gentler waves."
 
-[node name="LevelNodes" type="Node3D" parent="LevelArea" unique_id=409084613]
+[node name="EndlessNormal" parent="EndlessArea/EndlessNodes" unique_id=884626471 instance=ExtResource("5_level_node")]
+transform = Transform3D(0.35, 0, 0, 0, 0.35, 0, 0, 0, 0.35, 0.54978657, 0, -1.1136723)
+endless_difficulty_id = "normal"
+caption = "Normal"
+caption_blurb = "Balanced pacing and scaling."
 
-[node name="StorySite01" parent="LevelArea/LevelNodes" unique_id=245672631 instance=ExtResource("5_level_node")]
-transform = Transform3D(0.35, 0, 0, 0, 0.35, 0, 0, 0, 0.35, -4, 0, 0)
-map_id = "story_site_01_tutorial"
+[node name="EndlessHard" parent="EndlessArea/EndlessNodes" unique_id=496243014 instance=ExtResource("5_level_node")]
+transform = Transform3D(0.35, 0, 0, 0, 0.3499799, 0.003750641, 0, -0.003750641, 0.3499799, -0.44369698, 0, 0)
+endless_difficulty_id = "hard"
+caption = "Hard"
+caption_blurb = "Shorter breaks, tougher enemies."
 
-[node name="StorySite02" parent="LevelArea/LevelNodes" unique_id=1755025356 instance=ExtResource("5_level_node")]
-transform = Transform3D(0.35, 0, 0, 0, 0.35, 0, 0, 0, 0.35, -3.2, 0, 0.6)
-map_id = "story_site_02_pattern"
-
-[node name="StorySite03" parent="LevelArea/LevelNodes" unique_id=516397023 instance=ExtResource("5_level_node")]
-transform = Transform3D(0.35, 0, 0, 0, 0.35, 0, 0, 0, 0.35, -2.4, 0, 1)
-map_id = "story_site_03_hope"
-
-[node name="StorySite04" parent="LevelArea/LevelNodes" unique_id=793913841 instance=ExtResource("5_level_node")]
-transform = Transform3D(0.35, 0, 0, 0, 0.35, 0, 0, 0, 0.35, -1.6, 0, 1.2)
-map_id = "story_site_04_grind"
-
-[node name="StorySite05" parent="LevelArea/LevelNodes" unique_id=729388211 instance=ExtResource("5_level_node")]
-transform = Transform3D(0.35, 0, 0, 0, 0.35, 0, 0, 0, 0.35, -0.8, 0, 1.2)
-map_id = "story_site_05_unease"
-
-[node name="StorySite06" parent="LevelArea/LevelNodes" unique_id=665769426 instance=ExtResource("5_level_node")]
-transform = Transform3D(0.35, 0, 0, 0, 0.35, 0, 0, 0, 0.35, 0, 0, 1)
-map_id = "story_site_06_revelation"
-
-[node name="StorySite07" parent="LevelArea/LevelNodes" unique_id=548590551 instance=ExtResource("5_level_node")]
-transform = Transform3D(0.35, 0, 0, 0, 0.35, 0, 0, 0, 0.35, 0.8, 0, 0.6)
-map_id = "story_site_07_threshold"
-
-[node name="StorySite08" parent="LevelArea/LevelNodes" unique_id=478472886 instance=ExtResource("5_level_node")]
-transform = Transform3D(0.35, 0, 0, 0, 0.35, 0, 0, 0, 0.35, 1.6, 0, 0)
-map_id = "story_site_08_hunt"
-
-[node name="StorySite09" parent="LevelArea/LevelNodes" unique_id=505957619 instance=ExtResource("5_level_node")]
-transform = Transform3D(0.35, 0, 0, 0, 0.35, 0, 0, 0, 0.35, 2.4, 0, -0.6)
-map_id = "story_site_09_choice"
-
-[node name="StorySite10" parent="LevelArea/LevelNodes" unique_id=387706579 instance=ExtResource("5_level_node")]
-transform = Transform3D(0.35, 0, 0, 0, 0.35, 0, 0, 0, 0.35, 3.2, 0, -1)
-map_id = "story_site_10_finale"
-
-[node name="StoryEpilogue" parent="LevelArea/LevelNodes" unique_id=3566498 instance=ExtResource("5_level_node")]
-transform = Transform3D(0.35, 0, 0, 0, 0.35, 0, 0, 0, 0.35, 4, 0, -1.2)
-map_id = "story_epilogue_break_chain"
+[node name="EndlessImpossible" parent="EndlessArea/EndlessNodes" unique_id=1139708537 instance=ExtResource("5_level_node")]
+transform = Transform3D(0.35, 0, 0, 0, 0.3499799, 0.003750641, 0, -0.003750641, 0.3499799, 0.5566511, 0, 0)
+endless_difficulty_id = "impossible"
+caption = "Impossible"
+caption_blurb = "Fast tempo, maximum pressure."

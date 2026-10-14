@@ -23,10 +23,13 @@ var _is_editor_mode: bool = false
 const SKY_PARALLAX_SCALE: float = 0.00012
 const AURORA_PARALLAX_SCALE: float = 0.0011
 const CURSOR_TEXTURE_SIZE: int = 32
-const CURSOR_LAYER_ORDER: int = 100
+const CURSOR_LAYER_ORDER: int = 128
 const DEFAULT_MAP_PATH: String = "res://resources/maps/tutorial_map.json"
 const SESSION_MODE_EDITOR: int = 1
+const SESSION_MODE_ENDLESS: int = 2
+const EndlessMapGeneratorClass = preload("res://scripts/game/endless_map_generator.gd")
 const StructureEntityScript = preload("res://scripts/ecs/entities/structure_entity.gd")
+const MonolithDialogueTierClass = preload("res://scripts/game/monolith_dialogue_tier.gd")
 
 enum CursorState {
 	NORMAL,
@@ -72,6 +75,17 @@ func _setup_startup_map() -> void:
 		var editor_map_path: String = String(session.get("selected_editor_map_path"))
 		if not editor_map_path.is_empty():
 			selected_map_path = editor_map_path
+	elif session and int(session.get("launch_mode")) == SESSION_MODE_ENDLESS:
+		_configure_story_mode()
+		var endless_seed: int = int(session.get("endless_seed"))
+		var endless_did: String = String(session.get("endless_difficulty_id"))
+		if endless_did.is_empty():
+			endless_did = "normal"
+		var endless_map: MapData = EndlessMapGeneratorClass.build(endless_seed, endless_did)
+		MapLoader.load_map(endless_map, false)
+		_center_camera_on_spawn()
+		_start_map_dialogue_if_needed.call_deferred()
+		return
 	elif session and not String(session.get("selected_story_map_path")).is_empty():
 		_configure_story_mode()
 		selected_map_path = String(session.get("selected_story_map_path"))
@@ -91,12 +105,14 @@ func _setup_startup_map() -> void:
 	if ResourceLoader.exists(selected_map_path):
 		MapLoader.load_map_from_json(selected_map_path, _is_editor_mode)
 		_center_camera_on_spawn()
+		_start_map_dialogue_if_needed.call_deferred()
 		if _is_editor_mode:
 			_open_editor_panel_default()
 		return
 
 	push_warning("Startup map not found at '%s'; using procedural fallback." % selected_map_path)
 	_setup_default_game()
+	_start_map_dialogue_if_needed.call_deferred()
 	if _is_editor_mode:
 		_open_editor_panel_default()
 
@@ -127,6 +143,14 @@ func _open_editor_panel_default() -> void:
 func _configure_story_mode() -> void:
 	if EnemyManager:
 		EnemyManager.set_process(true)
+
+
+func _start_map_dialogue_if_needed() -> void:
+	var md: MapData = MapLoader.current_map as MapData if MapLoader else null
+	if MapDialogueRunner:
+		await MapDialogueRunner.play_map_start_if_any(md, _is_editor_mode)
+	if not _is_editor_mode:
+		GameState.set_wave_timer_enabled(true)
 
 
 func _setup_ecs() -> void:
@@ -244,13 +268,14 @@ func _check_win_conditions() -> void:
 	var monolith_met: bool = (win_monolith <= 0)
 	if win_monolith > 0 and ECS and ECS.world:
 		const C_MonolithChargeClass = preload("res://scripts/ecs/components/c_monolith_charge.gd")
-		var monoliths: Array = ECS.world.query.with_all([C_MonolithChargeClass, C_Structure]).execute()
+		var monoliths: Array = MonolithDialogueTierClass.victory_monolith_entities(ECS.world)
+		monolith_met = not monoliths.is_empty()
 		for entity in monoliths:
 			if entity is Entity:
 				var c_charge = (entity as Entity).get_component(C_MonolithChargeClass)
 				var c_structure: C_Structure = (entity as Entity).get_component(C_Structure) as C_Structure
-				if c_charge and c_structure and not c_structure.is_destroyed and c_charge.current_charge >= c_charge.power_required:
-					monolith_met = true
+				if c_charge == null or c_structure == null or c_structure.is_destroyed or c_charge.current_charge < c_charge.power_required:
+					monolith_met = false
 					break
 
 	var victory: bool = false
@@ -269,12 +294,10 @@ func _check_game_over() -> void:
 	if GameState.is_game_over:
 		return
 	
-	# Count remaining structures
+	# Count remaining **completed** structures only (under construction does not delay defeat).
 	var count: int = 0
 	for child in structures_parent.get_children():
-		if child is BaseStructure and not child.is_destroyed:
-			count += 1
-		elif is_instance_of(child, StructureEntityScript) and not child.is_destroyed():
+		if _structure_counts_for_defeat(child):
 			count += 1
 	
 	# If we had structures and now have none, game over
@@ -282,6 +305,21 @@ func _check_game_over() -> void:
 		GameState.trigger_game_over()
 	
 	_structure_count = count
+
+
+func _structure_counts_for_defeat(structure_node: Node) -> bool:
+	if structure_node is BaseStructure:
+		var bs: BaseStructure = structure_node as BaseStructure
+		return not bs.is_destroyed and bs.is_built()
+	if is_instance_of(structure_node, StructureEntityScript):
+		var ent: Node = structure_node as Node
+		if ent.has_method("is_destroyed") and ent.call("is_destroyed"):
+			return false
+		var body: Node = ent.get_node_or_null("StructureBody")
+		if body is StructureBodyBase:
+			return (body as StructureBodyBase).is_built()
+		return true
+	return false
 
 
 func _setup_default_game() -> void:

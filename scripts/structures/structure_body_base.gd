@@ -76,12 +76,19 @@ func get_selection_details() -> Dictionary:
 	var c_health: C_Health = _get_component(C_Health)
 	var c_team: C_Team = _get_component(C_Team)
 	var c_construction: C_Construction = _get_component(C_Construction)
+	var construction_component: ConstructionComponent = get_node_or_null("ConstructionComponent") as ConstructionComponent
 	var c_weapon = _get_component(C_BeamWeaponClass)
 	var c_mining = _get_component(C_MiningStationClass)
 	var c_charge = _get_component(C_MonolithChargeClass)
 	var c_launcher = _get_component(C_MissileLauncherClass)
 	var c_station = _get_component(C_RepairStationClass)
-	var built: bool = c_construction.is_built if c_construction else true
+	var built: bool
+	if c_construction:
+		built = c_construction.is_built
+	elif construction_component:
+		built = construction_component.is_built
+	else:
+		built = true
 	var faction: String = c_team.team if c_team else "player"
 	var details: Dictionary = {
 		"name": get_selection_name(),
@@ -96,6 +103,8 @@ func get_selection_details() -> Dictionary:
 		details["health_max"] = c_health.maximum
 	if c_construction and not c_construction.is_built:
 		details["build_progress"] = c_construction.build_progress * 100.0
+	elif construction_component and not construction_component.is_built:
+		details["build_progress"] = construction_component.get_progress() * 100.0
 	if power_node:
 		details["is_powered"] = has_operational_power()
 		details["is_connected"] = power_node.connected_nodes.size() > 0
@@ -190,15 +199,19 @@ func has_operational_power() -> bool:
 	var subgraph: Variant = graph_manager.call("find_subgraph_for_node", power_node)
 	if subgraph == null:
 		return false
-	var current_power: Variant = subgraph.get("power_current")
-	if current_power != null:
-		return float(current_power) > 0.0
-	return power_node.connected_nodes.size() > 0
+	var stored: float = float(subgraph.get("power_current")) if subgraph.get("power_current") != null else 0.0
+	var generating: float = float(subgraph.get("power_generation")) if subgraph.get("power_generation") != null else 0.0
+	return stored > 0.0 or generating > 0.0
 
 
 func is_built() -> bool:
 	var c_construction: C_Construction = _get_component(C_Construction)
-	return c_construction == null or c_construction.is_built
+	if c_construction:
+		return c_construction.is_built
+	var construction_component: ConstructionComponent = get_node_or_null("ConstructionComponent") as ConstructionComponent
+	if construction_component:
+		return construction_component.is_built
+	return true
 
 
 func get_team() -> String:

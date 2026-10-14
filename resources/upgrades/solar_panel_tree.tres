@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="UpgradeTreeData" load_steps=5 format=3]
+[gd_resource type="Resource" script_class="UpgradeTreeData" load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/data/upgrade_tree_data.gd" id="1_tree"]
 [ext_resource type="Script" path="res://scripts/data/upgrade_node_data.gd" id="2_node"]
@@ -8,8 +8,8 @@ script = ExtResource("2_node")
 id = "reinforced_panels"
 display_name = "Reinforced Panels"
 description = "Increases panel durability by 50%."
-mineral_cost = 100
-power_cost = 8.0
+mineral_cost = 200
+power_cost = 16.0
 upgrade_time = 3.0
 requires = Array[String]([])
 excludes = Array[String]([])
@@ -20,14 +20,38 @@ script = ExtResource("2_node")
 id = "high_capacity"
 display_name = "High-Capacity Cells"
 description = "Doubles energy storage capacity."
-mineral_cost = 150
-power_cost = 12.0
+mineral_cost = 300
+power_cost = 24.0
 upgrade_time = 4.0
 requires = Array[String]([])
 excludes = Array[String]([])
-stat_modifiers = []
+stat_modifiers = [{"component": "PowerSource", "property": "max_storage", "operation": "multiply", "value": 2.0}, {"component": "PowerSource", "property": "current_storage", "operation": "multiply", "value": 2.0}]
+
+[sub_resource type="Resource" id="node_photovoltaic_1"]
+script = ExtResource("2_node")
+id = "photovoltaic_boost_1"
+display_name = "Photovoltaic Boost I"
+description = "Increases solar power generation by 50%."
+mineral_cost = 200
+power_cost = 16.0
+upgrade_time = 3.0
+requires = Array[String]([])
+excludes = Array[String]([])
+stat_modifiers = [{"component": "PowerGenerator", "property": "power_output", "operation": "multiply", "value": 1.5}]
+
+[sub_resource type="Resource" id="node_photovoltaic_2"]
+script = ExtResource("2_node")
+id = "photovoltaic_boost_2"
+display_name = "Photovoltaic Boost II"
+description = "Further increases output so total generation is doubled from base."
+mineral_cost = 300
+power_cost = 24.0
+upgrade_time = 4.0
+requires = Array[String](["photovoltaic_boost_1"])
+excludes = Array[String]([])
+stat_modifiers = [{"component": "PowerGenerator", "property": "power_output", "operation": "multiply", "value": 1.3333333333333333}]
 
 [resource]
 script = ExtResource("1_tree")
 tree_id = "solar_panel"
-nodes = [SubResource("node_reinforced_panels"), SubResource("node_high_capacity")]
+nodes = [SubResource("node_reinforced_panels"), SubResource("node_high_capacity"), SubResource("node_photovoltaic_1"), SubResource("node_photovoltaic_2")]

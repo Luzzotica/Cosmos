@@ -4,6 +4,16 @@ class_name LevelNode3D
 ## Set map_id in the inspector to link this node to a story map.
 
 @export var map_id: String = ""
+## When set, this node selects endless difficulty instead of a story map ([member map_id] ignored).
+@export var endless_difficulty_id: String = ""
+## Optional holo title above the circle (e.g. Easy / Normal).
+@export var caption: String = ""
+## Optional short line under the title (same holo panel).
+@export var caption_blurb: String = ""
+
+const MINI_HOLO_TITLE_SCENE: PackedScene = preload("res://scenes/ui/mini_holo_title_3d.tscn")
+
+var _mini_holo: Node = null
 
 signal selected(entry: Dictionary)
 
@@ -29,9 +39,11 @@ func _ready() -> void:
 			_material = base_mat.duplicate() as ShaderMaterial
 			_mesh_instance.set_surface_override_material(0, _material)
 	input_event.connect(_on_input_event)
-	# Resolve entry from map_id if not set
-	if entry.is_empty() and not map_id.is_empty():
+	if not endless_difficulty_id.is_empty():
+		entry = { "difficulty_id": endless_difficulty_id, "id": "endless_" + endless_difficulty_id }
+	elif entry.is_empty() and not map_id.is_empty():
 		_resolve_entry_from_manifest()
+	_add_caption_if_needed()
 
 
 func _process(delta: float) -> void:
@@ -57,9 +69,32 @@ func _resolve_entry_from_manifest() -> void:
 
 
 func setup(p_entry: Dictionary, unlocked: bool, beaten: bool) -> void:
-	entry = p_entry
+	if not p_entry.is_empty():
+		entry = p_entry
+	elif not endless_difficulty_id.is_empty():
+		entry = { "difficulty_id": endless_difficulty_id, "id": "endless_" + endless_difficulty_id }
 	set_locked(not unlocked)
 	set_completed(beaten)
+
+
+func _add_caption_if_needed() -> void:
+	if caption.is_empty():
+		return
+	var mini: Node = MINI_HOLO_TITLE_SCENE.instantiate()
+	mini.position = Vector3(0, 0.58, 0)
+	add_child(mini)
+	_mini_holo = mini
+	if mini.has_method("set_text"):
+		mini.call("set_text", caption, caption_blurb)
+
+
+func get_mini_holo() -> Node:
+	return _mini_holo
+
+
+func set_holo_camera(cam: Camera3D) -> void:
+	if _mini_holo and _mini_holo.has_method("set_camera"):
+		_mini_holo.call("set_camera", cam)
 
 
 func set_locked(locked: bool) -> void:
@@ -76,6 +111,8 @@ func set_completed(completed: bool) -> void:
 func set_menu_fade_alpha(a: float) -> void:
 	if _material:
 		_material.set_shader_parameter("display_alpha", clampf(a, 0.0, 1.0))
+	if _mini_holo and _mini_holo.has_method("set_menu_fade_alpha"):
+		_mini_holo.call("set_menu_fade_alpha", a)
 
 
 func set_hovered(hovered: bool) -> void:

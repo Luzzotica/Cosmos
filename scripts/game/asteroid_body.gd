@@ -17,6 +17,7 @@ var _impact_timer: float = 0.0
 
 @onready var mesh_instance: MeshInstance3D = $MeshInstance3D
 @onready var collision_shape: CollisionShape3D = $SelectableComponent/CollisionShape3D
+@onready var obstacle_collision_shape: CollisionShape3D = $ObstacleBody/CollisionShape3D
 @onready var selectable_component: Node = $SelectableComponent
 
 
@@ -191,9 +192,20 @@ func _update_visuals() -> void:
 	var sz: float = get_asteroid_size()
 	var scale_factor: float = sz / 3.0
 	mesh_instance.scale = Vector3.ONE * scale_factor
-	if collision_shape and collision_shape.shape is SphereShape3D:
-		collision_shape.shape.radius = sz * 0.5
+	# Sphere shapes in the scene are shared SubResources; mutating .radius would affect every
+	# asteroid instance. Assign a new SphereShape3D per body so large rocks get matching physics.
+	var radius: float = sz * 0.5
+	_set_unique_sphere_radius(collision_shape, radius)
+	_set_unique_sphere_radius(obstacle_collision_shape, radius)
 	_update_color()
+
+
+func _set_unique_sphere_radius(coll: CollisionShape3D, radius: float) -> void:
+	if coll == null:
+		return
+	var sphere := SphereShape3D.new()
+	sphere.radius = radius
+	coll.shape = sphere
 
 
 func _update_color() -> void:

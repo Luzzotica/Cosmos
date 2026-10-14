@@ -43,13 +43,28 @@ const CURRENT_SCHEMA_VERSION: int = 1
 @export var initial_wave_delay: float = 30.0
 @export var wave_interval: float = 60.0
 @export var allow_partial_extraction: bool = true
+## When set (endless maps), [member MapLoader.get_wave_data] uses this for extrapolated waves instead of hardcoded defaults.
+## Expect [EndlessWaveExtrapolation] resource.
+@export var endless_extrapolation: Resource = null
 
 @export_group("Procedural Fill")
 @export var procedural_seed: int = 0
 @export var allow_procedural_fill: bool = false
 
+@export_group("Build")
+## When false, JSON omitted [code]allowed_buildings[/code]: player can build the full default set.
+## When true, [member allowed_buildings] is the whitelist (empty means nothing buildable).
+@export var allowed_buildings_defined: bool = false
+@export var allowed_buildings: PackedStringArray = PackedStringArray()
+
 ## Optional camera look-at position [x, z] when map loads. INF means unset (fall back to first structure).
 @export var camera_start_position: Vector2 = Vector2(INF, INF)
+
+@export_group("Dialogue")
+## Dialogue Manager script strings: keys start, end.defeat, end.victory.monolith_100 / monolith_90 / monolith_complete
+@export var dialogue: Dictionary = {}
+## Legacy JSON field (still round-tripped). Map intro/end dialogue always runs realtime in code.
+@export var dialogue_realtime: bool = false
 
 
 ## Resolve path for web/export: try given path, then fallbacks (include_filter may flatten paths).
@@ -157,6 +172,8 @@ static func _create_from_dict(data: Dictionary) -> MapData:
 		var pos_array: Array = structure_dict.get("position", [0, 0, 0])
 		structure.position = Vector3(pos_array[0], pos_array[1], pos_array[2])
 		structure.is_pre_built = structure_dict.get("pre_built", true)
+		if structure.building_type == "monolith":
+			structure.victory_monolith = bool(structure_dict.get("victory_monolith", true))
 		map_data.starting_structures.append(structure)
 
 	# Parse starting resources
@@ -190,6 +207,19 @@ static func _create_from_dict(data: Dictionary) -> MapData:
 		if not wave.enemy_composition.is_empty():
 			wave.enemy_count = wave.get_total_enemy_count()
 		map_data.waves.append(wave)
+
+	var raw_dialogue: Variant = data.get("dialogue", {})
+	if raw_dialogue is Dictionary:
+		map_data.dialogue = (raw_dialogue as Dictionary).duplicate(true)
+	map_data.dialogue_realtime = bool(data.get("dialogue_realtime", false))
+
+	if data.has("allowed_buildings"):
+		map_data.allowed_buildings_defined = true
+		map_data.allowed_buildings = PackedStringArray()
+		var ab_raw: Variant = data.get("allowed_buildings", [])
+		if ab_raw is Array:
+			for item in ab_raw as Array:
+				map_data.allowed_buildings.append(String(item))
 	
 	return map_data
 
@@ -269,11 +299,22 @@ func _to_dict() -> Dictionary:
 		})
 	
 	for structure in starting_structures:
-		data.starting_structures.append({
+		var sdict: Dictionary = {
 			"type": structure.building_type,
 			"position": [structure.position.x, structure.position.y, structure.position.z],
 			"pre_built": structure.is_pre_built
-		})
+		}
+		if structure.building_type == "monolith" and not structure.victory_monolith:
+			sdict["victory_monolith"] = false
+		data.starting_structures.append(sdict)
+
+	if not dialogue.is_empty():
+		data["dialogue"] = dialogue.duplicate(true)
+	if dialogue_realtime:
+		data["dialogue_realtime"] = true
+
+	if allowed_buildings_defined:
+		data["allowed_buildings"] = Array(allowed_buildings)
 	
 	for wave in waves:
 		var wave_data: Dictionary = {

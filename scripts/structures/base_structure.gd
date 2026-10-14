@@ -444,12 +444,9 @@ func has_operational_power() -> bool:
 	var subgraph: Variant = graph_manager.call("find_subgraph_for_node", power_node)
 	if subgraph == null:
 		return false
-	
-	var current_power: Variant = subgraph.get("power_current")
-	if current_power != null:
-		return float(current_power) > 0.0
-	
-	return power_node.connected_nodes.size() > 0
+	var stored: float = float(subgraph.get("power_current")) if subgraph.get("power_current") != null else 0.0
+	var generating: float = float(subgraph.get("power_generation")) if subgraph.get("power_generation") != null else 0.0
+	return stored > 0.0 or generating > 0.0
 
 
 func _on_destroyed() -> void:

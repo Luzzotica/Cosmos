@@ -79,6 +79,17 @@ func _process_mining_entity(entity: Entity, delta: float) -> void:
 
 	_ensure_power(station)
 
+	var power_user: PowerUser = station.get_power_user() if station.has_method("get_power_user") else null
+	if power_user == null:
+		c_mining.is_mining = false
+		return
+	if station.has_method("has_operational_power") and not station.has_operational_power():
+		c_mining.is_mining = false
+		return
+	if not power_user.has_power:
+		c_mining.is_mining = false
+		return
+
 	c_mining.mining_timer += delta
 	if c_mining.mining_timer >= c_mining.mining_interval:
 		c_mining.mining_timer = 0.0
