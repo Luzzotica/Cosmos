@@ -103,6 +103,9 @@ func _input(event: InputEvent) -> void:
 		_is_consuming_release = false
 		return
 
+	if MobileSupport.is_touch and _handle_touch_build_input(event):
+		return
+
 	# Always track mouse position for hotkey placement
 	if event is InputEventMouseMotion:
 		var camera: Camera3D = get_viewport().get_camera_3d()
@@ -142,6 +145,71 @@ func _input(event: InputEvent) -> void:
 			elif mouse_event.button_index == MOUSE_BUTTON_RIGHT:
 				cancel_placement()
 				get_viewport().set_input_as_handled()
+
+
+# Touch placement (phones/tablets): the ghost appears mid-screen; tap or drag to
+# move it, tap the ghost again (or the Place button) to build it.
+const TOUCH_CONFIRM_RADIUS_CSS: float = 44.0
+const TOUCH_DRAG_THRESHOLD_CSS: float = 10.0
+var _touch_build_press: bool = false
+var _touch_build_confirm: bool = false
+var _touch_press_pos: Vector2 = Vector2.ZERO
+
+
+## Returns true when the event is a touch (emulated mouse) event that this
+## function fully dealt with, so the desktop mouse path must not run.
+func _handle_touch_build_input(event: InputEvent) -> bool:
+	if not (event is InputEventMouse) or event.device != InputEvent.DEVICE_ID_EMULATION:
+		return false
+	if current_state == BuildState.IDLE:
+		_touch_build_press = false
+		return false
+	var camera: Camera3D = get_viewport().get_camera_3d()
+	if event is InputEventMouseMotion:
+		if not _touch_build_press or MobileSupport.multi_touch_active:
+			_touch_build_confirm = false
+			return true
+		var mm: InputEventMouseMotion = event as InputEventMouseMotion
+		if mm.position.distance_to(_touch_press_pos) > MobileSupport.css_to_view(TOUCH_DRAG_THRESHOLD_CSS):
+			_touch_build_confirm = false
+		if camera and camera.has_method("get_mouse_world_position"):
+			_last_mouse_world_position = _touch_world_at(camera, mm.position)
+			update_placement_preview(_last_mouse_world_position)
+		return true
+	if not (event is InputEventMouseButton):
+		return true
+	var mb: InputEventMouseButton = event as InputEventMouseButton
+	if mb.button_index != MOUSE_BUTTON_LEFT:
+		return true
+	if mb.pressed:
+		if MobileSupport.is_point_over_ui(mb.position):
+			# Let the button (Place, Cancel, build bar...) take it.
+			return true
+		_touch_build_press = true
+		_touch_press_pos = mb.position
+		_touch_build_confirm = false
+		if camera:
+			var ghost_screen: Vector2 = camera.unproject_position(_drag_position)
+			_touch_build_confirm = ghost_screen.distance_to(mb.position) <= MobileSupport.css_to_view(TOUCH_CONFIRM_RADIUS_CSS)
+			if not _touch_build_confirm:
+				update_placement_preview(_touch_world_at(camera, mb.position))
+		get_viewport().set_input_as_handled()
+		return true
+	if not _touch_build_press:
+		return true
+	_touch_build_press = false
+	if _touch_build_confirm and not MobileSupport.multi_touch_active:
+		confirm_placement()
+	_touch_build_confirm = false
+	get_viewport().set_input_as_handled()
+	return true
+
+
+func _touch_world_at(camera: Camera3D, screen_pos: Vector2) -> Vector3:
+	var from: Vector3 = camera.project_ray_origin(screen_pos)
+	var dir: Vector3 = camera.project_ray_normal(screen_pos)
+	var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(from, dir)
+	return hit if hit != null else _drag_position
 
 
 const _BUILDING_PATHS: PackedStringArray = [
@@ -215,6 +283,14 @@ func start_building(building_type: String, position: Vector3 = Vector3.ZERO) -> 
 	current_state = BuildState.DRAGGING
 	
 	# Use provided position, or last known mouse position, or try to get current mouse position
+	_touch_build_press = false
+	_touch_build_confirm = false
+	if MobileSupport.is_touch and position == Vector3.ZERO:
+		# On touch the last "mouse" position is the build button the finger just
+		# tapped; start the ghost in the middle of the view instead.
+		var cam: Camera3D = get_viewport().get_camera_3d()
+		if cam:
+			position = _touch_world_at(cam, get_viewport().get_visible_rect().size * 0.5)
 	if position != Vector3.ZERO:
 		_drag_position = position
 	elif _last_mouse_world_position != Vector3.ZERO:

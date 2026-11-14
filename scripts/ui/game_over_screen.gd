@@ -16,6 +16,13 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_WHEN_PAUSED
 	visible = false
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	MobileSupport.enlarge_buttons(self, 88.0)
+	if MobileSupport.is_touch:
+		# Short landscape screens: tighter type; show_game_over() fits the rest.
+		title_label.add_theme_font_size_override("font_size", 56)
+		message_label.add_theme_font_size_override("font_size", 28)
+		stats_label.add_theme_font_size_override("font_size", 26)
+		($Panel/VBoxContainer as VBoxContainer).add_theme_constant_override("separation", 10)
 	restart_button.pressed.connect(_on_restart_pressed)
 	restart_button.mouse_entered.connect(_on_restart_hovered)
 	next_level_button.pressed.connect(_on_next_level_pressed)
@@ -69,6 +76,8 @@ func show_game_over() -> void:
 		GameState.total_minerals_spent,
 		GameState.total_power_generated
 	]
+	if MobileSupport.is_touch:
+		MobileSupport.fit_centered.call_deferred($Panel)
 
 
 func _is_story_mode() -> bool:

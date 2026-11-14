@@ -34,12 +34,33 @@ var _is_dragging: bool = false
 var _drag_start_mouse_pos: Vector2
 var _drag_start_look_at: Vector3
 
+# Touch (phones and tablets): one finger drags the map, two fingers pinch to zoom,
+# a long press acts like right-click (cancel build / clear selection).
+const TOUCH_PAN_THRESHOLD_CSS: float = 10.0
+const TOUCH_LONG_PRESS_MS: int = 550
+var _touches: Dictionary = {}  # finger index -> Vector2 (viewport units)
+var _touch_on_ui: bool = false
+var _touch_start_pos: Vector2 = Vector2.ZERO
+var _touch_start_ms: int = 0
+var _touch_moved: bool = false
+var _touch_long_press_done: bool = false
+var _pinch_last_dist: float = 0.0
+var _pinch_last_center: Vector2 = Vector2.ZERO
+
 # Debug sphere to show mouse position
 var _debug_sphere: MeshInstance3D = null
 @export var show_debug_sphere: bool = false
 
 
 func _ready() -> void:
+	if MobileSupport.is_touch:
+		# A finger resting near the screen edge (on the build bar, say) must not
+		# scroll the map; touch players drag instead.
+		enable_edge_panning = false
+		# Fingers lifted while paused never reach us; start clean on resume.
+		GameState.pause_changed.connect(func(_paused: bool) -> void:
+			_touches.clear()
+			MobileSupport.multi_touch_active = false)
 	if show_debug_sphere:
 		_create_debug_sphere()
 	# Initialize from current position - calculate look-at point
@@ -50,6 +71,7 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	_check_touch_long_press()
 	_handle_edge_panning(delta)
 	_handle_keyboard_panning(delta)
 	_handle_keyboard_zoom(delta)
@@ -61,6 +83,116 @@ func _process(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	_handle_zoom(event)
 	_handle_drag_panning(event)
+
+
+func _input(event: InputEvent) -> void:
+	if not MobileSupport.is_touch:
+		return
+	if event is InputEventScreenTouch:
+		_on_screen_touch(event as InputEventScreenTouch)
+	elif event is InputEventScreenDrag:
+		_on_screen_drag(event as InputEventScreenDrag)
+
+
+func _touch_gameplay_blocked() -> bool:
+	return GameState.is_game_over or GameState.is_paused
+
+
+func _on_screen_touch(event: InputEventScreenTouch) -> void:
+	if event.pressed:
+		_touches[event.index] = event.position
+	else:
+		_touches.erase(event.index)
+	var count: int = _touches.size()
+	MobileSupport.multi_touch_active = count >= 2
+	if count == 0:
+		_touch_on_ui = false
+		return
+	if event.pressed and count == 1:
+		_touch_on_ui = MobileSupport.is_point_over_ui(event.position) or _touch_gameplay_blocked()
+		_touch_start_pos = event.position
+		_touch_start_ms = Time.get_ticks_msec()
+		_touch_moved = false
+		_touch_long_press_done = false
+		return
+	# Second finger down (or one of two lifted): (re)start the pinch / pan anchor.
+	_touch_moved = true
+	if count >= 2:
+		var pts: Array = _touches.values()
+		_pinch_last_dist = (pts[0] as Vector2).distance_to(pts[1] as Vector2)
+		_pinch_last_center = ((pts[0] as Vector2) + (pts[1] as Vector2)) * 0.5
+
+
+func _on_screen_drag(event: InputEventScreenDrag) -> void:
+	if not _touches.has(event.index):
+		return
+	var prev: Vector2 = _touches[event.index]
+	_touches[event.index] = event.position
+	if _touch_on_ui or _touch_gameplay_blocked():
+		return
+	var count: int = _touches.size()
+	if count >= 2:
+		var pts: Array = _touches.values()
+		var a: Vector2 = pts[0]
+		var b: Vector2 = pts[1]
+		var dist: float = a.distance_to(b)
+		var center: Vector2 = (a + b) * 0.5
+		if _pinch_last_dist > 1.0 and dist > 1.0:
+			_zoom_toward(center, _target_zoom * (_pinch_last_dist / dist))
+		_pan_by_screen(_pinch_last_center, center)
+		_pinch_last_dist = dist
+		_pinch_last_center = center
+		return
+	if not _touch_moved:
+		if event.position.distance_to(_touch_start_pos) < MobileSupport.css_to_view(TOUCH_PAN_THRESHOLD_CSS):
+			return
+		_touch_moved = true
+		prev = _touch_start_pos
+	# In build mode one finger moves the placement ghost (BuildManager).
+	if BuildManager.is_in_build_mode:
+		return
+	_pan_by_screen(prev, event.position)
+
+
+## Move the view so the ground point under `from_pos` ends up under `to_pos`.
+func _pan_by_screen(from_pos: Vector2, to_pos: Vector2) -> void:
+	var a: Vector3 = _get_world_position_at_mouse(from_pos)
+	var b: Vector3 = _get_world_position_at_mouse(to_pos)
+	var d: Vector3 = a - b
+	_target_look_at += Vector3(d.x, 0.0, d.z)
+
+
+func _zoom_toward(screen_pos: Vector2, new_zoom: float) -> void:
+	var old_zoom: float = _target_zoom
+	_target_zoom = clampf(new_zoom, min_zoom_distance, max_zoom_distance)
+	if is_equal_approx(_target_zoom, old_zoom):
+		return
+	var world_pos: Vector3 = _get_world_position_at_mouse(screen_pos)
+	var zoom_factor: float = _target_zoom / old_zoom
+	var offset: Vector3 = _target_look_at - Vector3(world_pos.x, 0, world_pos.z)
+	_target_look_at = Vector3(world_pos.x, 0, world_pos.z) + offset * zoom_factor
+
+
+func _check_touch_long_press() -> void:
+	if _touches.size() != 1 or _touch_on_ui or _touch_moved or _touch_long_press_done:
+		return
+	if Time.get_ticks_msec() - _touch_start_ms < TOUCH_LONG_PRESS_MS:
+		return
+	_touch_long_press_done = true
+	if _touch_gameplay_blocked():
+		return
+	# Long press = right-click: cancel the build, else clear the selection.
+	if BuildManager.is_in_build_mode:
+		BuildManager.cancel_placement()
+	else:
+		SelectionManager.clear_selection()
+	Input.vibrate_handheld(30)
+
+
+## Public zoom step for on-screen buttons (direction -1 = in, 1 = out).
+func zoom_step(direction: float) -> void:
+	var center: Vector2 = get_viewport().get_visible_rect().size / 2.0
+	_zoom_toward(center, _target_zoom + direction * zoom_speed * 2.0)
 
 
 func _handle_edge_panning(delta: float) -> void:

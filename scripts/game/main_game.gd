@@ -495,6 +495,10 @@ func _setup_space_cursor() -> void:
 func _update_cursor_visual() -> void:
 	if _cursor_sprite == null:
 		return
+	if MobileSupport.is_touch:
+		# No pointer on a touch screen: never draw the space cursor.
+		_cursor_sprite.visible = false
+		return
 
 	var next_state: int = CursorState.NORMAL
 	if GameState.is_game_over:

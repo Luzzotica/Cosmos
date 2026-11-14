@@ -47,6 +47,11 @@ func _ready() -> void:
 	quit_button.pressed.connect(_on_quit_pressed)
 	quit_button.visible = OS.get_name() != "Web"
 	back_to_menu_button.pressed.connect(_on_back_to_menu_pressed)
+	MobileSupport.enlarge_buttons($UILayer, 88.0)
+	if MobileSupport.is_touch:
+		var bottom: float = 20.0 + MobileSupport.safe_bottom
+		level_select_back.offset_top = -(bottom + 88.0)
+		level_select_back.offset_bottom = -bottom
 	_hide_endless_nodes_for_home()
 	await get_tree().process_frame
 	_left_container_width = left_ui_container.size.x

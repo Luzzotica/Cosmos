@@ -21,6 +21,7 @@ config/icon="res://icon.svg"
 
 [autoload]
 
+MobileSupport="*res://scripts/autoload/mobile_support.gd"
 GameState="*res://scripts/autoload/game_state.gd"
 MusicManager="*res://scripts/autoload/music_manager.gd"
 SfxManager="*res://scripts/autoload/sfx_manager.gd"

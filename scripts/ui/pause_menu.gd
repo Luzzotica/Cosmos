@@ -11,6 +11,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_WHEN_PAUSED
 	visible = false
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	MobileSupport.enlarge_buttons(self, 88.0)
 
 	resume_button.pressed.connect(_on_resume_pressed)
 	restart_button.pressed.connect(_on_restart_pressed)

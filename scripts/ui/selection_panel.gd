@@ -69,7 +69,13 @@ func _ready() -> void:
 	
 	# Store target position and hide off-screen
 	_target_x = position.x
-	position.x = HIDDEN_X_OFFSET
+	if MobileSupport.is_touch:
+		# Phones in landscape: slightly smaller, tucked under the top bar and
+		# inside the safe area. The HUD hides the build bar while it is open.
+		scale = Vector2(0.85, 0.85)
+		position.y = 150.0 + MobileSupport.safe_top
+		_target_x = 20.0 + MobileSupport.safe_left
+	position.x = _hidden_x()
 	visible = true
 	modulate.a = 0.0
 	
@@ -152,6 +158,22 @@ func _clear_children_immediate(container: Node) -> void:
 		child.queue_free()
 
 
+## Touch: shrink the panel (down to 0.6) when its content would run past the
+## bottom of a short landscape screen.
+func _fit_touch_scale() -> void:
+	var avail: float = get_viewport_rect().size.y - position.y - 20.0 - MobileSupport.safe_bottom
+	if size.y <= 0.0 or avail <= 0.0:
+		return
+	var s: float = clampf(avail / size.y, 0.6, 0.85)
+	if not is_equal_approx(s, scale.x):
+		scale = Vector2(s, s)
+
+
+func _hidden_x() -> float:
+	# Fully off-screen even when the content is wider than the default offset.
+	return minf(HIDDEN_X_OFFSET, -size.x * scale.x - 40.0)
+
+
 func show_panel() -> void:
 	if _is_shown:
 		return
@@ -181,7 +203,7 @@ func hide_panel() -> void:
 	_slide_tween = create_tween()
 	_slide_tween.set_ease(Tween.EASE_IN)
 	_slide_tween.set_trans(Tween.TRANS_BACK)
-	_slide_tween.tween_property(self, "position:x", HIDDEN_X_OFFSET, SLIDE_DURATION)
+	_slide_tween.tween_property(self, "position:x", _hidden_x(), SLIDE_DURATION)
 	_slide_tween.parallel().tween_property(self, "modulate:a", 0.0, SLIDE_DURATION)
 	_slide_tween.tween_callback(func(): panel_hidden.emit())
 
@@ -209,6 +231,8 @@ func _on_selection_details_changed(details: Dictionary) -> void:
 
 
 func _process(delta: float) -> void:
+	if MobileSupport.is_touch and _is_shown:
+		_fit_touch_scale()
 	if not _is_shown or _selected_entity == null:
 		return
 	var c_upgrades = _selected_entity.get_component(C_UpgradesScript)
@@ -315,8 +339,10 @@ func _rebuild_info_rows(details: Dictionary) -> void:
 
 	_clear_children_immediate(info_container)
 
-	_add_info_row("Category", str(details.get("category", "entity")).capitalize())
-	_add_info_row("Faction", str(details.get("faction", "neutral")).capitalize())
+	if not MobileSupport.is_touch:
+		# On short touch screens the faction tag above already says this.
+		_add_info_row("Category", str(details.get("category", "entity")).capitalize())
+		_add_info_row("Faction", str(details.get("faction", "neutral")).capitalize())
 
 	if details.has("stats"):
 		for entry in details.stats:
@@ -378,6 +404,19 @@ func _add_info_row(label_text: String, value_text: String) -> void:
 	value.add_theme_constant_override("outline_size", 1)
 	row.add_child(value)
 	
+	if MobileSupport.is_touch:
+		value.custom_minimum_size.x = 170
+		# Two stats per line so the panel fits a phone held sideways.
+		var last: Node = info_container.get_child(info_container.get_child_count() - 1) if info_container.get_child_count() > 0 else null
+		if last is HBoxContainer and last.get_child_count() == 2:
+			var gap := Control.new()
+			gap.custom_minimum_size.x = 24
+			last.add_child(gap)
+			for child in row.get_children():
+				row.remove_child(child)
+				last.add_child(child)
+			row.queue_free()
+			return
 	info_container.add_child(row)
 
 
@@ -533,6 +572,11 @@ func _add_upgrade_button(node_data: Resource, slot_index: int, under_constructio
 	btn.tooltip_text = node_data.description
 	btn.mouse_filter = Control.MOUSE_FILTER_STOP
 	btn.add_theme_font_size_override("font_size", 22)
+	if MobileSupport.is_touch:
+		btn.custom_minimum_size.y = 76.0
+		btn.add_theme_font_size_override("font_size", 26)
+		btn.focus_mode = Control.FOCUS_NONE
+		hotkey_column.visible = false
 	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	var mgr: Node = _get_upgrade_manager()
@@ -607,6 +651,10 @@ func _rebuild_sell_button(details: Dictionary) -> void:
 	btn.text = "Sell Structure"
 	btn.mouse_filter = Control.MOUSE_FILTER_STOP
 	btn.add_theme_font_size_override("font_size", 22)
+	if MobileSupport.is_touch:
+		btn.custom_minimum_size.y = 76.0
+		btn.add_theme_font_size_override("font_size", 26)
+		btn.focus_mode = Control.FOCUS_NONE
 
 	var btn_style := StyleBoxFlat.new()
 	btn_style.bg_color = COLOR_SELL_BG
